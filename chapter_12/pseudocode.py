@@ -1,92 +1,119 @@
 """
-Pseudocode for Chapter 12 - Case Studies (Applications of RL).
+Pseudocode for Chapter 8 - Eligibility Traces.
 
 Mapping to Sutton & Barto book pseudocode:
-- Each algorithm's steps are annotated with "Book Section" references.
-- A mapping table at the top shows algorithm -> code correspondence.
+- Each algorithm's steps are annotated with "Book Step" comments referencing
+  Chapter 12 of the 2nd edition (Eligibility Traces).
+- A mapping table at the top shows step -> code correspondence.
 
-Reference: Sutton & Barto (2nd Ed), final part "Frontiers and Case Studies";
-Chapter 16 "Applications and Case Studies" (Sec 16.1 TD-Gammon, Sec 16.6
-AlphaGo/AlphaGo Zero); MCTS itself is Section 8.11 of the book.
+Reference: Sutton & Barto (2nd Ed), Chapter 12
+Repository task-list numbering: algorithm_8.1 (replacing),
+algorithm_8.2 (clearing), algorithm_8.3 (true online).
 """
 
 # Book Step Mapping Table
-# | Book Step      | Description                       | Code (solution.py)                |
-# |----------------|-----------------------------------|-----------------------------------|
-# | 8.11           | MCTS selection/expansion/sim/     | MCTSPlayer.search,                |
-# |                | backup                            | _tree_policy_path, _backup        |
-# | 2.7 + 8.11     | UCT = Q + c*sqrt(ln N / n) (UCB1) | uct_score, _select_uct_child      |
-# | 8.11           | Rollout simulation to terminal     | random_rollout                    |
-# | 16.6 / alg 12.1| AlphaGo tabular-UCT core on a     | MCTSPlayer, TicTacToe             |
-# |                | small game (Tic Tac Toe)          |                                   |
-# | Ex 12.1 / 16.1 | TD-Gammon afterstate self-play    | PipRaceEnv, TDGammonAgent,        |
-# |                |                                   | legal_dice_plays                  |
-# | 12.2 (Eq 12.10)| Semi-gradient TD(lambda),         | semi_gradient_td_lambda_update    |
-# |                | accumulating traces               |                                   |
-# | 16.1 / Ex 12.1 | Linear value function over hand-  | pip_race_features, linear_value   |
-# |                | designed board features           |                                   |
-# | 16.1 / Ex 12.1 | Self-play training and evaluation | train_td_gammon, simulate_game,   |
-# |                |                                   | evaluate_match                    |
+# | Book Step | Description                              | Code (chapter_08/solution.py)   |
+# |-----------|------------------------------------------|---------------------------------|
+# | 12.2      | TD(lambda) semi-gradient box (p. 240),  | td_lambda_prediction            |
+# |           | accumulating traces Eq. 12.5             |   (trace="accumulating")        |
+# | 12.17     | Replacing trace (tabular)                | td_lambda_prediction            |
+# |           |                                          |   (trace="replacing")           |
+# | 12.7      | Sarsa(lambda) box (p. 250), Eq. 12.22-  | sarsa_lambda_replacing          |
+# |           | 12.23 replacing traces (algorithm_8.1)   |                                  |
+# | Fig 12.11 | Clearing traces of non-selected actions  | sarsa_lambda_clearing           |
+# |           | (Section 12.7, algorithm_8.2)            |                                  |
+# | 12.5      | True online TD(lambda), Eq. 12.15-12.16, | true_online_td_lambda            |
+# |           | box on p. 245 (algorithm_8.3)            |                                  |
 
 
 # ============================================================================
-# Algorithm 12.1: Monte Carlo Tree Search (UCT) for Tic Tac Toe
+# algorithm_8.1: TD(lambda) prediction with replacing traces
 # ============================================================================
-# Book Section 8.11 (Monte Carlo Tree Search) + Section 16.6 (AlphaGo):
-# AlphaGo's search is MCTS guided by learned policy/value networks; the
-# MCTS core used here is the tabular algorithm of Section 8.11.
-# Pseudocode (basic MCTS):
-# 1. (root) Let S be the current state; attach a tree rooted at S.
-# 2. Repeat n_simulations times:
-#    a. Selection: start at root; while the node is not terminal AND has no
-#       untried actions, descend to the child maximizing
-#       Q(s,a) + c * sqrt(ln N(s) / N(s,a))   (UCT, from UCB1, Sec 2.7)
-#    b. Expansion: if the selected node is not terminal and has untried
-#       actions, add one child node reached by an untried action.
-#    c. Simulation: from the selected/newly added node, play to the end of
-#       the game with the rollout policy (here: uniform random); obtain the
-#       return from the perspective of the player to move at that node.
-#    d. Backup: for each node in the traversed path, add the return to the
-#       node's value sum and increment its visit count; flip the sign of the
-#       return at each ply (alternating zero-sum game).
-# 3. Select the root action with the largest visit count (robust) or largest
-#    value; discard the tree; execute the action.
+# Book Section 12.2 (box p. 240) / Eq. 12.5 / Eq. 12.17 (replacing, tabular)
+# Pseudocode: state-value TD(lambda), tabular, backward view
+# 1. Initialize V(s) arbitrarily, for all s in S (V(terminal) = 0)
+# 2. Repeat (for each episode):
+#    a. z(s) <- 0, for all s in S
+#    b. S <- initial state of episode
+#    c. Repeat (for each step of episode):
+#       A <- action given by pi for S; Take A, observe R, S'
+#       delta <- R + gamma * V(S') - V(S)
+#       z(S) <- z(S) + 1           (accumulating, Eq. 12.5)
+#       or z(S) <- 1               (replacing, Eq. 12.17 tabular)
+#       V(s) <- V(s) + alpha * delta * z(s),  for all s in S
+#       z(s) <- gamma * lambda * z(s),        for all s in S
+#    until S' is terminal
 # ============================================================================
 
 
-def pseudocode_mcts():
-    """Pseudocode for MCTS (UCT). Book Step 8.11 / algorithm_12.1."""
+def pseudocode_td_lambda_replacing():
+    """Pseudocode for TD(lambda) with replacing traces. Book Step 8.1."""
     pass
 
 
 # ============================================================================
-# Exercise 12.1: TD-Gammon-like player for PipRace (TD(lambda) self-play)
+# algorithm_8.1 (control form): Sarsa(lambda) with replacing traces
 # ============================================================================
-# Book Section 16.1 (TD-Gammon) and Section 12.2 (semi-gradient TD):
-# Pseudocode (TD-Gammon applied to the PipRace approximation):
-# 1. Initialize weights w of the linear value function to small random values.
-# 2. Repeat n_games times (one episode each):
-#    a. Set the eligibility trace e <- 0.
-#    b. Initialize the position (both stacks at the racing ends).
-#    c. Repeat (for each turn of the game) until the game is over:
-#       i.   Roll two dice (doubles play four moves).
-#       ii.  Enumerate all legal full-turn plays (afterstates), applying
-#            the dice with the backgammon rules kept in PipRace (blocked
-#            points, hit blots to their start, overshoot bear-off, forfeit
-#            unusable dice).
-#       iii. Evaluate every afterstate with v(s,w) = w . phi(s); select the
-#            play that is best for the player to move (White maximizes,
-#            Black minimizes), or a random play with probability epsilon.
-#       iv.  delta <- r + gamma * v(s', w) - v(s, w), with r = 0 except the
-#            terminal +1 / -1 / 0 reward (White perspective) and v(terminal)=0.
-#       v.   e <- gamma * lambda * e + phi(s)
-#            w <- w + alpha * delta * e
-#    d. Return w.
-# 3. Evaluation: greedy agent vs a random baseline, colors alternated;
-#    report the win rate from the trained agent's perspective.
+# Book Section 12.7 (box p. 250), Eq. 12.22-12.23 (action-value TD error;
+# action-value traces). Binary/tabular features assumed.
+# Pseudocode: Sarsa(lambda), backward view
+# 1. Initialize Q(s,a) arbitrarily, for all s in S, a in A(s)
+# 2. Repeat (for each episode):
+#    a. z(s,a) <- 0, for all s, a; S <- initial state; A <- action from S
+#       (epsilon-greedy w.r.t. Q)
+#    b. Repeat (for each step of episode):
+#       Take A, observe R, S'
+#       Choose A' from S' (epsilon-greedy w.r.t. Q)
+#       delta <- R + gamma * Q(S',A') - Q(S,A)          (Eq. 12.22)
+#       z(S,A) <- 1   (replacing)                      (Eq. 12.23 alt)
+#       Q(s,a) <- Q(s,a) + alpha * delta * z(s,a), all s, a   (Eq. 12.7)
+#       z(s,a) <- gamma * lambda * z(s,a),      for all s, a
+#       S <- S'; A <- A'
+#    until S' is terminal
 # ============================================================================
 
 
-def pseudocode_td_gammon():
-    """Pseudocode for the TD-Gammon-like PipRace player. Exercise 12.1."""
+def pseudocode_sarsa_lambda_replacing():
+    """Pseudocode for Sarsa(lambda) with replacing traces. Book Step 8.1."""
+    pass
+
+
+# ============================================================================
+# algorithm_8.2: Sarsa(lambda) with clearing traces
+# ============================================================================
+# Book Section 12.7, Figure 12.11 ("clearing the traces of other actions").
+# As algorithm_8.1 (replacing), plus after the replacing bump:
+#       z(S, a') <- 0  for all a' != A (non-selected actions of visited state)
+# Traces of unvisited states are untouched. lambda = 0 degenerates to
+# one-step Sarsa.
+# ============================================================================
+
+
+def pseudocode_sarsa_lambda_clearing():
+    """Pseudocode for Sarsa(lambda) with clearing traces. Book Step 8.2."""
+    pass
+
+
+# ============================================================================
+# algorithm_8.3: True online TD(lambda)
+# ============================================================================
+# Book Section 12.5 (Eq. 12.15-12.16; box on p. 245). Tabular one-hot form.
+# Pseudocode: True online TD(lambda) for estimating w^T x ~= v_pi
+# 1. Initialize value-function weights w arbitrarily (w = 0)
+# 2. Repeat (for each episode):
+#    a. S <- initial state, obtain feature vector x (= e_S in tabular case)
+#       z <- 0, V_old <- 0
+#    b. Repeat (for each step of episode):
+#       A <- pi(.|S); take A, observe R, S', feature vector x' (= e_S')
+#       V <- w^T x ; V' <- w^T x'           (0 for terminal)
+#       delta <- R + gamma * V' - V
+#       z <- gamma * lambda * z + (1 - alpha * gamma * lambda * z^T x) * x
+#       w <- w + alpha * (delta + V - V_old) * z - alpha * (V - V_old) * x
+#       V_old <- V' ; x <- x' ; S <- S'
+#    until S' is terminal
+# ============================================================================
+
+
+def pseudocode_true_online_td_lambda():
+    """Pseudocode for True online TD(lambda). Book Step 8.3."""
     pass

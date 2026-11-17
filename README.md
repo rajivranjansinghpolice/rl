@@ -10,22 +10,33 @@ Each `chapter_XX/` directory is a self-contained Python package with its own tes
 
 | Chapter directory | Contents (book mapping / notes) |
 | --- | --- |
-| `chapter_01/` | Introduction |
-| `chapter_02/` | Multi-armed bandits |
-| `chapter_03/` | Finite Markov decision processes |
-| `chapter_04/` | Dynamic programming |
-| `chapter_05/` | Monte Carlo methods |
-| `chapter_06/` | Temporal-difference learning |
-| `chapter_07/` | n-step bootstrapping |
-| `chapter_08/` | Eligibility traces (hosts **Book Chapter 12** material in this repository's numbering) |
-| `chapter_09/` | Planning and learning with tabular methods (hosts **Book Chapter 8** material in this repository's numbering) |
-| `chapter_10/` | On-policy control with approximation |
-| `chapter_12/` | Case studies / applications (derived exercises/notes; see `chapter_12/README.md`) |
-| `chapter_13/` | Policy gradient methods |
-| `chapter_14/` | Psychology (derived exercises/notes; see `chapter_14/README.md`) |
-| `chapter_15/` | Neuroscience (derived exercises/notes; see `chapter_15/README.md`) |
-| `chapter_16/` | Applications and case studies (derived exercises/notes; see `chapter_16/README.md`) |
-| `chapter_17/` | Frontiers (derived exercises/notes; see `chapter_17/README.md`) |
+| `chapter_01/` | Introduction (Book Ch. 1) |
+| `chapter_02/` | Multi-armed bandits; exploration/optimism (Book Ch. 2, plus folded exploration content formerly in old Ch. 11) |
+| `chapter_03/` | Finite Markov decision processes (Book Ch. 3) |
+| `chapter_04/` | Dynamic programming (Book Ch. 4) |
+| `chapter_05/` | Monte Carlo methods (Book Ch. 5) |
+| `chapter_06/` | Temporal-difference learning (Book Ch. 6) |
+| `chapter_07/` | n-step bootstrapping (Book Ch. 7) |
+| `chapter_08/` | Planning and learning with tabular methods (**Book Chapter 8** — moved from old `chapter_09/`) |
+| `chapter_12/` | Eligibility traces (**Book Chapter 12** — merged old `chapter_08/` (traces) + old `chapter_10/` (Q(λ) Watkins)) |
+| `chapter_13/` | Policy gradient methods (Book Ch. 13) |
+| `chapter_14/` | Psychology (Book Ch. 14) |
+| `chapter_15/` | Neuroscience (Book Ch. 15) |
+| `chapter_16/` | Applications and case studies (**Book Chapter 16** — merged old `chapter_16/` + old `chapter_12/` case studies) |
+| `chapter_17/` | Frontiers (Book Ch. 17) |
+
+> **Note:** Book Chapters 9, 10, and 11 (on-policy prediction/control with approximation; off-policy methods with approximation) are not yet scaffolded as dedicated directories; they will occupy `chapter_09/`, `chapter_10/`, and `chapter_11/` once implemented.
+
+## Chapter renumbering provenance
+
+To make `chapter_XX/` map to *Sutton & Barto (2nd ed.)* Chapter XX, the repository's historical section-based numbering was reconciled with the book:
+
+- Old `chapter_09/` (Planning and Learning — **Book Ch. 8**) → now `chapter_08/`.
+- Old `chapter_08/` (Eligibility Traces — **Book Ch. 12**) merged with old `chapter_10/` (Watkins's Q(λ) — book §12.10) → now `chapter_12/`.
+- Old `chapter_11/` (Exploration — derived from book §§2.6–2.7) folded into `chapter_02/`.
+- Old `chapter_12/` (Case studies — **Book Ch. 16**) merged into `chapter_16/`.
+
+
 
 ## Per-chapter layout
 

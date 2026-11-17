@@ -35,6 +35,13 @@ cost model, solved with the tabular methods of Chapters 6–7:
   queue scheduling with a service-speed action (`QueueEnv`,
   `q_learning_queue`, `evaluate_queue_policy`, `greedy_queue_action`,
   `bellman_target`)
+- [x] exercise_16.1 — TD-Gammon-like self-play with a linear value function on
+  the PipRace backgammon approximation (`PipRaceEnv`, `TDGammonAgent`,
+  `train_td_gammon`, `evaluate_match`, `plot_td_gammon_learning`; shared
+  environment/agent code lives in `rl_envs.pip_race`)
+- [x] exercise_16.2 — Monte Carlo Tree Search with UCT selection on Tic Tac Toe
+  (`TicTacToe`, `MCTSPlayer`, `uct_score`, `random_rollout`; shared code lives
+  in `rl_envs.tictactoe`)
 
 ## Book Reference
 - Section 16.1–16.8: applications surveyed (no executable pseudocode — this

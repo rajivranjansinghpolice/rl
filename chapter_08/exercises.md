@@ -1,263 +1,126 @@
-# Chapter 8 — Eligibility Traces: Exercises and Solutions
+# Chapter 9 — Planning and Learning with Tabular Methods: Exercises and Solutions
 
 > Companion document for Sutton & Barto, _Reinforcement Learning: An Introduction_
-> (2nd ed., 2018 / complete draft 2017).
-> Repo chapter: `chapter_08` (primary) with `chapter_10` — both map to **Book Chapter 12 (Eligibility Traces)**.
+> (2nd Edition, 2018; online complete draft, Nov 5 2017).
+> Repo chapter: `chapter_08`
+> Book chapter: **Chapter 8** — Planning and Learning with Tabular Methods
 
 ---
 
-## Scope and Chapter Mapping
+## Scope and Book Mapping
 
-- **Repo `chapter_08`** (`chapter_08/solution.py`): `td_lambda_prediction` (accumulating/replacing traces), `sarsa_lambda_replacing`, `sarsa_lambda_clearing`, `true_online_td_lambda`.
-- **Repo `chapter_10`** (`chapter_10/solution.py`): `watkins_q_lambda` (backward-view Watkins's Q(λ), replacing/accumulating traces, trace-cut on non-greedy action) and `watkins_lambda_return` (forward-view trace-cut λ-return). This corresponds to the book's Watkins's Q(λ) material in §12.10 (the repo's `TODO.md` historically labeled it "book Section 12.6"; in the 2nd ed. §12.6 is "Dutch Traces in Monte Carlo Learning" while Watkins's Q(λ) appears in §12.10).
-- **Book Chapter 12 sections (2nd ed.):** §12.1 The λ-return, §12.2 TD(λ), §12.3 n-step truncated λ-return methods, §12.4 Redoing updates (online λ-return), §12.5 True online TD(λ), §12.6 Dutch traces in Monte Carlo learning (context), §12.7 Sarsa(λ), §12.8 True online Sarsa(λ) and true online TD(λ), §12.9–§12.11 off-policy traces / stable off-policy methods / implementation issues, §12.10 Watkins's Q(λ) and Tree-Backup(λ), §12.12/§12.13 summary/conclusions.
-- **Key equations (plausible, 2nd ed.):** (12.1) n-step return, (12.2)–(12.3) λ-return and recursion, (12.4) offline λ-return update, (12.5)–(12.6) TD(λ)/TD error, (12.7)–(12.8) traces/updates, (12.9) truncated λ-return, (12.10)–(12.11) truncated λ-return as sum of TD errors, (12.12) online λ-return idea, (12.14)–(12.16) true-online/dutch trace recurrences, (12.21) forward-view semi-gradient form, (12.24)/(12.26)/(12.27)/(12.28) off-policy/action λ-returns, (12.29)–(12.36) off-policy trace recurrences and TD errors, (12.38) truncated tree-backup return.
-- **PDF pages (plausible, `Barto_Sutton_Book.pdf` extraction):** Chapter 12 ≈ pp. 233–279; exercises 12.1–12.16 appear around pp. 255–256, 260–261, 268, 272–274, 277, 279.
-- **Tags:** `[traces]` = eligibility-trace/on-policy TD(λ)/Sarsa(λ) material; `[Q(lambda)]` = off-policy λ-returns, truncation, Watkins-style cutoffs / tree-backup family.
+- **Repo chapter:** `chapter_08` — Planning and Learning with Tabular Methods.
+- **Book chapter:** Chapter 8 — Planning and Learning with Tabular Methods.
+- **Book sections relevant to these exercises and to the implementation:**
+  - §8.1 — Models and planning (distribution vs sample models; planning from a model).
+  - §8.2 — Dyna: integrated planning, acting, and learning; **Tabular Dyna-Q** pseudocode (direct RL, model-learning, and n planning updates per real step).
+  - §8.3 — When the model is wrong: blocking and shortcut maze experiments, and **Dyna-Q+** with an exploration bonus (see Eq. 8.12, p. 166 in the 2nd ed.).
+  - §8.4 — Prioritized sweeping (backward focusing via a priority queue; stochastic extension uses expected updates).
+  - §8.5 — Expected vs sample updates (expected update target, Eq. 8.1, p. 168; comparison of computation and accuracy).
+- **Plausible citations (2nd ed.):** Chapter 8 spans roughly pp. 159–177; Example 8.1 / Dyna maze and Fig. 8.2 around §8.2 (pp. 161–163); blocking/shortcut maze, Figs. 8.4–8.5 and Dyna-Q+ discussion around §8.3 (pp. 164–166, Eq. 8.12); prioritized sweeping §8.4 (pp. 166–168); expected vs sample updates §8.5 (pp. 168–170, Eq. 8.1). Exercises 8.1–8.4 appear in §8.2–§8.3 (roughly pp. 162–166).
 
 ## Sources and Ground Rules
 
-- **Primary source:** Sutton & Barto (2018, 2nd ed.), Chapter 12. Exercise statements below are **paraphrased** (no long verbatim quotes); equations/section numbers are cited as plausible 2nd-ed. references.
-- **Cross-check (sanity only, never copied):** public repos `Habanoz/reinforcement-learning-an-introduction`, `AntonioSerrano/Implementation-of-RL-algorithms-from-Sutton-and-Barto-2018`, `vojtamolda/reinforcement-learning-an-introduction` and public Ch.12 solution notes. Disagreements resolved by independent derivation.
-- **Repo-grounded mapping:** "Coding pointer" entries only reference functions/tests that exist in `chapter_08`/`chapter_10`; items without a direct implementation are marked **theory-only / not implemented in this repo**.
+- **Primary source:** Sutton & Barto (2018), _Reinforcement Learning: An Introduction_, 2nd ed., Chapter 8. Exercise statements below are **paraphrased** (no long verbatim quotes); short phrases appear only with section/equation/page citations.
+- **Cross-check (sanity only, not copied):** public repos `Habanoz/reinforcement-learning-an-introduction`, `AntonioSerrano/Implementation-of-RL-algorithms-from-Sutton-and-Barto-2018`, and `vojtamolda/reinforcement-learning-an-introduction` (Ch. 8), plus common solution PDFs. Disagreements resolved by independent derivation.
+- All solutions are **rewritten from scratch** for student comprehension.
 
 ## How to Use This Document
 
-- Each exercise lists **Book location**, **Type**, **Paraphrased problem**, **Solution/derivation**, and **Coding pointer** (or theory-only note).
-- Verify mapped code with:
-  - `python -m pytest chapter_08/tests/ -v`
-  - `python -m pytest chapter_10/tests/ -v`
+- Each exercise lists: **Book location**, **Type**, **Problem (paraphrased)**, **Solution**, **Derivation/experiment description** (as relevant), and a **Coding pointer** that matches actual APIs/tests in `chapter_08/`.
+- **Implementation note:** **Dyna-Q+ (exploration bonus) is not implemented** in this repo. Exercises that depend on Dyna-Q+ are answered as **theory-only / experiment descriptions** and mapped to the closest implemented planning/model APIs (see coding pointers and the mapping table).
 
 ---
 
 ## Exercises
 
-### Exercise 12.1 — Recursive form of the λ-return [traces]
+### Exercise 8.1 — Can multi-step bootstrapping match Dyna in the Dyna maze?
 
-- **Book location:** §12.1 (The λ-return), pp. ~255–256; uses (12.1), (12.2), (12.3).
-- **Type:** Math.
-- **Paraphrased problem:** The ordinary return satisfies a one-step recursion (as in Ch. 3, Eq. 3.9). Derive the analogous recursion for the λ-return defined by (12.1)–(12.2).
-- **Solution/derivation:**
-  Let the n-step return be
-  `G_{t:t+n} = \sum_{k=0}^{n-1} γ^k R_{t+k+1} + γ^n V(S_{t+n})` ((12.1), with `V` the bootstrap value), and for the continuing/infinite-horizon form
-  `G_t^λ = (1-λ) \sum_{n=1}^{∞} λ^{n-1} G_{t:t+n}` ((12.2)).
-  Note `G_{t:t+1}=R_{t+1}+γV(S_{t+1})` and, for `n>=2`, `G_{t:t+n}=R_{t+1}+γG_{t+1:t+n}`. Substitute:
-  `G_t^λ = (1-λ)G_{t:t+1} + (1-λ)\sum_{n=2}^{∞} λ^{n-1}(R_{t+1}+γG_{t+1:t+n})`.
-  Since `(1-λ)\sum_{n=1}^{∞}λ^{n-1}=1`, the reward terms collect to `R_{t+1}`. With index shift `m=n-1`,
-  `(1-λ)\sum_{n=2}^{∞} λ^{n-1}G_{t+1:t+n} = λ (1-λ)\sum_{m=1}^{∞} λ^{m-1}G_{t+1:t+1+m} = λ G_{t+1}^λ`.
-  Therefore the λ-return recursion is
-  `G_t^λ = R_{t+1} + γ\left[(1-λ)\,V(S_{t+1}) + λ\,G_{t+1}^λ\right]`  (cf. (12.3)).
-  **Checks:** at `λ=0`, `G_t^λ = R_{t+1}+γV(S_{t+1})=G_{t:t+1}` (one-step return). At `λ=1`, `G_t^λ = R_{t+1}+γG_{t+1}^λ`, which unfolds to the full Monte Carlo return (with the usual episodic terminal convention).
-- **Coding pointer:** `chapter_08/solution.py:td_lambda_prediction` is the backward-view TD(λ) prediction algorithm whose forward-view target is the λ-return; see `TestTDLambdaPrediction` (`test_lambda_zero_matches_td0`, `test_high_lambda_close_to_true_values`) for the `λ=0` and high-`λ` behavior implied by this recursion.
-
-### Exercise 12.2 — λ and the half-life of trace weighting [traces]
-
-- **Book location:** §12.1, p. ~256 (Figure 12.2 weighting discussion).
-- **Type:** Computation / Math.
-- **Paraphrased problem:** The weighting on later n-step returns in the λ-return decays geometrically in `λ`. Relate `λ` to a half-life `τ_{1/2}` (or `λ_h`), the horizon after which the geometric factor has fallen to half its initial size.
-- **Solution/derivation:**
-  In (12.2) the n-step component is weighted proportionally to `λ^{n-1}`. Taking the factor relative to `n=1` as `λ^{k}` after `k=n-1` additional steps, the half-life satisfies `λ^{τ_{1/2}} = 1/2` (for `0<λ<1`).
-  Solving gives `τ_{1/2} = \ln(1/2) / \ln(λ) = -\ln 2 / \ln(λ)` (steps, in the same step units as the decay). Equivalently, to achieve a desired half-life `τ_{1/2}` choose `λ = 2^{-1/τ_{1/2}} = exp(-\ln 2 / τ_{1/2})`.
-  **Sanity:** `λ→1` ⇒ very long half-life; small `λ` ⇒ short half-life (near one-step).
-- **Coding pointer:** Theory-only (parameter-interpretation). Relevant knobs: `lam` in `td_lambda_prediction`, `sarsa_lambda_replacing`, `sarsa_lambda_clearing`, `true_online_td_lambda`.
-
-### Exercise 12.3 — Offline λ-return error as a sum of TD errors [traces]
-
-- **Book location:** §12.2, p. ~260; offline λ-return algorithm (12.4) and TD error (12.6), by analogy with (6.6).
-- **Type:** Math / Proof.
-- **Paraphrased problem:** For a fixed value/weight vector over an episode, show that the offline λ-return error `G_t^λ - V(S_t)` can be written as a discounted sum of TD errors (cf. Exercise 12.1 and Ch. 6’s n-step/MC↔TD identities).
-- **Solution/derivation:**
-  Hold `V` (or `\hat v(\cdot,w)`) fixed. Define `δ_t = R_{t+1} + γV(S_{t+1}) - V(S_t)` ((12.6), with terminal bootstrap 0). From Ex. 12.1,
-  `G_t^λ - V(S_t) = R_{t+1}+γV(S_{t+1})-V(S_t) + γλ\,(G_{t+1}^λ - V(S_{t+1})) = δ_t + γλ\,(G_{t+1}^λ - V(S_{t+1}))`.
-  Unrolling to the terminal time `T` (with `G_T^λ = V(S_T)` = 0 at termination) yields
-  `G_t^λ - V(S_t) = \sum_{k=t}^{T-1} (γλ)^{k-t}\, δ_k`.
-  (With changing weights this is the identity underlying the forward/backward-view relationship; it becomes an exact per-episode algebraic identity when `V/δ_k` are evaluated consistently/fixed as assumed.)
-- **Coding pointer:** Theory-only derivation; motivates `td_lambda_prediction` (`chapter_08/solution.py`) and the forward/backward-view equivalence ideas exercised in `TestTDLambdaPrediction`.
-
-### Exercise 12.4 — Modified online TD(λ) using a pre-update baseline [traces]
-
-- **Book location:** §12.2, p. ~260.
-- **Type:** Theory / Math.
-- **Paraphrased problem:** Consider redefining the TD error with a pre-update baseline, `\hatδ_t = R_{t+1} + γV_t(S_{t+1}) - V_{t-1}(S_t)`, and argue/show that a correspondingly modified online TD(λ) can achieve the exact per-state increment `ΔV_t(S_t)=α\,[G_t^λ - V_{t-1}(S_t)]` even with online updating/large `α`. Discuss tradeoffs and sketch an experiment to compare with conventional online TD(λ).
-- **Solution/derivation (sketch, as asked):**
-  - **Why equivalence can hold:** Conventional online TD(λ) changes `V` during the episode so later TD errors/targets are computed against already-updated values, breaking exact equality to the offline λ-return target based on `V_{t-1}`. By anchoring the “error being corrected” at the pre-update baseline `V_{t-1}(S_t)` (and carrying the effect of within-episode updates into the trace/target accounting, as in the online λ-return / true-online line of derivations in §12.4–§12.5), each visited state’s net increment can be arranged to match `α(G_t^λ - V_{t-1}(S_t))` for the λ-return computed with the pre-episode values.
-  - **Possible advantages:** exact forward-view/λ-return equivalence at any `α`; clearer target semantics.
-  - **Possible disadvantages:** more bookkeeping/memory or computation than standard TD(λ); sensitivity/behavior differs on continuing tasks or with function approximation; practical gains may be small versus simpler true-online variants.
-  - **Experiment sketch:** On a prediction benchmark (e.g. random walk, cf. repo’s `chapter_06.solution.RandomWalkEnv` used by ch.8 tests), run conventional TD(λ), the modified method, and true online TD(λ) across `α, λ`; compare RMS value error vs. the known/estimated true values over episodes (learning curves) and sensitivity to `α`.
-- **Coding pointer:** No direct implementation of this modified baseline in repo. Closest implemented methods: `chapter_08/solution.py:td_lambda_prediction` (conventional backward-view TD(λ)) and `chapter_08/solution.py:true_online_td_lambda` (true online TD(λ), dutch-trace/online λ-return lineage, §12.5/Eq. 12.14–12.16 tabular form), with `TestTrueOnlineTDLambda`.
-
-### Exercise 12.5 — Truncated λ-return as a sum of TD errors, Eq. (12.11) [traces]
-
-- **Book location:** §12.3 (TTD(λ)), p. ~261; Eq. (12.11).
-- **Type:** Math / Proof.
-- **Paraphrased problem:** For the (horizon-truncated/ n-step) λ-return, show it can be written in the form of a bootstrapped value plus a discounted sum of TD errors, i.e. `G_t^{λ|h} = V(S_t) + \sum_{i=t}^{h-1} (γλ)^{i-t} δ_i` with `δ_i = R_{i+1}+γV(S_{i+1})-V(S_i)`, when `V` is held fixed. Prove (12.11).
-- **Solution/derivation:**
-  Using the truncated λ-return (cf. (12.9)/(12.10)) or directly the same recursion as Ex. 12.3 but stopped at horizon `h` (where we bootstrap from `V(S_h)`): from Ex. 12.1’s form applied stepwise,
-  `G_t^{λ|h} - V(S_t) = δ_t + γλ (G_{t+1}^{λ|h} - V(S_{t+1})) = ... = \sum_{i=t}^{h-1} (γλ)^{i-t} δ_i + (γλ)^{h-t}(V(S_h)-V(S_h))`,
-  hence `G_t^{λ|h} = V(S_t) + \sum_{i=t}^{h-1} (γλ)^{i-t} δ_i`, which is (12.11). This is the same telescoping identity as (6.6)/Ex. 12.3, now truncated at `h`.
-- **Coding pointer:** Theory-only identity behind truncated/offline/online λ-return views; implemented learning rules in ch.8 are backward-view (`td_lambda_prediction`, `sarsa_lambda_*`, `true_online_td_lambda`).
-
-### Exercise 12.6 — Sarsa(λ) pseudocode modified to use dutch traces [traces]
-
-- **Book location:** §12.8 (True online TD(λ)/Sarsa(λ) context) and dutch traces (12.14)–(12.16); exercise p. ~268.
-- **Type:** Programming / Theory (pseudocode modification).
-- **Paraphrased problem:** Modify the standard accumulating-trace Sarsa(λ) pseudocode to use dutch traces (12.16) instead, assuming linear function approximation with binary features, without adding the other true-online corrections.
-- **Solution (modified pseudocode, linear binary features `x(s,a)`):**
-  Standard Sarsa(λ): on transition `(S,A,R,S',A')` compute `δ = R + γ\,q(S',A',w) - q(S,A,w)` (or terminal form), `z ← γλ z + x(S,A)`, `w ← w + α δ z`. **Dutch-trace modification** replaces the trace update by (12.16, tabular/binary-feature friendly form):
-  `δ = R + γ\,w^T x(S',A') - w^T x(S,A)` (with terminal handling)
-  `z ← γλ z + x(S,A) - α γ λ (z^T x(S,A)) x(S,A)`  (dutch trace: blends accumulating effect with a correction proportional to the component already present in the direction of `x(S,A)`)
-  `w ← w + α δ z`
-  and then proceed as usual (choose `A'` etc.). For purely binary one-hot features this reduces so that the visited component’s increment is tempered by `α γ λ z_i`, interpolating between accumulating and replacing-like behavior (cf. discussion in §12.6/§12.8).
-- **Coding pointer:** `chapter_08/solution.py:sarsa_lambda_replacing` and `sarsa_lambda_clearing` implement Sarsa(λ) with **replacing/clearing** traces (not dutch). `chapter_08/solution.py:true_online_td_lambda` implements the **true online (dutch-trace) TD(λ)** prediction update in tabular/one-hot form (Section 12.5, Eq. 12.14–12.16 style), tested by `TestTrueOnlineTDLambda`. A dutch-trace Sarsa(λ) control variant itself is **not implemented** here (theory/pseudocode answer).
-
-### Exercise 12.7 — Truncated versions of off-policy λ-return recursions [Q(lambda)]
-
-- **Book location:** §12.9 (off-policy traces), p. ~272; by analogy with (12.9).
-- **Type:** Math.
-- **Paraphrased problem:** Generalize the (untruncated) off-policy/state- and action-value λ-return recursions given in §12.9 to horizon-`h` truncated forms `G_t^{λ,h}` for (i) state values and (ii) action values in Sarsa-like and Expected-Sarsa-like forms.
-- **Solution/derivation:**
-  By the same truncation pattern as (12.9), stop mixing n-step returns at horizon `h` and place the remaining weight on the `h`-step return:
-  `G_t^{λ,h} = (1-λ)\sum_{n=1}^{h-t-1} λ^{n-1} G_{t:t+n} + λ^{h-t-1} G_{t:h}` (with the convention that if `h <= t+1` the sum vanishes and `G_t^{λ,h}=G_{t:h}`).
-  Apply this template with the appropriate off-policy n-step targets/returns from §12.9:
-  - **State-value/per-decision off-policy:** use `G_{t:t+n}` as the per-decision importance-sampling (or related) n-step state return appearing in (12.29)/(12.31).
-  - **Action-value Sarsa form:** use the n-step action returns of (12.26)/(12.27) (with `ρ` factors as defined there).
-  - **Action-value Expected Sarsa form:** use the n-step returns of (12.27)/(12.28) (bootstrapping from `\bar Q`/expectation under target policy where specified).
-  In all cases the only structural change is truncation of the geometric mixture at `h` exactly as in (12.9).
-- **Coding pointer:** **Theory-only / not directly implemented.** `chapter_10/solution.py:watkins_lambda_return` implements a *different* forward-view truncated/cut λ-return (Watkins/Q-learning max-bootstrap with a horizon cut at the first non-greedy action, §12.10/Fig. 12.12 style), which is a useful related reference but **not** the same as the §12.9 off-policy IS/Expected-Sarsa recursions asked for here. See `TestWatkinsLambdaReturn`.
-
-### Exercise 12.8 — Exactness of Eq. (12.31) for a fixed value function [Q(lambda)]
-
-- **Book location:** §12.9, p. ~272; Eq. (12.31).
-- **Type:** Math / Proof.
-- **Paraphrased problem:** Prove that the off-policy state-value λ-return expansion (12.31), `G_t^λ \approx V(S_t,w_t) + ρ_t \sum_{k=t}^{\infty} (...) δ_k`, becomes an exact equality when the approximate value function is held fixed (take `t=0`, write `V_k = v(S_k,w)` constant in `w`).
-- **Solution/derivation:**
-  With fixed `V_k=v(S_k,w)` and TD error `δ_k = R_{k+1}+γV_{k+1}-V_k` ((12.6), terminal-adjusted), the per-decision off-policy λ-return of §12.9 can be expanded recursively (same telescoping as Ex. 12.3/12.5 but carrying the per-step importance ratio `ρ_k = π(A_k|S_k)/b(A_k|S_k)` factors as in (12.29)–(12.31)). For `t=0`,
-  `G_0^λ - V_0 = ρ_0 δ_0 + γλ ρ_0 (G_1^λ - V_1)` and, unrolling, `G_0^λ - V_0 = \sum_{k=0}^{\infty} (γλ)^{k} (\prod_{i=0}^{k} ρ_i^{(form)}) δ_k` in the precise per-decision/product form given by (12.31). Because no term is dropped when `V` does not change (the approximation in (12.31) comes from within-episode/online changes to `w`), the identity is exact under a fixed value function. (Algebra mirrors the book’s derivation: expand `G_0^λ`, substitute `R_{k+1}+γV_{k+1}=δ_k+V_k`, and cancel successive `V_k` terms.)
-- **Coding pointer:** Theory-only; see also Ex. 12.12/12.13 for the backward-view recurrences. No direct IS-weighted off-policy evaluator in repo beyond the Watkins/Q-learning-style control in `chapter_10`.
-
-### Exercise 12.9 — Truncated off-policy state-value return (guess from 12.31) [Q(lambda)]
-
-- **Book location:** §12.9, p. ~272.
-- **Type:** Math / Theory.
-- **Paraphrased problem:** By analogy with (12.31) and (12.9), write the horizon-`h` truncated off-policy state-value λ-return `G_t^{λ,h}`.
-- **Solution/derivation:**
-  Truncate the infinite discounted sum in (12.31) at `k = h-1`:
-  `G_t^{λ,h} = V(S_t,w) + \sum_{k=t}^{h-1} (γλ)^{k-t}\left(\prod_{i=t}^{k} ρ_i\right) δ_k^{(V)}` (in the per-decision/state-value form consistent with 12.31), with `δ_k^{(V)} = R_{k+1}+γV(S_{k+1},w)-V(S_k,w)` and the book’s convention for any modified `ρ` factors inside the product as specified in §12.9. This matches the “value + truncated weighted sum of TD errors” pattern and reduces to the on-policy truncated form when `ρ_i=1`.
-- **Coding pointer:** Theory-only. Related truncation/cutoff behavior (different target: max-bootstrap, non-greedy cut) is illustrated by `watkins_lambda_return` in `chapter_10/solution.py` / `TestWatkinsLambdaReturn`.
-
-### Exercise 12.10 — Exactness of Eq. (12.34) for a fixed action-value function [Q(lambda)]
-
-- **Book location:** §12.9, p. ~273; Eqs. (12.33)–(12.35).
-- **Type:** Math / Proof.
-- **Paraphrased problem:** Prove the action-value analogue (12.34), `G_t^{λ,a} = Q(S_t,A_t,w) + \sum ... δ_k^a`, becomes exact when `q(\cdot,\cdot,w)` is held fixed (take `t=0`, `Q_k = q(S_k,A_k,w)`).
-- **Solution/derivation:**
-  With fixed `Q_k=q(S_k,A_k,w)`, define the action TD error of §12.9, e.g. `δ_k^a = R_{k+1} + γ \bar V(S_{k+1}) - Q_k` or the exact form given in (12.35) (including expectation/correction terms as specified). Starting from (12.33)/(12.27)-(12.28), write `G_0^{λ,a} - Q_0` and substitute `R_{1}+...` in terms of `δ_0^a + Q_0`:
-  `G_0^{λ,a} - Q_0 = δ_0^a + γλ (…)(G_1^{λ,a} - Q_1)` in the factorized form of (12.34); unrolling gives
-  `G_0^{λ,a} = Q_0 + \sum_{k=0}^{\infty} (γλ)^{k}\,\Pi_k\, \delta_k^a`, where `\Pi_k` denotes the appropriate product of action/importance factors from (12.34). As in Ex. 12.8, fixed `q` makes the expansion exact because no approximation-from-updates remains.
-- **Coding pointer:** Theory-only.
-
-### Exercise 12.11 — Truncated off-policy action-value return (guess from 12.34) [Q(lambda)]
-
-- **Book location:** §12.9, p. ~274.
-- **Type:** Math / Theory.
-- **Paraphrased problem:** Give the horizon-`h` truncated form of the off-policy action-value λ-return `G_t^{λ,h}` consistent with (12.34).
-- **Solution/derivation:**
-  Truncate (12.34) at `h-1`:
-  `G_t^{λ,h} = q(S_t,A_t,w) + \sum_{k=t}^{h-1} (γλ)^{k-t}\,\Pi_{t,k}\,\delta_k^a`, with `\delta_k^a` as in (12.35) and `\Pi_{t,k}` the same cumulative factor/product over `[t,k]` as in (12.34). This is the direct action-value analogue of Ex. 12.9 and of (12.9).
-- **Coding pointer:** Theory-only. (See note in Ex. 12.7/12.9 regarding `watkins_lambda_return` being a different cut/target.)
-
-### Exercise 12.12 — Deriving the action-value eligibility trace, Eq. (12.36) [traces]
-
-- **Book location:** §12.9, p. ~274; Eqs. (12.21), (12.33), (12.34), (12.36).
-- **Type:** Math / Proof.
-- **Paraphrased problem:** Derive the backward-view action-value trace recurrence (12.36), `z_t = γλ_t ρ_t z_{t-1} + ∇ q(S_t,A_t,w_t)` (up to the book’s exact notation/conventions), from the forward-view/semi-gradient update (12.21) by substituting the λ-return expansion (12.33)/(12.34), paralleling the state-value derivation of (12.32).
-- **Solution/derivation (step outline):**
-  1. Start from the forward-view update (12.21): `w_{t+1} = w_t + α (G_t^λ - q(S_t,A_t,w_t)) ∇ q(S_t,A_t,w_t)` (per-step form).
-  2. Substitute `G_t^λ - q(S_t,A_t,w_t)` by the sum-of-weighted-TD-errors form (12.34)/(12.33): `G_t^λ - q_t = \sum_{k>=t} (γλ)^{k-t}\Pi_{t,k} δ_k^a`.
-  3. Reindex/sum the total gradient contribution over time as in (12.32): `\sum_t α (G_t^λ-q_t)∇q_t = \sum_k α δ_k^a \sum_{t<=k} (γλ)^{k-t}\Pi_{t,k} ∇q_t`.
-  4. Identify the inner sum as an eligibility trace `z_k = \sum_{t<=k} (γλ)^{k-t}\Pi_{t,k} ∇q_t`, which satisfies the one-step recurrence `z_k = γλ_k ρ_k z_{k-1} + ∇ q(S_k,A_k,w_k)` with `z_{-1}=0` (matching 12.36 under the book’s `ρ`/`λ` conventions). This yields the backward-view update `w ← w + α δ_k^a z_k` equivalent in the idealized/offline sense.
-- **Coding pointer:** Theory-only derivation. Related implemented backward-view traces: `td_lambda_prediction` (state, accumulating/replacing), `sarsa_lambda_replacing/clearing` (action, replacing/clearing) in `chapter_08/solution.py`.
-
-### Exercise 12.13 — Expected Sarsa λ-return yields same trace with a different TD error [traces]
-
-- **Book location:** §12.9, p. ~274; Eqs. (12.27), (12.28), and resulting TD error form.
-- **Type:** Math / Proof.
-- **Paraphrased problem:** Repeat the derivation idea of Ex. 12.12 starting from the Expected Sarsa form of the off-policy action λ-return ((12.27),(12.28)) to obtain the same eligibility-trace recurrence as (12.36) but with a different TD error `\hatδ_t^{(a),ES}` that uses the target expectation `\bar Q(S_{t+1})=\sum_a π(a|S_{t+1}) q(S_{t+1},a,w)` and applies `ρ_{t+1}` only to the deviation from that expectation.
-- **Solution/derivation:**
-  In the Expected Sarsa off-policy target ((12.27),(12.28)), the next-state bootstrap is partly the expected value `\bar Q(S_{t+1})` (no importance ratio needed for that expectation component) and partly the sampled-action correction weighted by `ρ_{t+1}`. Substituting this λ-return into (12.21) and regrouping as in Ex. 12.12 leaves the eligibility vector `z_t` with the same structural recurrence `z_t = γλ_t ρ_t z_{t-1} + ∇ q(S_t,A_t,w_t)` (the trace still follows the sampled action’s gradient and the per-decision weighting), but the scalar driving it becomes
-  `δ_t^{ES} = R_{t+1} + γ\,\bar Q(S_{t+1}) - q(S_t,A_t,w) + γλ_{t+1}\left[ρ_{t+1}\,q(S_{t+1},A_{t+1},w) - \bar Q(S_{t+1})\right]` (as in the book’s stated form, up to `γ_{t+1}/λ_{t+1}` conventions), i.e. the usual Expected Sarsa error plus a trace/IS correction only for the off-policy sampled-action part beyond `\bar Q`.
-- **Coding pointer:** Theory-only (no Expected Sarsa(λ) implementation in repo).
-
-### Exercise 12.14 — Dutch and replacing traces for off-policy state/action methods [traces]
-
-- **Book location:** §12.9, p. ~277.
+- **Book location:** §8.2, Exercise 8.1, Dyna maze / Fig. 8.2 (2nd ed., ~p. 162).
 - **Type:** Theory.
-- **Paraphrased problem:** Describe how to form dutch-trace and replacing-trace variants of off-policy eligibility traces for (a) state-value methods and (b) action-value methods.
-- **Solution:**
-  - **Replacing traces (off-policy):** in place of the accumulating increment, set the trace component(s) for the visited feature(s)/state(-action) to 1 (or the feature value) at visit time, while retaining the off-policy decay/product factors from (12.32)/(12.36) (e.g. multiply by `γλ` and the appropriate `ρ`/policy factors on non-visited steps). For action values, replace/raise the trace of `(S_t,A_t)`; for state values, of `S_t`. Clearing variants (as in Fig. 12.11 style for on-policy control) zero other actions’ traces in the same state when applicable.
-  - **Dutch traces (off-policy):** replace the accumulating update by the dutch correction (cf. 12.16): `z_t ← γλ_t ρ_t z_{t-1} + α_t(1 - γλ_t ρ_t z_{t-1}^T x_t) x_t` in the linear/feature form (adapting notation to state or state-action features and the book’s off-policy factors). This stabilizes/interpolates trace magnitude relative to accumulating traces and is the trace mechanism underlying true-online/off-policy true-online methods.
-  - **Interaction with `ρ`:** in off-policy control/prediction, importance ratios can make accumulating traces high-variance; replacing or dutch traces bound/temper growth but change the effective credit assignment, so behavior and stability differ by method (on-policy vs IS vs tree-backup-like targets).
-- **Coding pointer:** On-policy implementations in `chapter_08/solution.py`: replacing/clearing for Sarsa(λ) (`sarsa_lambda_replacing`, `sarsa_lambda_clearing`, `TestSarsaLambdaReplacing`, `TestSarsaLambdaClearing`), accumulating/replacing for TD(λ) prediction (`td_lambda_prediction`), and dutch/true-online for prediction (`true_online_td_lambda`, `TestTrueOnlineTDLambda`). Off-policy dutch/replacing trace variants per §12.9 are **not implemented** in this repo.
+- **Problem (paraphrased):** In the Dyna maze example, the non-planning agent is weak in part because it uses only one-step bootstrapping. A multi-step bootstrapping method (Chapter 7) would propagate rewards farther per real transition. Could such a multi-step method, using only real experience, perform as well as Dyna (with planning) on this task? Explain.
+- **Solution.** In general, **no** — a pure multi-step method using only real experience cannot fully match Dyna here.
+  - **What multi-step methods can do:** n-step TD / n-step Sarsa (Ch. 7, §§7.1–7.2) propagate return information back n real steps along the actually experienced trajectory, so after a single successful episode they can update values along that path much faster than one-step TD. With large n (or Monte Carlo-like returns) they can credit the whole trajectory from real data.
+  - **What Dyna can do that real-experience multi-step cannot:** Dyna-Q (§8.2, Tabular Dyna-Q) learns a model from real transitions and then performs **n planning updates per real step** by sampling previously observed (s,a) pairs and applying Q-learning backups to *simulated* transitions. This lets value information spread to many state–action pairs (including those not on the current trajectory) without taking additional environment steps. Even with the same number of *real* steps, Dyna can perform far more total backups by reusing the model.
+  - **Caveat:** If a multi-step method were given an enormous amount of real experience, or if planning updates were severely limited, the gap could shrink; but the key advantage in Fig. 8.2 is *extra computation on a learned model per real step*, not merely multi-step credit assignment on real data.
+- **Why this works / takeaway:** Multi-step bootstrapping improves credit assignment over real trajectories; Dyna improves **sample efficiency** by generating simulated experience from a model, so planning adds value propagation that real-only methods cannot create.
+- **Coding pointer (supporting machinery):** `dyna_q(env, n_planning=..., ...)` in `chapter_08/solution.py` implements Tabular Dyna-Q with direct Q-learning, model learning via `TabularModel.observe`, and `n_planning` sample-model planning updates per real step (tests: `TestDynaQ`, e.g. `test_planning_accelerates_learning`, `test_learns_short_path`). `make_gridworld(...)` builds the small gridworld MDP used by tests. No multi-step (Ch. 7) agent is implemented in this chapter.
 
-### Exercise 12.15 (Programming) — Rigid Tree Backup (proposed) [Q(lambda)]
+### Exercise 8.2 — Why did Dyna-Q+ outperform Dyna-Q in both phases?
 
-- **Book location:** §12.11 (stable off-policy methods / implementation issues, near tree-backup discussion), p. ~277; uses (12.36) and (12.38).
-- **Type:** Programming.
-- **Paraphrased problem:** Implement the proposed "Rigid Tree Backup" method, which combines the truncated tree-backup λ-return target (12.38) with the usual backward-view eligibility-trace/action update mechanism (cf. 12.36), and compare its behavior to ordinary (one-step or n-step as specified by the reader’s setup) Tree Backup on a small task.
-- **Solution (what to do):**
-  1. Use the tree-backup n-step/λ-return target (12.38): for action-values, bootstrapping with expected values under the target policy and **not** cutting traces on exploratory actions via IS ratios in the Watkins manner; the truncated tree-backup λ-return mixes these targets over horizons.
-  2. Maintain eligibility traces over `(s,a)` updated as in (12.36)’s form appropriate to the chosen approximation (e.g. `z ← γλ z + ∇q(s,a)` with the tree-backup TD/error signal; in tabular form `z(s,a)` accumulates/decays per step).
-  3. On each step compute the tree-backup TD error for the chosen horizon/mixing and update `q` (or `w`) by `α * δ * z`.
-  4. **Experiment:** compare to ordinary Tree Backup on a small control task (e.g. a gridworld/random-walk-style control setup or windy gridworld), plotting learning curves / average return; expect no Watkins-style trace-cut instability from off-policy sampling because tree-backup uses expectations over actions.
-- **Coding pointer:** **Not implemented in this repo.** There is **no** Tree Backup / Tree-Backup(λ) / Rigid Tree Backup implementation in `chapter_08` or `chapter_10`. The closest off-policy trace control code is `chapter_10/solution.py:watkins_q_lambda` and `watkins_lambda_return` (Watkins’s Q(λ), trace-cut on non-greedy actions, max-bootstrap target) with tests `TestWatkinsQLambda`, `TestWatkinsLambdaReturn` — **this is not the same algorithm as Rigid/Tree Backup(λ)** and must not be used as its implementation mapping.
+- **Book location:** §8.3, Exercise 8.2, blocking and shortcut maze experiments / Figs. 8.4–8.5 (2nd ed., ~pp. 164–165).
+- **Type:** Theory.
+- **Problem (paraphrased):** In the blocking and shortcut experiments, the Dyna agent augmented with an exploration bonus (Dyna-Q+) performs better than Dyna-Q in *both* the first phase and the second phase (after the environment changes). Why is Dyna-Q+ better in both phases?
+- **Solution.** Dyna-Q+ (§8.3, Eq. 8.12, ~p. 166) adds a bonus to the *planning* update for a simulated transition: instead of using the recorded reward r, it uses
+  \[
+  r + \kappa \sqrt{\tau(s,a)},
+  \]
+  where \(\tau(s,a)\) is the (real-time) number of steps since pair (s,a) was last tried in the real environment and \(\kappa>0\) is small. This bonus treats long-untried pairs as potentially better than the stale model predicts, encouraging their simulated/selected visitation.
+  - **First phase (before the change, stable environment):** Early on, many (s,a) pairs are rarely or never tried, so their \(\tau\) values grow and the bonus drives broader exploration. This helps the agent discover good paths and refine the model more thoroughly than plain Dyna-Q, which can become complacent once it has a workable (but not necessarily best-known) policy.
+  - **Second phase (after the environment changes):** The model becomes wrong (a passage closes in the blocking task; a shortcut opens in the shortcut task). Dyna-Q tends to keep planning from its stale model and may be slow to re-try actions whose recorded outcomes changed. Dyna-Q+’s growing \(\tau\) for untested/stale pairs produces pressure to revisit them, so it detects the blocked path sooner and, crucially in the shortcut task, eventually tries actions that reveal the newly opened shorter route.
+  - **Net effect:** The same mechanism — intrinsic reward for “staleness” — yields useful extra exploration both initially and after non-stationary changes.
+- **Derivation note:** The bonus is added to the reward used in planning backups (Eq. 8.12), not to the true environment reward; it biases simulated targets to favor exploration of neglected transitions.
+- **Coding pointer (theory-only for Dyna-Q+):** **`chapter_08/solution.py` does not implement Dyna-Q+, `κ`/`τ` bookkeeping, or the blocking/shortcut experiments.** The closest implemented APIs are `dyna_q` (sample-model Dyna-Q), `expected_dyna_q` / `expected_sweep` (expected updates, Eq. 8.1, §8.5), `TabularModel` (distribution/sample model, counts, `distribution`/`sample`/`predecessors`), and `make_gridworld(rows, cols, ..., slip=..., gamma=...)`. Tests covering these APIs: `TestDynaQ`, `TestExpectedVsSampleDyna`, `TestTabularModel`, `TestMakeGridworld`, `TestStochasticWorldModel`. A faithful Dyna-Q+ experiment would extend `dyna_q`/the model to track last-visit times and apply the Eq. 8.12 bonus during planning (and/or selection per Ex. 8.4).
 
-### Exercise 12.16 — Double Expected Sarsa with eligibility traces [traces]
+### Exercise 8.3 — Why did the Dyna-Q+ vs Dyna-Q gap narrow early on?
 
-- **Book location:** §12.13 (conclusions / extensions context), p. ~279.
-- **Type:** Theory / Math.
-- **Paraphrased problem:** Propose how to extend Double Expected Sarsa to use eligibility traces.
-- **Solution:**
-  Maintain two independent action-value estimators `Q1, Q2` (double learning). On a transition `(S,A,R,S')`:
-  - With some rule (e.g. swap/update `Q1` or `Q2` with probability 1/2, or a symmetric scheme), choose which estimator to update, say `Q1`.
-  - Form the Double Expected Sarsa target using the **other** estimator for evaluation: `\bar Q_2(S') = \sum_{a'} π(a'|S'; Q1)\, Q2(S',a')` (policy/greedy probabilities can be derived from `Q1` while values come from `Q2`, per the double/expected-sarsa bias-reduction idea).
-  - Compute TD error `δ = R + γ \bar Q_2(S') - Q1(S,A)` and apply an eligibility-trace backward view: `z ← γλ z + ∇ Q1(S,A)` (and decay/clear per chosen trace type), `Q1 ← Q1 + α δ z` (or keep separate traces per estimator if updating asymmetrically — a simple design is a trace associated with the estimator being updated).
-  This preserves double-estimator decoupling (reducing maximization bias / overestimation) while assigning credit backward in time via traces.
-- **Coding pointer:** **Theory-only / not implemented** in `chapter_08` or `chapter_10`.
+- **Book location:** §8.3, Exercise 8.3, shortcut experiment / Fig. 8.5 (2nd ed., ~pp. 165–166).
+- **Type:** Theory.
+- **Problem (paraphrased):** In the shortcut experiment (Fig. 8.5), the performance advantage of Dyna-Q+ over Dyna-Q becomes slightly smaller during the first part of the experiment (before the shortcut opens). What explains this narrowing?
+- **Solution.** In the first (stationary) phase the environment does not change and the agent gradually learns an accurate model and good values for the commonly used routes.
+  - **Initially:** Dyna-Q+ explores more because many pairs have recently grown \(\tau\), so the bonus \(\kappa\sqrt{\tau}\) (Eq. 8.12) can make exploratory actions/planning targets attractive; this extra exploration can find/improve behavior faster than Dyna-Q, creating an early gap.
+  - **As learning stabilizes:** The policy and visitation pattern settle. Frequently relevant (s,a) pairs are revisited often, keeping their \(\tau\) small, while the agent has less to gain from wandering; meanwhile Dyna-Q’s estimates also converge toward good behavior on the stable task. Consequently the *marginal* benefit of Dyna-Q+’s bonus-driven exploration diminishes and the cumulative-reward curves move closer together.
+  - **Important contrast:** The gap widens again only later, when the shortcut opens and Dyna-Q+’s continued sensitivity to staleness helps it discover the change sooner than Dyna-Q.
+- **Why this works / takeaway:** Exploration bonuses trade off short-run exploitation for information; in a stationary phase their advantage can shrink once both agents have learned good behavior, but they remain valuable when non-stationarity appears.
+- **Coding pointer (theory-only for Dyna-Q+ / Fig. 8.5):** **No Dyna-Q+ or shortcut-experiment harness is implemented.** Related implemented comparisons are *sample vs expected* planning (a different §8.5 question), not Dyna-Q vs Dyna-Q+: `compare_sample_vs_expected_dyna(env_factory, n_planning=..., n_episodes=..., alpha=..., epsilon=..., gamma=..., seed=..., start_state=...)` returns per-variant `max_q_error`, `known_max_q_error`, `episode_steps`, `episode_rewards`, `q_table`, and `q_star_max` (tests: `TestExpectedVsSampleDyna`). Gridworld construction for experiments: `make_gridworld` (`TestMakeGridworld`).
+
+### Exercise 8.4 (Programming) — Exploration bonus in action selection only
+
+- **Book location:** §8.3, Exercise 8.4 (programming), blocking/shortcut context (2nd ed., ~p. 166).
+- **Type:** Programming / Theory.
+- **Problem (paraphrased):** The exploration bonus in Dyna-Q+ modifies the values used in *updates* (planning targets). Is that modification necessary? Consider an alternative: keep all Q-learning/planning updates unchanged (use only the recorded/model reward), but when choosing actions behave greedily with respect to
+  \[
+  Q(S_t,a) + \kappa \sqrt{\tau(S_t,a)},
+  \]
+  (i.e., add the bonus only for action selection). Design and carry out a gridworld experiment (in the spirit of the blocking/shortcut tasks) to test and illustrate the strengths and weaknesses of this selection-only bonus.
+- **Solution (expected behavior and experiment design).**
+  - **Is changing update values necessary?** Not strictly necessary to obtain exploratory behavior: adding the bonus only at selection time also encourages trying actions with large \(\tau\), so the agent can still be driven to revisit stale parts of the environment.
+  - **Strengths of selection-only bonus:** (1) **Unbiased value estimates.** Because backups/planning targets are unchanged, \(Q\) continues to estimate the return under the true (recorded/model) rewards rather than an optimism-inflated target. (2) **Cleaner separation of concerns.** Exploration pressure is transient (at decision time) and does not permanently distort stored action values.
+  - **Weaknesses / trade-offs:** (1) **No bonus-propagated exploration through planning.** In Dyna-Q+, optimistic planning targets can make distant predecessors look promising in simulated backups; selection-only optimism affects only the current choice and may propagate information more slowly. (2) **Policy instability / dithering.** The effective preference can flip as \(\tau\) changes immediately after a visit, so behavior may oscillate unless \(\kappa\) and the selection rule are tuned. (3) **No strict greedy-optimality guarantee w.r.t. \(Q\) alone** during exploration: the executed action maximizes the augmented score, not \(Q\) itself.
+  - **Suggested experiment (blocking + shortcut, mirroring §8.3):**
+    1. Build a deterministic gridworld/maze with a start and goal (e.g. `make_gridworld(rows, cols, start=..., goal=..., slip=0.0, gamma=...)`).
+    2. **Phase 1 (learn):** run Dyna-Q (`dyna_q(..., n_planning=k, n_episodes=..., epsilon=..., seed=..., start_state=...)`) until a short path is learned (compare episode lengths/rewards).
+    3. **Phase 2 (change):** emulate blocking (remove/penalize a corridor action by changing the environment/model) or shortcut (add a shorter passage). Continue training under three variants: (a) plain Dyna-Q, (b) Dyna-Q+ (bonus in planning targets, Eq. 8.12) — *not implemented here*, (c) selection-only bonus \(Q+\kappa\sqrt{\tau}\) with unchanged updates — *not implemented here*.
+    4. **Metrics:** cumulative reward or steps-to-goal per episode over time (as in Figs. 8.4–8.5), speed of recovery after blocking, and time to discover the shortcut.
+    5. **Report:** selection-only should track true \(Q\) more faithfully but may react slower/faster than (b) depending on whether planning propagation or immediate choice pressure dominates; include fixed seeds for reproducibility.
+- **Why this works / takeaway:** Optimism can be injected at *decision time* or at *learning/planning time*; the former preserves value accuracy, the latter can spread exploratory incentives through backups — with different dynamics on non-stationary tasks.
+- **Coding pointer (partially supported):** **Neither Dyna-Q+ nor selection-only bonus is implemented.** Implemented building blocks for such an experiment: `make_gridworld(rows, cols, start="0,0", goal=None, slip=0.0, gamma=0.95, seed=None)` (`TestMakeGridworld`), `dyna_q` / `expected_dyna_q` (signatures as in `solution.py`), `TabularModel` (`observe`, `is_known`, `known_pairs`, `visited_states`, `actions_taken`, `sample_known_pair`, `distribution`, `sample`, `observation_count`, `predecessors`), and comparison helpers `expected_sweep`, `optimal_q_values`, `compare_sample_vs_expected_dyna`. Relevant tests: `TestMakeGridworld`, `TestTabularModel`, `TestDynaQ`, `TestExpectedVsSampleDyna`, `TestStochasticWorldModel`. To run this programming exercise, add \(\tau\)-tracking and an augmented \(\arg\max_a [Q(s,a)+\kappa\sqrt{\tau(s,a)}]\) policy on top of these APIs.
 
 ---
 
 ## Coding Exercises Mapped to Repository Code
 
-| Book exercise(s) | Topic | Repo code | Repo tests | Notes / Pytest command |
-|---|---|---|---|---|
-| 12.1–12.3, 12.5 | λ-return recursion, TD(λ) sums/identities, prediction targets | `chapter_08/solution.py` (`td_lambda_prediction`) | `chapter_08/tests/test_solution.py::TestTDLambdaPrediction` | Theory-backed; `python -m pytest chapter_08/tests/test_solution.py -k TestTDLambdaPrediction -v` |
-| 12.4 | Modified online TD(λ) (pre-update baseline) | — | — | **Not implemented.** Closest: `chapter_08/solution.py:true_online_td_lambda` (`TestTrueOnlineTDLambda`). |
-| 12.6 | Sarsa(λ) with dutch traces (pseudocode) | `chapter_08/solution.py` (`sarsa_lambda_replacing`, `sarsa_lambda_clearing`, `true_online_td_lambda`) | `TestSarsaLambdaReplacing`, `TestSarsaLambdaClearing`, `TestTrueOnlineTDLambda` | Dutch-trace **control** not implemented; dutch/true-online **prediction** implemented as `true_online_td_lambda`. |
-| 12.7, 12.9, 12.11 | Truncated off-policy/state & action λ-returns | `chapter_10/solution.py` (`watkins_lambda_return`) | `TestWatkinsLambdaReturn` | **Partial/related only:** `watkins_lambda_return` is the forward-view Watkins trace-cut (max-bootstrap, non-greedy cutoff, §12.10), not the §12.9 IS/Expected-Sarsa truncated returns derived in these exercises. |
-| 12.8, 12.10, 12.12, 12.13 | Off-policy return/trace derivations | — | — | **Theory-only.** |
-| 12.14 | Dutch/replacing traces off-policy | `chapter_08/solution.py` (on-policy trace variants) | `TestTDLambdaPrediction`, `TestSarsaLambdaReplacing`, `TestSarsaLambdaClearing`, `TestTrueOnlineTDLambda` | **Off-policy** dutch/replacing variants not implemented. |
-| 12.15 | Rigid Tree Backup (programming) | — | — | **Not implemented.** Not the same as `watkins_q_lambda` / `watkins_lambda_return`. |
-| 12.16 | Double Expected Sarsa(λ) | — | — | **Theory-only / not implemented.** |
+| Book exercise | Book section / topic | Support in repo | Implemented? | Repo tests | Pytest command |
+|---|---|---|---|---|---|
+| 8.1 | §8.2, Dyna maze: multi-step vs Dyna planning | `dyna_q`, `TabularModel`, `make_gridworld` illustrate model-based planning; no Ch. 7 multi-step baseline in this chapter | Partial (Dyna/planning only) | `TestDynaQ`, `TestTabularModel`, `TestMakeGridworld` | `python -m pytest chapter_08/tests/ -v` |
+| 8.2 | §8.3, Dyna-Q+ (Eq. 8.12) on blocking/shortcut | Planning/model APIs available: `dyna_q`, `expected_dyna_q`, `expected_sweep`, `TabularModel`, `make_gridworld`; **no `κ`, `τ`, or env-change experiment** | **No (theory-only for Dyna-Q+)** | `TestDynaQ`, `TestExpectedVsSampleDyna`, `TestTabularModel`, `TestMakeGridworld`, `TestStochasticWorldModel` | `python -m pytest chapter_08/tests/ -v` |
+| 8.3 | §8.3, narrowing gap in first phase (Fig. 8.5) | `compare_sample_vs_expected_dyna` is a different comparison (§8.5), but shows experiment-harness pattern; gridworld via `make_gridworld` | **No (theory-only for Dyna-Q+ dynamics)** | `TestExpectedVsSampleDyna`, `TestMakeGridworld` | `python -m pytest chapter_08/tests/ -v` |
+| 8.4 | §8.3 programming, bonus in selection only | Base environment/agents/models: `make_gridworld`, `dyna_q`, `expected_dyna_q`, `TabularModel`, `optimal_q_values`, `expected_sweep`; **no \(\tau\)/bonus policy** | **No (experiment not implemented)** | `TestMakeGridworld`, `TestDynaQ`, `TestTabularModel`, `TestExpectedVsSampleDyna`, `TestStochasticWorldModel` | `python -m pytest chapter_08/tests/ -v` |
 
-**Verification commands:**
-- `python -m pytest chapter_08/tests/ -v`
-- `python -m pytest chapter_10/tests/ -v`
-- `ruff check chapter_08/ chapter_10/`
+**Additional implemented (not asked by 8.1–8.4 but present and tested):** `PriorityQueue`, `prioritized_sweeping` (§8.4, Exercise 9.1 in-repo) — `TestPriorityQueue`, `TestPrioritizedSweeping`. `compare_sample_vs_expected_dyna` and expected/sample variants (§8.5, Exercise 9.2 in-repo) — `TestExpectedVsSampleDyna`. Stochastic distribution model behavior — `TestTabularModel`, `TestStochasticWorldModel`.
 
----
-
-## Pointer from Chapter 10
-
-`chapter_10/README.md` links here: `../chapter_08/exercises.md` (single Book Chapter 12 exercises document; see Scope and Chapter Mapping above, including the §12.6 vs §12.10 numbering note).
+- Full chapter command: `python -m pytest chapter_08/tests/ -v`
+- Lint: `ruff check chapter_08/`
+- No standalone `exercise_*.py` scripts exist in `chapter_08/`.
 
 ---
 
 ## Verification and Quality Notes
 
-- Derivations (esp. Ex. 12.1, 12.3, 12.5 and the truncation identities) were re-derived independently; public solutions were used only for sanity-checking.
-- Citations (§/Eq./page) are plausible for Sutton & Barto 2nd ed. and should be treated as reader aids; resolve any numbering ambiguity against the primary text.
-- Exercise-to-code mappings were checked against actual symbols/tests: `td_lambda_prediction`, `sarsa_lambda_replacing`, `sarsa_lambda_clearing`, `true_online_td_lambda` in `chapter_08/solution.py` and `watkins_q_lambda`, `watkins_lambda_return` in `chapter_10/solution.py`. Ex. 12.15 (Rigid Tree Backup) has **no** implementation in this repo and is not mapped to Watkins’s Q(λ).
+- Reasoning and derivations were produced independently; public materials were used only for cross-checking.
+- Exercises 8.2–8.4 involve Dyna-Q+ / exploration-bonus experiments that are **not implemented** in this repository; answers therefore provide theory, derivations (Eq. 8.12 / \(\tau\)-bonus), and experiment designs, with pointers to the closest implemented APIs/tests rather than claiming unsupported functionality.
+- Exercise statements are paraphrased; citations are given to plausible 2nd-edition sections/pages/equations/figures for traceability.
 
 ---
 
-*Exercises document for Chapter 8 (book Chapter 12) — part of the per-chapter exercises-and-solutions series (`chapter_XX/exercises.md` and hosted docs).*
+*Exercises document for Chapter 9 (book Chapter 8) — part of the per-chapter exercises-and-solutions series (`chapter_XX/exercises.md`).*
