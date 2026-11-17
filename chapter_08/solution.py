@@ -288,3 +288,86 @@ def true_online_td_lambda(
             v_old = v_next
             state = next_state if not done else state
     return values
+
+
+# ---------------------------------------------------------------------------
+# Figure reproduction (Sutton & Barto, 2nd ed., Ch. 12 / repo Ch. 8)
+# ---------------------------------------------------------------------------
+
+def _rms_error(values: dict, true_values: dict) -> float:
+    states = list(true_values)
+    errs = [values[s] - true_values[s] for s in states]
+    return float(np.sqrt(np.mean(np.square(errs))))
+
+
+def plot_td_lambda_random_walk(
+    save_path: str | None = None,
+    show: bool = False,
+    lambdas: tuple[float, ...] = (0.0, 0.4, 0.8, 1.0),
+    alpha: float = 0.1,
+    n_episodes: int = 100,
+    runs: int = 50,
+    seed: int = 0,
+):
+    """TD(lambda) prediction on the random walk (eligibility traces demo).
+
+    Sutton & Barto (2nd ed.), Ch. 12 (Eligibility Traces), Sec. 12.2 and
+    related random-walk experiments (e.g. Fig. 12.3/12.6 in the book): compares
+    backward-view TD(lambda) prediction with accumulating traces for several
+    lambda values on the 5-state random walk (Example 6.2). Curves show RMS
+    error vs true v* over episodes, averaged over runs. lambda=0 is TD(0);
+    larger lambda incorporates longer returns (approaching MC-like behavior as
+    lambda->1), illustrating the bias-variance tradeoff discussed in Ch. 12.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    from chapter_06.solution import RandomWalkEnv, random_walk_true_values
+
+    true_values = random_walk_true_values()
+    episodes_axis = np.arange(1, n_episodes + 1)
+    curves = {lam: np.zeros(n_episodes, dtype=np.float64) for lam in lambdas}
+
+    for lam in lambdas:
+        for r in range(runs):
+            rs = None if seed is None else seed + r * 101 + int(lam * 1000)
+            env = RandomWalkEnv(seed=rs)
+            rng = np.random.default_rng(rs)
+            values = {s: 0.5 for s in env.STATES}
+            traces = {s: 0.0 for s in env.STATES}
+            for ep in range(n_episodes):
+                # one episode of accumulating-trace TD(lambda) prediction
+                for s in env.STATES:
+                    traces[s] = 0.0
+                state = env.reset()
+                done = False
+                while not done:
+                    a_idx = int(rng.integers(0, 2))
+                    reward, next_state, done = env.step(env.ACTIONS[a_idx])
+                    next_v = 0.0 if next_state.endswith("_end") else values[next_state]
+                    delta = reward + 1.0 * next_v - values[state]
+                    traces[state] += 1.0
+                    for s in env.STATES:
+                        values[s] += alpha * delta * traces[s]
+                        traces[s] *= 1.0 * lam
+                    state = next_state
+                curves[lam][ep] += _rms_error(values, true_values)
+        curves[lam] /= runs
+
+    fig, ax = plt.subplots(figsize=(7.5, 4.5))
+    for lam in lambdas:
+        ax.plot(episodes_axis, curves[lam], label=f"lambda={lam:g}")
+    ax.set_xlabel("Episodes")
+    ax.set_ylabel("RMS error (vs true v*)")
+    ax.set_title("S&B (2nd ed.), Ch. 12 (repo Ch. 8): TD(lambda) on random walk")
+    ax.legend()
+    fig.tight_layout()
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+    return fig, ax
