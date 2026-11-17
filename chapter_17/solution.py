@@ -615,95 +615,71 @@ def plot_options_and_novelty_demos(
 
     Sutton & Barto (2nd ed.), Ch. 17 "Frontiers":
       - Sec. 17.2 (Temporal abstraction via options): SMDP Q-learning with
-        hand-crafted options vs primitive-only Q-learning in the four-room-style
-        gridworld demo. Left panel compares mean episode steps/return proxy
-        (lower steps to goal is better) over evaluation rollouts.
+        hand-crafted options vs primitive-only Q-learning in the four-room
+        GridWorld. Left panel compares mean primitive steps to reach the goal
+        under greedy rollouts of learned policies.
       - Sec. 17.4 (Designing reward signals / intrinsic motivation): count-based
-        novelty bonus encourages broader state visitation. Right panel compares
+        novelty bonus encourages broader exploration. Right panel compares the
         number of distinct states visited with novelty bonus vs without.
-    These are small demonstrations of implemented ideas, not book figures.
+    Small demonstrations of implemented ideas, not direct book-figure copies.
     """
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    # Options demo: evaluate learned policies by rollout steps to goal
-    q_smdp, _ = smdp_q_learning(n_episodes=200, alpha=0.1, gamma=0.99, epsilon=0.1, seed=seed)
+    q_smdp, options = smdp_q_learning(n_episodes=200, alpha=0.1, gamma=0.99, epsilon=0.1, seed=seed)
     q_prim = primitive_q_learning(n_episodes=200, alpha=0.1, gamma=0.99, epsilon=0.1, seed=seed)
+    n_prim_actions = len(GridWorld.ACTIONS)
+    n_actions = n_prim_actions + len(options)
 
-    def eval_smdp(q, episodes=30):
-        # simple greedy rollout using options/primitive choices learned in q_smdp
-        # q maps (state, option_name/index) depending on impl; do approximate by
-        # measuring mean training-like rollout steps is complex; instead report
-        # average negative episode length proxy from a fresh greedy run is hard
-        # without rollout helper. Use a proxy: count decisions by greedy play.
-        return None
-
-    # Easier: run short fresh evaluations by reusing training with epsilon=0 via
-    # primitive_q_learning/smdp_q_learning? they train; but we can approximate by
-    # comparing average total reward over last episodes of training runs.
-    # Simpler robust demo: use primitive_q_learning result and smdp steps via
-    # a lightweight greedy rollout in environment.
-    env = GridWorld()
-    # Primitive greedy rollout
     def rollout_primitive(q, max_steps=200):
+        env = GridWorld()
         s = env.reset()
-        steps = 0
-        for _ in range(max_steps):
-            acts = list(range(4))
-            qs = [q.get((s, a), 0.0) for a in acts]
-            a = acts[int(np.argmax(qs))]
-            s, r, done, _ = env.step(a)
-            steps += 1
+        for steps in range(1, max_steps + 1):
+            qs = [q.get((s, a), 0.0) for a in range(n_prim_actions)]
+            a = int(np.argmax(qs))
+            s, _, done = env.step(a)
             if done:
                 return steps
         return max_steps
 
-    prim_steps = np.mean([rollout_primitive(q_prim) for _ in range(20)])
-
-    # SMDP: q_smdp keys may be (state, option_name). Greedy rollout over options.
-    options = default_options()
-
     def rollout_smdp(q, max_steps=200):
+        env = GridWorld()
         s = env.reset()
         total_steps = 0
         decisions = 0
         while total_steps < max_steps and decisions < 100:
-            # choose best option by Q
-            opt_names = [o.name for o in options]
-            vals = [q.get((s, name), -1e9) for name in opt_names]
-            opt = options[int(np.argmax(vals))]
-            # execute option
-            cur = s
-            steps = 0
-            while steps < 50:
-                a = opt.policy_fn(env)
-                cur, r, done, _ = env.step(a)
-                steps += 1
+            vals = [q.get((s, a), -1e9) for a in range(n_actions)]
+            a = int(np.argmax(vals))
+            if a < n_prim_actions:
+                s, _, done = env.step(a)
                 total_steps += 1
-                if opt.termination_fn(env) or done:
-                    s = cur
-                    break
             else:
-                s = cur
+                opt = options[a - n_prim_actions]
+                for _ in range(50):
+                    act = opt.policy(env)
+                    s, _, done = env.step(act)
+                    total_steps += 1
+                    if opt.terminates(env) or done or total_steps >= max_steps:
+                        break
             decisions += 1
-            if env.is_terminal(s):
+            if env.done:
                 return total_steps
         return max_steps
 
-    smdp_steps = np.mean([rollout_smdp(q_smdp) for _ in range(20)])
+    prim_steps = float(np.mean([rollout_primitive(q_prim) for _ in range(20)]))
+    smdp_steps = float(np.mean([rollout_smdp(q_smdp) for _ in range(20)]))
 
-    # Novelty: distinct states visited
     res_nov = q_learning_novelty(n_episodes=12, beta=0.5, seed=seed)
     res_plain = q_learning_novelty(n_episodes=12, beta=0.0, seed=seed)
-    nov_count = len(res_nov.get("visit_counts", res_nov.get("visits", {})))
-    plain_count = len(res_plain.get("visit_counts", res_plain.get("visits", {})))
+    nov_count = int(res_nov.get("unique_states", 0))
+    plain_count = int(res_plain.get("unique_states", 0))
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4.2))
     ax1.bar(["Primitive\nQ-learning", "SMDP with\noptions"], [prim_steps, smdp_steps],
             color=["#f58518", "#4c78a8"])
-    ax1.set_ylabel("Mean steps to goal (greedy)")
+    ax1.set_ylabel("Mean primitive steps to goal")
     ax1.set_title("Temporal abstraction (Sec. 17.2)")
 
     ax2.bar(["No bonus\n(beta=0)", "Novelty bonus\n(beta>0)"], [plain_count, nov_count],

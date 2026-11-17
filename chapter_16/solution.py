@@ -448,3 +448,64 @@ def evaluate_queue_policy(
 def greedy_queue_action(q_table: dict, state: int) -> int:
     """Greedy service-speed action for `state` under a learned Q table."""
     return int(np.argmax([q_table[(state, 0)], q_table[(state, 1)]]))
+
+
+# ---------------------------------------------------------------------------
+# Figure reproduction (Sutton & Barto, 2nd ed., Ch. 16 / repo Ch. 16)
+# ---------------------------------------------------------------------------
+
+def plot_inventory_and_queue_demos(
+    save_path: str | None = None,
+    show: bool = False,
+    seed: int = 0,
+):
+    """Inventory control and queue scheduling demos (Ch. 16 applications).
+
+    Sutton & Barto (2nd ed.), Ch. 16 surveys RL applications/case studies; this
+    chapter implements small tabular control applications in that spirit.
+      - Left (inventory, Sec. 16 context / order-up-to control): compares average
+        cost per period for a learned Sarsa policy vs simple baselines (zero-order
+        and random), evaluated on identical seeded demand streams.
+      - Right (single-server queue with expedited-service action): compares
+        average cost per period for a learned Q-learning policy vs random and
+        never-expediting baselines.
+    Bars show mean cost (lower is better) over evaluation episodes.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    # Inventory
+    q_inv, _ = sarsa_inventory(n_episodes=500, alpha=0.1, epsilon=0.1, gamma=0.95, seed=seed)
+    inv_learned = evaluate_inventory_policy(lambda s: greedy_inventory_action(q_inv, s), episodes=300, seed=seed + 1)
+    inv_zero = evaluate_inventory_policy(lambda s: s, episodes=300, seed=seed + 1)  # order up to current -> no order
+    rng = np.random.default_rng(seed + 2)
+    inv_random = evaluate_inventory_policy(lambda s: int(rng.integers(0, 11)), episodes=300, seed=seed + 1)
+
+    # Queue
+    q_q, _ = q_learning_queue(n_episodes=800, alpha=0.1, epsilon=0.1, gamma=0.95, seed=seed)
+    q_learned = evaluate_queue_policy(lambda s: greedy_queue_action(q_q, s), episodes=300, seed=seed + 1)
+    q_random = evaluate_queue_policy(lambda s: int(np.random.default_rng(seed + 3).integers(0, 2)), episodes=300, seed=seed + 1)
+    q_never = evaluate_queue_policy(lambda s: 0, episodes=300, seed=seed + 1)  # normal service
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4.2))
+    ax1.bar(["Learned\n(Sarsa)", "Zero-order", "Random"], [inv_learned, inv_zero, inv_random],
+            color=["#4c78a8", "#f58518", "#54a24b"])
+    ax1.set_ylabel("Avg cost per period (lower better)")
+    ax1.set_title("Inventory management demo")
+
+    ax2.bar(["Learned\n(Q-learning)", "Random", "Never expedite"], [q_learned, q_random, q_never],
+            color=["#4c78a8", "#f58518", "#54a24b"])
+    ax2.set_ylabel("Avg cost per period (lower better)")
+    ax2.set_title("Queue scheduling demo")
+
+    fig.suptitle("S&B (2nd ed.), Ch. 16: Application-style control demos")
+    fig.tight_layout()
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+    return fig, (ax1, ax2)
