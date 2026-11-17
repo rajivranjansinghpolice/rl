@@ -438,3 +438,113 @@ def q_learning_descending_bonus(
 
     return _q_learning_loop(env, select, n_episodes, alpha, gamma, seed,
                             max_steps, start_state, 0.0)
+
+
+# ---------------------------------------------------------------------------
+# Figure reproduction (Sutton & Barto, 2nd ed., Ch. 2 / repo Ch. 11)
+# ---------------------------------------------------------------------------
+
+def plot_ucb_vs_epsilon_greedy(
+    save_path: str | None = None,
+    show: bool = False,
+    steps: int = 1000,
+    runs: int = 200,
+    seed: int = 0,
+):
+    """UCB vs epsilon-greedy on the 10-armed testbed (Sec. 2.7, Fig. 2.4).
+
+    Sutton & Barto (2nd ed.), Sec. 2.7, Fig. 2.4 / Eq. 2.10: UCB action
+    selection (c=2) compared with epsilon-greedy (epsilon=0.1) on the
+    10-armed testbed. Curves show average reward and % optimal action over
+    steps, averaged over independent bandit tasks/runs.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    avg_r_ucb = np.zeros(steps)
+    avg_o_ucb = np.zeros(steps)
+    avg_r_eps = np.zeros(steps)
+    avg_o_eps = np.zeros(steps)
+    for r in range(runs):
+        rs = seed + r
+        u = run_ucb_bandit(steps=steps, c=2.0, seed=rs)
+        e = run_epsilon_greedy_bandit(steps=steps, epsilon=0.1, seed=rs)
+        avg_r_ucb += np.array(u["rewards"])
+        avg_o_ucb += np.array(u["optimal"], dtype=float)
+        avg_r_eps += np.array(e["rewards"])
+        avg_o_eps += np.array(e["optimal"], dtype=float)
+    avg_r_ucb /= runs; avg_o_ucb = avg_o_ucb / runs * 100
+    avg_r_eps /= runs; avg_o_eps = avg_o_eps / runs * 100
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(7.5, 6.5), sharex=True)
+    x = np.arange(1, steps + 1)
+    ax1.plot(x, avg_r_ucb, label="UCB c=2")
+    ax1.plot(x, avg_r_eps, label="eps-greedy eps=0.1")
+    ax1.set_ylabel("Average reward")
+    ax1.set_title("S&B (2nd ed.), Sec. 2.7, Fig. 2.4: UCB (10-armed testbed)")
+    ax1.legend()
+    ax2.plot(x, avg_o_ucb, label="UCB c=2")
+    ax2.plot(x, avg_o_eps, label="eps-greedy eps=0.1")
+    ax2.set_xlabel("Steps")
+    ax2.set_ylabel("% Optimal action")
+    ax2.set_ylim(0, 100)
+    ax2.legend()
+    fig.tight_layout()
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+    return fig, (ax1, ax2)
+
+
+def plot_optimistic_initial_values(
+    save_path: str | None = None,
+    show: bool = False,
+    steps: int = 1000,
+    runs: int = 200,
+    seed: int = 0,
+):
+    """Optimistic initial values on the 10-armed testbed (Sec. 2.6, Fig. 2.3).
+
+    Sutton & Barto (2nd ed.), Sec. 2.6, Fig. 2.3: greedy with optimistic
+    initialization Q1=+5 (epsilon=0) vs realistic epsilon-greedy (Q1=0,
+    epsilon=0.1). Curves show % optimal action over steps, averaged over runs.
+    Uses sample-average updates as in the book's bandit experiments.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    avg_o_opt = np.zeros(steps)
+    avg_o_real = np.zeros(steps)
+    for r in range(runs):
+        rs = seed + r
+        opt = run_optimistic_greedy_bandit(steps=steps, init_q=5.0, seed=rs)
+        real = run_epsilon_greedy_bandit(steps=steps, epsilon=0.1, init_q=0.0, seed=rs)
+        avg_o_opt += np.array(opt["optimal"], dtype=float)
+        avg_o_real += np.array(real["optimal"], dtype=float)
+    avg_o_opt = avg_o_opt / runs * 100
+    avg_o_real = avg_o_real / runs * 100
+
+    fig, ax = plt.subplots(figsize=(7.5, 4.5))
+    x = np.arange(1, steps + 1)
+    ax.plot(x, avg_o_opt, label="Optimistic, greedy Q1=5, eps=0")
+    ax.plot(x, avg_o_real, label="Realistic, eps-greedy Q1=0, eps=0.1")
+    ax.set_xlabel("Steps")
+    ax.set_ylabel("% Optimal action")
+    ax.set_ylim(0, 100)
+    ax.set_title("S&B (2nd ed.), Sec. 2.6, Fig. 2.3: Optimistic initial values")
+    ax.legend()
+    fig.tight_layout()
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+    return fig, ax
