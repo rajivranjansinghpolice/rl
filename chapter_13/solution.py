@@ -504,3 +504,63 @@ def main(seed: Optional[int] = None) -> list:
 
 if __name__ == "__main__":
     main()
+
+
+# ---------------------------------------------------------------------------
+# Figure reproduction (Sutton & Barto, 2nd ed., Ch. 13)
+# ---------------------------------------------------------------------------
+
+def plot_policy_gradient_comparison(
+    save_path: str | None = None,
+    show: bool = False,
+    episodes: int = 200,
+    runs: int = 30,
+    seed: int = 0,
+):
+    """REINFORCE vs REINFORCE with baseline learning curves (Sec. 13.3-13.4).
+
+    Sutton & Barto (2nd ed.), Ch. 13 (Policy Gradient Methods), Sec. 13.3
+    (REINFORCE, Monte Carlo policy gradient) and Sec. 13.4 (REINFORCE with
+    baseline): adding a baseline can reduce variance and speed learning. This
+    demo trains both algorithms on a simple stochastic bandit (PolicyEnvironment,
+    single state) and plots mean episode reward over episodes, averaged over
+    runs. Environment is a demonstration task, not a specific book figure.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    n_actions = 4
+    env_rewards = np.array([1.0, 0.5, 0.2, 0.0])
+    p = np.ones(n_actions) / n_actions
+    curves = {"REINFORCE": np.zeros(episodes), "REINFORCE+baseline": np.zeros(episodes)}
+
+    for r in range(runs):
+        rs = seed + r
+        env = PolicyEnvironment(n_actions=n_actions, p=p, rewards=env_rewards, seed=rs)
+        alg1 = PolicyGradientAlgorithm(n_actions=n_actions, n_states=1, lr=0.1, gamma=1.0, seed=rs)
+        alg2 = PolicyGradientWithBaseline(n_actions=n_actions, n_states=1, lr=0.1, gamma=1.0, seed=rs)
+        h1 = run_policy_gradient_simulation(alg1, env, episodes=episodes, steps=1, seed=rs)
+        h2 = run_policy_gradient_simulation(alg2, env, episodes=episodes, steps=1, seed=rs)
+        curves["REINFORCE"] += np.array(h1, dtype=np.float64)
+        curves["REINFORCE+baseline"] += np.array(h2, dtype=np.float64)
+    for k in curves:
+        curves[k] /= runs
+
+    fig, ax = plt.subplots(figsize=(7.5, 4.5))
+    x = np.arange(1, episodes + 1)
+    ax.plot(x, curves["REINFORCE"], label="REINFORCE")
+    ax.plot(x, curves["REINFORCE+baseline"], label="REINFORCE with baseline")
+    ax.set_xlabel("Episodes")
+    ax.set_ylabel("Episode reward (mean over runs)")
+    ax.set_title("S&B (2nd ed.), Sec. 13.3-13.4: Policy gradient methods (demo)")
+    ax.legend()
+    fig.tight_layout()
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+    return fig, ax
