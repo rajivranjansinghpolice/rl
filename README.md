@@ -36,9 +36,12 @@ Chapters typically include:
 - `exercises.md` — exercise writeups/solutions where provided
 - `pseudocode.py` — pseudocode with book-step mapping where provided
 - `solution.py` and/or `exercise_*.py` — Python implementations
+- `figures/` — generated plots reproducing or demonstrating book experiments/examples where feasible
 - `tests/` — pytest test suite (some chapters also include `__init__.py`)
 
 Not every chapter contains every file above; consult the chapter directory for its exact contents.
+
+Plot-generating helpers (e.g. `plot_*` / `figure_*` functions) are provided in the chapter implementation modules where applicable. They save figures when called with a `save_path` and include docstring/comments referencing the relevant Sutton & Barto (2nd ed.) sections/figures and any simplifications.
 
 ## Installation
 
@@ -46,6 +49,12 @@ Requires Python 3. Install dependencies from the repository root:
 
 ```bash
 pip install numpy pytest ruff
+```
+
+To reproduce experiment/example demonstration plots, also install `matplotlib`:
+
+```bash
+pip install matplotlib
 ```
 
 ## Running tests and linting
