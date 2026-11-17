@@ -1,9 +1,11 @@
-"""Four-room GridWorld and options utilities (Sutton & Barto, 2nd ed., Ch. 17)."""
+"""Four-room GridWorld and options utilities (Sutton & Barto, 2nd ed., Ch. 17).
+
+Shared by the options (Section 17.2) demonstration and the intrinsic-motivation
+(Section 17.4) demonstration. Ported from ``chapter_17/solution.py``.
+"""
 
 from __future__ import annotations
 
-import math
-from collections import deque
 from typing import Callable
 
 DEFAULT_GRID = [
@@ -28,6 +30,8 @@ def is_wall(grid: list[str], cell: tuple[int, int]) -> bool:
 
 def bfs_distances(grid: list[str], target: tuple[int, int]) -> dict:
     """Shortest-path distances from every free cell to `target`."""
+    from collections import deque
+
     distances: dict[tuple[int, int], int] = {}
     queue = deque([target])
     distances[target] = 0
@@ -46,7 +50,10 @@ def bfs_action_toward(
     cell: tuple[int, int],
     target: tuple[int, int],
 ) -> int:
-    """Action index (GridWorld.ACTIONS) moving along a shortest path."""
+    """Action index (GridWorld.ACTIONS) moving along a shortest path.
+
+    Falls back to a valid move if already at target (returns 0).
+    """
     distances = bfs_distances(grid, target)
     best_action = 0
     best_distance = distances.get(cell, 10**9)
@@ -62,7 +69,19 @@ def bfs_action_toward(
 
 
 class GridWorld:
-    """Small tabular four-room GridWorld (7x7). Book Sec. 17.2 demo."""
+    """Small tabular four-room GridWorld (7x7).
+
+    Layout (x = wall):
+
+        row 0-2: open top room
+        row 3:   '#'-walls with gaps at col 2 and col 4
+        row 4-5: vertical wall at col 3 (splits bottom rooms)
+        row 6:   open (connects bottom rooms)
+
+    Start (0, 0); goal (6, 6). Reward +1 on entering the goal (terminal),
+    step_cost elsewhere. Moving into a wall or off the grid leaves the
+    agent in place.
+    """
 
     ACTIONS = ("up", "down", "left", "right")
     _DELTAS = ((-1, 0), (1, 0), (0, -1), (0, 1))
@@ -92,17 +111,21 @@ class GridWorld:
         self.done = False
 
     def reset(self) -> int:
+        """Reset to the start cell; return the state id."""
         self.state = self._index[self.start]
         self.done = False
         return self.state
 
     def cell(self, state: int) -> tuple[int, int]:
+        """(row, col) of a state id."""
         return self._cells[state]
 
     def state_id(self, cell: tuple[int, int]) -> int:
+        """State id of a (row, col) cell."""
         return self._index[cell]
 
     def step(self, action: int) -> tuple[int, float, bool]:
+        """Advance one primitive step. Returns (state, reward, done)."""
         if self.state is None:
             raise RuntimeError("call reset() first")
         if not 0 <= action < len(self.ACTIONS):
@@ -111,6 +134,8 @@ class GridWorld:
         dr, dc = self._DELTAS[action]
         nxt = (r + dr, c + dc)
         if is_wall(self.grid, nxt):
+            # Bump: stay in place with an explicit penalty so bumping
+            # does not self-bootstrap a favorable value.
             self.state = self._index[(r, c)]
             return self.state, self.wall_penalty, self.done
         self.state = self._index[nxt]
@@ -122,7 +147,13 @@ class GridWorld:
 
 
 class Option:
-    """Temporally abstract action (Section 17.2)."""
+    """Temporally abstract action: omega = <pi_omega, gamma_omega>.
+
+    Book Section 17.2. pi_omega is a policy over primitive actions;
+    gamma_omega is a state-dependent termination function. Here
+    termination is deterministic: it fires exactly on the subgoal cell, or
+    externally via a step cap applied by the caller (max_steps).
+    """
 
     def __init__(
         self,
@@ -135,9 +166,11 @@ class Option:
         self.termination_fn = termination_fn
 
     def policy(self, env: GridWorld) -> int:
+        """Action chosen by the option's internal policy pi_omega."""
         return int(self.policy_fn(env))
 
     def terminates(self, env: GridWorld) -> bool:
+        """gamma_omega(S_t): True iff the option terminates now."""
         return bool(self.termination_fn(env))
 
 
@@ -146,6 +179,11 @@ def make_subgoal_option(
     subgoal: tuple[int, int],
     name: str,
 ) -> Option:
+    """Option whose internal policy BFS-greedily navigates to `subgoal`.
+
+    Book Section 17.2: an option with a hand-crafted policy (as typical in
+    options demonstrations). Terminates on entering `subgoal`.
+    """
     base_grid = list(grid) if grid is not None else list(DEFAULT_GRID)
 
     def current_cell(env: GridWorld) -> tuple[int, int]:
@@ -163,6 +201,7 @@ def make_subgoal_option(
 
 
 def default_options() -> list[Option]:
+    """Doorway + goal options for the four-room GridWorld."""
     return [
         make_subgoal_option(None, (3, 2), "option_gap_left"),
         make_subgoal_option(None, (3, 4), "option_gap_right"),
@@ -171,6 +210,8 @@ def default_options() -> list[Option]:
 
 
 class OptionResult:
+    """Outcome of executing an option to termination (or to a cap)."""
+
     def __init__(self, discounted_return: float, steps: int, done: bool) -> None:
         self.discounted_return = float(discounted_return)
         self.steps = int(steps)
@@ -183,6 +224,11 @@ def run_option(
     gamma: float = 0.99,
     max_steps: int = 50,
 ) -> OptionResult:
+    """Execute an option until termination or `max_steps` primitive steps.
+
+    Returns the discounted return accumulated along the option and the
+    number of primitive steps taken (tau in the SMDP update).
+    """
     if env.state is None:
         raise RuntimeError("call reset() first")
     discounted_return = 0.0
@@ -197,3 +243,5 @@ def run_option(
         if done or option.terminates(env):
             return OptionResult(discounted_return, steps, done)
     return OptionResult(discounted_return, steps, env.done)
+
+

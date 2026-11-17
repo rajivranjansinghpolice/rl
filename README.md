@@ -41,6 +41,8 @@ Chapters typically include:
 
 Not every chapter contains every file above; consult the chapter directory for its exact contents.
 
+Shared environments and agents reused across chapters live in the tracked `rl_envs/` package (e.g. `BlackjackEnv`, `RandomWalkEnv`, `WindyGridWorld`, `GridWorld`, `Example41GridWorld`, `MountainCarEnv`, `TicTacToe` + MCTS, `PipRaceEnv`, the four-room GridWorld and option utilities). Chapter modules re-export the names they use, so existing imports keep working. Unit tests for the shared package live in `tests/test_rl_envs.py`.
+
 Plot-generating helpers (e.g. `plot_*` / `figure_*` functions) are provided in the chapter implementation modules where applicable. They save figures when called with a `save_path` and include docstring/comments referencing the relevant Sutton & Barto (2nd ed.) sections/figures and any simplifications.
 
 ## Installation

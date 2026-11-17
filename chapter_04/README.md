@@ -29,6 +29,11 @@ value iteration, and the classic gambler's problem.
 ## Implementation Notes
 - Reuses `FiniteMDP` dynamics from `chapter_03.solution`; test modules import
   it via the package (`from chapter_04.solution import ...`).
+- The Example 4.1 four-by-four gridworld itself (terminals on the main
+  diagonal, `r = -1`, `gamma = 1`, converged random-policy values in
+  Figure 4.1) is available as `rl_envs.Example41GridWorld` with unit tests in
+  `tests/test_rl_envs.py`; the DP solvers in this chapter are MDP-generic and
+  do not hard-code it.
 - Terminal states are forced to value 0 everywhere (dummy terminal convention).
 - `gamblers_problem` models the gambler's MDP directly with dummy terminals
   valued 0 and 1 (Exercise 4.9), since stakes are state-dependent — a
