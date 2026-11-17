@@ -309,3 +309,53 @@ def gamblers_problem(
                 best_stake = stake
         policy[s] = best_stake
     return values, policy
+
+
+# ---------------------------------------------------------------------------
+# Figure reproduction (Sutton & Barto, 2nd ed., Ch. 4)
+# ---------------------------------------------------------------------------
+
+def plot_gamblers_problem(
+    save_path: str | None = None,
+    show: bool = False,
+    p_h: float = 0.4,
+    goal: int = 100,
+):
+    """Gambler's problem value function and policy (Example 4.3, Fig. 4.3).
+
+    Sutton & Barto (2nd ed.), Example 4.3 / Sec. 4.4, Fig. 4.3: the gambler's
+    problem solved by value iteration. States are capital 0..goal (goal=100 in
+    book), actions are stakes; heads probability p_h (book shows p_h=0.4).
+    Reward +1 only on reaching the goal (modeled via terminal values 0 and 1).
+    Top panel: estimated value v*(s) = probability of reaching goal from s.
+    Bottom panel: optimal stake (policy). The non-unique optimal-stake
+    structure reflects multiple optimal actions at some states.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    values, policy = gamblers_problem(p_h=p_h, goal=goal)
+    states = np.arange(goal + 1)
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6.5), sharex=True)
+    ax1.plot(states, values, color="#1f77b4")
+    ax1.set_ylabel("Value\n(prob. of winning)")
+    ax1.set_ylim(-0.02, 1.02)
+    ax1.set_title(
+        f"S&B (2nd ed.), Example 4.3, Fig. 4.3: Gambler's problem (p_h={p_h})"
+    )
+
+    ax2.bar(states[1:goal], policy[1:goal], color="#444444", width=1.0)
+    ax2.set_xlabel("Capital")
+    ax2.set_ylabel("Final policy\n(stake)")
+    ax2.set_xlim(0, goal)
+    fig.tight_layout()
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+    return fig, (ax1, ax2)
