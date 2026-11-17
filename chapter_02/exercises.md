@@ -10,7 +10,9 @@
 
 - **Repo chapter:** `chapter_02` — Multi-Armed Bandits (Algorithms 2.1–2.5: bandit simulation
   environment, action-value estimation / sample averages, ε-greedy selection, UCB selection, gradient
-  bandit preferences; plus simulations for non-stationary and optimistic-initial-value settings).
+  bandit preferences; plus simulations for non-stationary and optimistic-initial-value settings, and
+  the exploration strategies folded in from the old repository Chapter 11: UCB action selection,
+  optimism in the face of uncertainty, and the descending bonus).
 - **Book chapter:** Chapter 2 — Multi-Armed Bandits.
 - **Book sections covered by the chapter implementation:**
   - Section 2.1 — The k-armed bandit problem.
@@ -185,6 +187,112 @@
 
 ---
 
+## Exploration Strategies and Derived Exercises (book §§2.6–2.7)
+
+> The exploration material that previously lived in the old repository
+> Chapter 11 (Exploration) is folded into this chapter: the repo has no
+> separate book chapter for "exploration", so book Chapter 2 (multi-armed
+> bandits) is the reference implementation home. The derived exercises below
+> cover optimistic initial values (book §2.6), UCB action selection
+> (book §2.7), and the optimism-in-the-face-of-uncertainty family
+> (Exercise 11.1 / descending bonus).
+
+### Derived 1 — Bias of sample-average vs constant-step-size estimators [derived]
+
+- **Book location:** Section 2.6, PDF pages 44–45.
+- **Type:** Math / Theory.
+- **Problem:** Sample-average returns treat the past uniformly; the constant-step-size estimator
+  weights recent rewards more. Show that sample-average estimates are unbiased once every action has
+  been selected at least once, while constant-step-size estimates carry bias that decreases with time.
+- **Solution.** `Q_n(a) = (1/n)·Σ_{i=1}^{n} R_i` is an unbiased estimator of `q*(a)` once
+  `n ≥ 1` under stationary rewards. With constant step size `α` and initial estimate `Q1`, the
+  incremental update `Q_{k+1} = Q_k + α(R_k − Q_k)` unrolls to
+  `Q_{n+1} = (1−α)^n Q1 + Σ_{i=1}^{n} α(1−α)^{n−i} R_i`. The reward weights sum to
+  `Σ_{i=1}^{n} α(1−α)^{n−i} = 1 − (1−α)^n`, so the remaining weight `(1−α)^n` stays on the
+  initial estimate. For stationary rewards with `E[R_i]=q*(a)`,
+  `E[Q_{n+1}] − q*(a) = (1−α)^n (Q1 − q*(a))`: the initial bias decays geometrically as `(1−α)^n`
+  but is nonzero for finite `n` (and never fully “forgets” in the sample-mean sense, since recent
+  rewards are weighted more). This recency weighting is why constant `α` tracks nonstationary
+  problems better than sample averages.
+- **Why this works / takeaway:** sample averages are unbiased in the stationary case; constant-step
+  estimates trade a decaying initial bias for responsiveness to recent changes.
+
+### Derived 2 — Experiment isolating optimistic initialization [derived]
+
+- **Book location:** Section 2.6, PDF page 44.
+- **Type:** Programming / Theory.
+- **Problem:** Design an experiment to separate the effect of optimistic initialization from other
+  exploration mechanisms. Predict which early steps' performance will differ between the optimistic
+  greedy method and an ε-greedy method on the 10-armed testbed.
+- **Why this works / takeaway:** the two mechanisms act at different times — optimism is front-loaded.
+
+### Derived 3 — UCB index from a confidence argument [derived]
+
+- **Book location:** Section 2.7, PDF pages 45–46.
+- **Type:** Math / Proof.
+- **Problem:** Derive the UCB index `Q_t(a) + c·sqrt(ln t / N_t(a))` from a Chernoff/Hoeffding-style
+  confidence bound. Explain why `ln t` (and not `t`) appears and why untried actions are preferred.
+- **Solution.** With bounded rewards in [0,1], Hoeffding's inequality gives
+  `P(|Q̂_t(a) − q*(a)| > ε) ≤ 2·exp(−2N_t(a)ε²)`. Set a per-(action,time) tail budget
+  `δ_t` with `2·exp(−2N_t(a)ε²) = δ_t`, so `ε_t(a) = sqrt(ln(2/δ_t) / (2N_t(a)))`.
+  Choosing a summable schedule (e.g. `δ_t ∝ 1/t²`) yields `ε_t(a) = O(sqrt(ln t / N_t(a)))`,
+  i.e. the UCB bonus `c·sqrt(ln t / N_t(a))`. Because `Σ_t δ_t < ∞`, a union bound over time
+  (and actions) implies the true value stays below `Q̂_t(a)+ε_t(a)` with high probability uniformly
+  often enough that suboptimal actions are pulled only `O(log t)` times. `ln t` (not `t`) is the
+  right scale: it grows slowly enough to keep exploration efficient while still being summable as a
+  failure budget. Untried actions (`N_t(a)=0`) are treated as maximizing to force initial sampling.
+- **Why this works / takeaway:** UCB commits to exploring each action `O(log t)` times, giving
+  near-optimal regret on stationary problems.
+
+### Derived 4 — Every action is explored infinitely often under UCB, but rarely on average [derived]
+
+- **Book location:** Section 2.7, PDF page 46.
+- **Type:** Math / Theory.
+- **Problem:** Show that under the UCB rule every action is selected infinitely often, but the index
+  gap for suboptimal actions grows so that their selection frequency decreases to zero.
+- **Why this works / takeaway:** the `sqrt(ln t / N)` term is unbounded as t → ∞, so any action eventually
+  gets tried; but each pull of a suboptimal action raises its `N`, shrinking the bonus.
+
+### Derived 5 — Optimistic initialization vs UCB: practical trade-offs [derived]
+
+- **Book location:** Sections 2.6–2.7, PDF pages 44–46.
+- **Type:** Theory.
+- **Problem:** Compare optimistic initialization and UCB on (a) stationary vs nonstationary problems,
+  (b) simplicity/intuition, (c) when each fails. Which would you use, and when?
+- **Why this works / takeaway:** optimism helps early exploration; UCB manages exploration provably in
+  stationary settings. Neither is suited, without modification, to nonstationary tasks.
+
+### Derived 6 — Why UCB does not extend trivially to large state spaces / function approximation [derived]
+
+- **Book location:** Section 2.7, PDF page 46.
+- **Type:** Theory / Math.
+- **Problem:** Explain why UCB1 is hard to extend beyond bandits (large state spaces, function
+  approximation). Describe the general principle of optimistic value functions (OFU — optimism in the
+  face of uncertainty) and its common tabular/linear instantiation (LinUCB); give its confidence set.
+- **Why this works / takeaway:** UCB counts samples per (state,action); with function approximation,
+  confidence must be carried by a weight-vector covariance matrix instead (the OFU/LinUCB principle).
+
+### Derived 7 — The "disappointment" dynamic of optimistic initialization [derived]
+
+- **Book location:** Section 2.6, PDF pages 44–45.
+- **Type:** Math / Theory.
+- **Problem:** Quantify how many steps optimistic initialization drives exploration: with `Q1 = +5`
+  and `q*(a) ~ N(0, 1)`, every greedy pick starts above the true value, so the learner switches until
+  rewards reveal lower values; estimate how long this lasts and why.
+- **Why this works / takeaway:** optimism is self-terminating on stationary tasks; the drive for
+  exploration disappears once all estimates drop below the initial optimism.
+
+### Derived 8 — The tie-breaking rule for untried actions [derived]
+
+- **Book location:** Section 2.7, PDF pages 45–46.
+- **Type:** Theory.
+- **Problem:** In the book's UCB rule, actions with `N_t(a) = 0` are considered maximizing actions.
+  Explain why this rule is necessary and what could go wrong without it.
+- **Why this works / takeaway:** untried actions carry no information; mandating their selection
+  removes the `N = 0` division ambiguity and guarantees every action is tried once.
+
+---
+
 ## Coding Exercises Mapped to Repository Code
 
 | Book exercise(s) | Book section | Repo code | Repo tests | Pytest command |
@@ -197,11 +305,14 @@
 | 2.7 | §2.8 | `chapter_02/solution.py` (`select_softmax`, `GradientBanditAgent`) | `TestGradientBandit` | `python -m pytest chapter_02/tests/ -v` |
 | 2.8 | §2.9 | `ContextualBandit`, `simulate_*` | `TestContextualBandit` | `python -m pytest chapter_02/tests/ -v` |
 | 2.9 | §2.9 | `chapter_02/solution.py` (`simulate_nonstationary`) | `TestNonstationary` | `python -m pytest chapter_02/tests/ -v` |
+| Derived 1–2, 7–8 | §2.6 | `chapter_02/solution.py` (`BanditProblem`, `run_optimistic_greedy_bandit`, `run_epsilon_greedy_bandit`) | `TestBanditProblem`, `TestOptimisticInitialValues`, `TestBanditExplorationRunners` | `python -m pytest chapter_02/tests/ -v` |
+| Derived 3–4 | §2.7 | `chapter_02/solution.py` (`ucb_bonus`, `select_ucb`, `run_ucb_bandit`) | `TestUCBBonus`, `TestBanditExplorationRunners` | `python -m pytest chapter_02/tests/ -v` |
+| Derived 5–6 | §2.6–2.7 | `chapter_02/solution.py` (`q_learning_ucb`, `q_learning_optimistic`, `q_learning_descending_bonus`) | `TestQLearningExploration`, `TestDescendingBonus` | `python -m pytest chapter_02/tests/ -v` |
 
 - Full chapter command: `python -m pytest chapter_02/tests/ -v`
 - Lint: `ruff check chapter_02/`
 - No standalone `exercise_*.py` bandit file exists; the chapter implements the bandit machinery in
-  `solution.py` (Algorithms 2.1–2.5).
+  `solution.py` (Algorithms 2.1–2.5, plus the folded exploration strategies).
 
 ---
 
@@ -212,6 +323,8 @@
   cross-check.
 - Programming-exercise answers (2.5, 2.9) describe experiments to run; the underlying code paths are
   mapped to the repository simulations.
+- Derived exploration answers were re-derived from first principles; public solution material used
+  only as a cross-check.
 
 ---
 

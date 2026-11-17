@@ -5,27 +5,42 @@ Reference: Sutton & Barto (2nd Ed), Chapter 2
 Implements: Alg 2.1 (k-armed bandit), Alg 2.2 (action-value est.),
 Alg 2.3 (epsilon-greedy), Alg 2.4 (UCB), Alg 2.5 (gradient bandit),
 Ex 2.3 (non-stationary), Ex 2.4 (optimistic init), Ex 2.5 (UCB unc.),
-Ex 2.6 (contextual bandits).
+Ex 2.6 (contextual bandits), plus the exploration strategies formerly
+hosted in the old repository Chapter 11 (UCB action selection, optimism
+in the face of uncertainty incl. the descending bonus, and their tabular
+Q-learning application on a small MDP).
 """
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
+
+from chapter_03.solution import FiniteMDP
+
+ACTIONS = ("up", "down", "left", "right")
 
 
 class BanditProblem:
     """k-armed bandit problem (Algorithm 2.1). Book Section 2.2.
 
     The environment has k actions, each with true expected reward q*(a).
-    Reward for action a is drawn from N(q*(a), 1).
+    Reward for action a is drawn from N(q*(a), 1). Tracks the number of times
+    each action has been selected (N(a)), as needed by the exploration
+    strategies (UCB, optimistic initialization, descending bonus).
     """
 
     def __init__(self, k: int = 10, seed: int | None = None) -> None:
         self.k = k
         self.rng = np.random.default_rng(seed)
         self.q_star: np.ndarray = self.rng.normal(0.0, 1.0, k)
+        self.counts: np.ndarray = np.zeros(k, dtype=int)
 
     def step(self, action: int) -> float:
+        if not 0 <= action < self.k:
+            raise ValueError("action out of range")
+        self.counts[action] += 1
         return float(self.rng.normal(self.q_star[action], 1.0))
 
     def best_action(self) -> int:
@@ -75,25 +90,65 @@ def select_epsilon_greedy(
     return int(rng.choice(best_actions))
 
 
-def select_ucb(Q: np.ndarray, N: np.ndarray, t: int, c: float) -> int:
-    """Select action using upper-confidence bound (Algorithm 2.4). Book Sec 2.4.
+def ucb_bonus(t: int, count: int, c: float) -> float:
+    """UCB1 exploration bonus (book eq. 2.8).
+
+    bonus = c * sqrt(ln(t) / N), where t counts the selections made so far
+    and N is the number of times the action was selected. If N == 0 the
+    action is untried and its bonus is infinite (book Section 2.7: "If
+    N_t(a) = 0, then a is considered to be a maximizing action").
+
+    Args:
+        t: Current time step (>= 1).
+        count: Visit count N for the action (>= 0).
+        c: Exploration parameter (>= 0).
+
+    Returns:
+        The UCB bonus for the action (infinite for untried actions).
+
+    """
+    if c < 0.0:
+        raise ValueError("c must be non-negative")
+    if t < 1:
+        raise ValueError("t must be >= 1")
+    if count < 0:
+        raise ValueError("count must be non-negative")
+    if count == 0:
+        return math.inf
+    return c * math.sqrt(math.log(t) / count)
+
+
+def select_ucb(
+    Q: np.ndarray, N: np.ndarray, t: int, c: float, rng: np.random.Generator | None = None
+) -> int:
+    """Select action using upper-confidence bound (Algorithm 2.4). Book Sec 2.4 / Eq. 2.8.
+
+    Selects the action maximizing Q(a) + c * sqrt(ln(t) / N(a)); actions with
+    N(a) = 0 are treated as maximizing actions (infinite bonus) and are tried
+    first.
 
     Args:
         Q: Array of action value estimates.
         N: Array of action visit counts.
         t: Current time step (>= 1).
         c: Exploration parameter (> 0).
+        rng: Optional random number generator used to break ties uniformly at
+            random; when None, ties break toward the lowest action index.
 
     Returns:
         Selected action index.
 
     """
-    untried = np.flatnonzero(N == 0)
-    if len(untried) > 0:
-        return int(untried[0])
-    ucb = Q + c * np.sqrt(np.log(t) / N)
-    best_actions = np.flatnonzero(ucb == ucb.max())
-    return int(np.random.default_rng().choice(best_actions))
+    q_values = np.asarray(Q, dtype=np.float64)
+    counts = np.asarray(N, dtype=np.int64)
+    if q_values.shape != counts.shape:
+        raise ValueError("Q and N must have the same shape")
+    bonuses = np.array([ucb_bonus(t, int(n), c) for n in counts], dtype=np.float64)
+    scores = q_values + bonuses
+    best_actions = np.flatnonzero(scores == scores.max())
+    if rng is not None:
+        return int(rng.choice(best_actions))
+    return int(best_actions[0])
 
 
 def select_softmax(preferences: np.ndarray, rng: np.random.Generator | None = None) -> int:
@@ -292,6 +347,504 @@ class ContextualBandit:
             if a != action:
                 self.H[context, a] -= self.alpha * delta * probs[a]
         self.r_bar[context] += self.alpha * (reward - self.r_bar[context])
+
+
+# ---------------------------------------------------------------------------
+# Exploration strategies (formerly repo Chapter 11: Exploration)
+# Sutton & Barto (2nd ed.), Sections 2.6-2.7, Eq. 2.8, Exercise 11.1 (OFU)
+# ---------------------------------------------------------------------------
+
+def descending_bonus(count: int, b0: float = 1.0) -> float:
+    """Optimistic bonus that descends with visit counts (Exercise 11.1).
+
+    b(N) = b0 / (1 + N): maximal (b0) for untried actions, strictly
+    decreasing, and vanishing as the action is tried. Adding it to greedy
+    action selection yields an optimistic greedy-in-the-face-of-uncertainty
+    (OFU) rule whose optimism is temporary, like optimistic initialization,
+    but driven by visit counts rather than initial values.
+
+    Args:
+        count: Visit count N for the action (>= 0).
+        b0: Initial optimism bonus (>= 0).
+
+    Returns:
+        The descending optimistic bonus b(N).
+
+    """
+    if b0 < 0.0:
+        raise ValueError("b0 must be non-negative")
+    if count < 0:
+        raise ValueError("count must be non-negative")
+    return b0 / (1.0 + count)
+
+
+def descending_bonus_select(
+    q_values: np.ndarray,
+    counts: np.ndarray,
+    b0: float = 2.0,
+    rng: np.random.Generator | None = None,
+) -> int:
+    """Greedy action selection with the descending OFU bonus (Exercise 11.1).
+
+    Selects the action maximizing Q(a) + b0 / (1 + N(a)); untried actions get
+    the maximal bonus and are tried first.
+
+    Args:
+        q_values: Array of action value estimates.
+        counts: Array of action visit counts.
+        b0: Initial optimism bonus (>= 0).
+        rng: Optional random number generator used to break ties uniformly at
+            random; when None, ties break toward the lowest action index.
+
+    Returns:
+        Selected action index.
+
+    """
+    q_values = np.asarray(q_values, dtype=np.float64)
+    counts = np.asarray(counts, dtype=np.int64)
+    if q_values.shape != counts.shape:
+        raise ValueError("q_values and counts must have the same shape")
+    bonuses = np.array([descending_bonus(int(n), b0) for n in counts], dtype=np.float64)
+    scores = q_values + bonuses
+    best = np.flatnonzero(scores == scores.max())
+    if rng is not None:
+        return int(rng.choice(best))
+    return int(best[0])
+
+
+def make_small_gridworld(
+    rows: int = 2,
+    cols: int = 4,
+    start: str = "0,0",
+    goal: str | None = None,
+    gamma: float = 0.95,
+    seed: int | None = None,
+) -> FiniteMDP:
+    """Deterministic 2x4 gridworld for the exploration experiments.
+
+    Same layout as the Dyna gridworld: +1 reward on entering the terminal
+    goal, 0 elsewhere, blocked moves keep the agent in place. Built directly
+    on chapter_03's FiniteMDP.
+
+    Args:
+        rows: Number of rows in the grid (>= 1).
+        cols: Number of columns in the grid (>= 1).
+        start: Start state label "r,c".
+        goal: Goal state label "r,c" (defaults to the bottom-right cell).
+        gamma: Discount factor.
+        seed: Optional seed for reproducible sampling.
+
+    Returns:
+        A FiniteMDP instance.
+
+    """
+    states = [f"{r},{c}" for r in range(rows) for c in range(cols)]
+    goal = goal if goal is not None else f"{rows - 1},{cols - 1}"
+    if goal not in states:
+        raise ValueError(f"goal {goal!r} not in grid")
+    deltas = {"up": (-1, 0), "down": (1, 0), "left": (0, -1), "right": (0, 1)}
+
+    def move(state: str, action: str) -> str:
+        r, c = (int(x) for x in state.split(","))
+        dr, dc = deltas[action]
+        nr, nc = r + dr, c + dc
+        if 0 <= nr < rows and 0 <= nc < cols:
+            return f"{nr},{nc}"
+        return state
+
+    transitions: dict = {}
+    for state in states:
+        if state == goal:
+            continue
+        for action in ACTIONS:
+            nxt = move(state, action)
+            reward = 1.0 if nxt == goal else 0.0
+            transitions[(state, action)] = [(1.0, reward, nxt)]
+    return FiniteMDP(states, list(ACTIONS), transitions, gamma=gamma,
+                     terminal_states=[goal], seed=seed)
+
+
+def _q_learning_loop(
+    env: FiniteMDP,
+    select,
+    n_episodes: int,
+    alpha: float,
+    gamma: float,
+    seed: int | None,
+    max_steps: int,
+    start_state: str | None,
+    init_q: float,
+) -> tuple[dict, dict, dict]:
+    if alpha <= 0.0:
+        raise ValueError("alpha must be positive")
+    rng = np.random.default_rng(seed)
+    actions = list(env.actions)
+    terminal_states = set(env.terminal_states)
+    q_table = {(s, a): init_q for s in env.states for a in env.actions}
+    counts = {(s, a): 0 for s in env.states for a in env.actions}
+    stats = {"episode_steps": [], "episode_rewards": [], "time_steps": 0}
+    for _ in range(n_episodes):
+        state = env.reset(start_state) if start_state is not None else env.reset()
+        done = env.done
+        steps = 0
+        episode_reward = 0.0
+        while not done and steps < max_steps:
+            t = stats["time_steps"] + 1
+            q_row = np.array([q_table[(state, a)] for a in actions], dtype=np.float64)
+            n_row = np.array([counts[(state, a)] for a in actions], dtype=np.int64)
+            action_index = select(q_row, n_row, t, rng)
+            action = actions[action_index]
+            reward, next_state, done = env.step(action)
+            counts[(state, action)] += 1
+            next_best = (
+                0.0
+                if next_state in terminal_states
+                else max(q_table[(next_state, a)] for a in actions)
+            )
+            q_table[(state, action)] += alpha * (
+                reward + gamma * next_best - q_table[(state, action)]
+            )
+            stats["time_steps"] += 1
+            state = next_state
+            steps += 1
+            episode_reward += reward
+        stats["episode_steps"].append(steps)
+        stats["episode_rewards"].append(episode_reward)
+    return q_table, counts, stats
+
+
+def q_learning_ucb(
+    env: FiniteMDP,
+    n_episodes: int = 100,
+    alpha: float = 0.1,
+    c: float = 2.0,
+    gamma: float | None = None,
+    seed: int | None = None,
+    max_steps: int = 1000,
+    start_state: str | None = None,
+) -> tuple[dict, dict, dict]:
+    """Q-learning with UCB1 action selection (Algorithm 11.1, book eq. 2.8).
+
+    Optimistic (UCB) action selection replaces epsilon-greedy exploration:
+    at each step, select argmax_a [Q(s, a) + c * sqrt(ln t / N(s, a))] with
+    t the total number of steps taken so far. Untried actions are tried
+    first. Updates are the usual one-step tabular Q-learning backups.
+
+    Args:
+        env: The finite MDP to control.
+        n_episodes: Number of episodes to run.
+        alpha: Learning rate (> 0).
+        c: Exploration parameter (> 0).
+        gamma: Discount factor (defaults to the MDP's gamma).
+        seed: Optional seed for reproducible sampling.
+        max_steps: Maximum steps per episode.
+        start_state: Optional start state (defaults to a random reset).
+
+    Returns:
+        Tuple of (Q table, visit counts, episode statistics).
+
+    """
+    gamma = env.gamma if gamma is None else gamma
+    if not 0.0 <= gamma <= 1.0:
+        raise ValueError("gamma must be in [0, 1]")
+
+    def select(q_row, n_row, t, rng):
+        return select_ucb(q_row, n_row, t, c, rng)
+
+    return _q_learning_loop(env, select, n_episodes, alpha, gamma, seed,
+                            max_steps, start_state, 0.0)
+
+
+def q_learning_optimistic(
+    env: FiniteMDP,
+    n_episodes: int = 100,
+    alpha: float = 0.1,
+    initial_q: float = 5.0,
+    epsilon: float = 0.0,
+    gamma: float | None = None,
+    seed: int | None = None,
+    max_steps: int = 1000,
+    start_state: str | None = None,
+    tie_break: str = "random",
+) -> tuple[dict, dict, dict]:
+    """Q-learning with optimistic initialization (Exercise 11.1; book Sec 2.6).
+
+    Action values are initialized to `initial_q`, far above the rewards
+    available, so the agent is systematically "disappointed" by every action
+    it tries and cycles through the alternatives before settling. With
+    epsilon = 0 this is the greedy method of book Figure 2.3 (there, +5 on
+    the 10-armed testbed). `initial_q = 0` with the same settings gives the
+    zero-initialized baseline. tie_break='first' breaks greedy ties by lowest
+    action index (deterministic), tie_break='random' draws uniformly.
+
+    Args:
+        env: The finite MDP to control.
+        n_episodes: Number of episodes to run.
+        alpha: Learning rate (> 0).
+        initial_q: Optimistic initial action value.
+        epsilon: Exploration probability in [0, 1].
+        gamma: Discount factor (defaults to the MDP's gamma).
+        seed: Optional seed for reproducible sampling.
+        max_steps: Maximum steps per episode.
+        start_state: Optional start state (defaults to a random reset).
+        tie_break: Tie-breaking rule for greedy selection.
+
+    Returns:
+        Tuple of (Q table, visit counts, episode statistics).
+
+    """
+    gamma = env.gamma if gamma is None else gamma
+    if not 0.0 <= gamma <= 1.0:
+        raise ValueError("gamma must be in [0, 1]")
+    if not 0.0 <= epsilon <= 1.0:
+        raise ValueError("epsilon must be in [0, 1]")
+    if tie_break not in ("first", "random"):
+        raise ValueError("tie_break must be 'first' or 'random'")
+
+    def select(q_row, n_row, t, rng):
+        if rng.random() < epsilon:
+            return int(rng.integers(len(q_row)))
+        best = np.flatnonzero(q_row == q_row.max())
+        if tie_break == "first":
+            return int(best[0])
+        return int(rng.choice(best))
+
+    return _q_learning_loop(env, select, n_episodes, alpha, gamma, seed,
+                            max_steps, start_state, initial_q)
+
+
+def q_learning_descending_bonus(
+    env: FiniteMDP,
+    n_episodes: int = 100,
+    alpha: float = 0.1,
+    b0: float = 2.0,
+    gamma: float | None = None,
+    seed: int | None = None,
+    max_steps: int = 1000,
+    start_state: str | None = None,
+) -> tuple[dict, dict, dict]:
+    """Q-learning with a descending optimistic bonus (Exercise 11.1).
+
+    Action selection is argmax_a [Q(s, a) + b0 / (1 + N(s, a))]: greedy in the
+    face of uncertainty, where the optimism bonus descends with visit count
+    N(s, a) and vanishes as actions are tried. Unlike optimistic
+    initialization the bonus is state-action specific and self-terminating.
+
+    Args:
+        env: The finite MDP to control.
+        n_episodes: Number of episodes to run.
+        alpha: Learning rate (> 0).
+        b0: Initial optimism bonus (>= 0).
+        gamma: Discount factor (defaults to the MDP's gamma).
+        seed: Optional seed for reproducible sampling.
+        max_steps: Maximum steps per episode.
+        start_state: Optional start state (defaults to a random reset).
+
+    Returns:
+        Tuple of (Q table, visit counts, episode statistics).
+
+    """
+    gamma = env.gamma if gamma is None else gamma
+    if not 0.0 <= gamma <= 1.0:
+        raise ValueError("gamma must be in [0, 1]")
+
+    def select(q_row, n_row, t, rng):
+        return descending_bonus_select(q_row, n_row, b0, rng)
+
+    return _q_learning_loop(env, select, n_episodes, alpha, gamma, seed,
+                            max_steps, start_state, 0.0)
+
+
+# ---------------------------------------------------------------------------
+# Single-task bandit runners for exploration experiments (Sutton & Barto, 2nd ed.)
+# ---------------------------------------------------------------------------
+
+
+def _bandit_task(
+    k: int,
+    steps: int,
+    select,
+    init_q: float,
+    seed: int | None,
+) -> dict:
+    """Run one bandit task with sample-average Q updates (book eq. 2.1).
+
+    Args:
+        k: Number of actions.
+        steps: Number of selections to make.
+        select: Action-selection function (Q, N, t, rng) -> action.
+        init_q: Initial action value (optimistic init for exploration runs).
+        seed: Optional seed for reproducible sampling.
+
+    Returns:
+        Dict with per-step rewards, optimal-action indicators, visit counts,
+        the true action values and the final action values.
+
+    """
+    if steps <= 0:
+        raise ValueError("steps must be positive")
+    rng = np.random.default_rng(seed)
+    bandit = BanditProblem(k=k, seed=seed)
+    q_values = np.full(k, init_q, dtype=np.float64)
+    rewards = np.zeros(steps, dtype=np.float64)
+    optimal = np.zeros(steps, dtype=bool)
+    for t in range(1, steps + 1):
+        action = select(q_values, bandit.counts, t, rng)
+        reward = bandit.step(action)
+        # Sample average update of Q (book eq. 2.1 incrementally).
+        q_values[action] += (reward - q_values[action]) / bandit.counts[action]
+        rewards[t - 1] = reward
+        optimal[t - 1] = action == bandit.best_action()
+    return {
+        "rewards": rewards.tolist(),
+        "optimal": optimal.tolist(),
+        "counts": bandit.counts.tolist(),
+        "q_star": bandit.q_star.tolist(),
+        "q_values": q_values.tolist(),
+        "optimal_action": bandit.best_action(),
+    }
+
+
+def run_ucb_bandit(
+    steps: int = 1000,
+    c: float = 2.0,
+    init_q: float = 0.0,
+    k: int = 10,
+    seed: int | None = None,
+) -> dict:
+    """Run one UCB agent on a k-armed testbed task (book Section 2.7, Figure 2.4).
+
+    Book Figure 2.4 used UCB with c = 2 against epsilon-greedy with
+    epsilon = 0.1 on the 10-armed testbed. Sample-average action values are
+    kept, following the figure.
+
+    Args:
+        steps: Number of selections to make.
+        c: Exploration parameter (> 0).
+        init_q: Initial action value (0 for the plain bandit runs).
+        k: Number of actions in the testbed.
+        seed: Optional seed for reproducible sampling.
+
+    Returns:
+        Dict with per-step rewards, optimal-action indicators, visit counts,
+        the true action values and the final action values.
+
+    """
+    if steps <= 0:
+        raise ValueError("steps must be positive")
+
+    def select(q_values, counts, t, rng):
+        return select_ucb(q_values, counts, t, c, rng)
+
+    return _bandit_task(k, steps, select, init_q, seed)
+
+
+def run_epsilon_greedy_bandit(
+    steps: int = 1000,
+    epsilon: float = 0.1,
+    init_q: float = 0.0,
+    k: int = 10,
+    seed: int | None = None,
+) -> dict:
+    """Run one epsilon-greedy agent on a k-armed testbed task (book Section 2.3).
+
+    With probability epsilon a uniformly random arm is played; otherwise the
+    greedy arm is played. Sample-average action values, matching the UCB runs
+    for a fair comparison.
+
+    Args:
+        steps: Number of selections to make.
+        epsilon: Exploration probability in [0, 1].
+        init_q: Initial action value (0 for the plain bandit runs).
+        k: Number of actions in the testbed.
+        seed: Optional seed for reproducible sampling.
+
+    Returns:
+        Dict with per-step rewards, optimal-action indicators, visit counts,
+        the true action values and the final action values.
+
+    """
+    if steps <= 0:
+        raise ValueError("steps must be positive")
+    if not 0.0 <= epsilon <= 1.0:
+        raise ValueError("epsilon must be in [0, 1]")
+
+    def select(q_values, counts, t, rng):
+        if rng.random() < epsilon:
+            return int(rng.integers(len(q_values)))
+        best = np.flatnonzero(q_values == q_values.max())
+        return int(rng.choice(best))
+
+    return _bandit_task(k, steps, select, init_q, seed)
+
+
+def run_optimistic_greedy_bandit(
+    steps: int = 1000,
+    init_q: float = 5.0,
+    k: int = 10,
+    seed: int | None = None,
+) -> dict:
+    """Run one greedy agent with optimistic initialization (book Section 2.6).
+
+    Book Section 2.6 / Figure 2.3: all Q(a) initialized to +5 (far above any
+    plausible q*(a) drawn from N(0, 1)) induces greediness to explore; each
+    chosen arm is "disappointing", so the agent switches to untried arms
+    until every arm has been tried several times. Greedy tie-breaking is
+    uniform at random.
+
+    Args:
+        steps: Number of selections to make.
+        init_q: Optimistic initial action value (>= 0).
+        k: Number of actions in the testbed.
+        seed: Optional seed for reproducible sampling.
+
+    Returns:
+        Dict with per-step rewards, optimal-action indicators, visit counts,
+        the true action values and the final action values.
+
+    """
+    if steps <= 0:
+        raise ValueError("steps must be positive")
+
+    def select(q_values, counts, t, rng):
+        best = np.flatnonzero(q_values == q_values.max())
+        return int(rng.choice(best))
+
+    return _bandit_task(k, steps, select, init_q, seed)
+
+
+def run_descending_bonus_bandit(
+    steps: int = 1000,
+    b0: float = 2.0,
+    init_q: float = 0.0,
+    k: int = 10,
+    seed: int | None = None,
+) -> dict:
+    """Run one descending-bonus OFU agent on a k-armed testbed (Exercise 11.1).
+
+    Action selection is greedy with the descending bonus
+    b0 / (1 + N(a)) added to Q(a); the bonus is maximal for untried actions
+    and vanishes as they are tried.
+
+    Args:
+        steps: Number of selections to make.
+        b0: Initial optimism bonus (>= 0).
+        init_q: Initial action value (>= 0).
+        k: Number of actions in the testbed.
+        seed: Optional seed for reproducible sampling.
+
+    Returns:
+        Dict with per-step rewards, optimal-action indicators, visit counts,
+        the true action values and the final action values.
+
+    """
+    if steps <= 0:
+        raise ValueError("steps must be positive")
+
+    def select(q_values, counts, t, rng):
+        return descending_bonus_select(q_values, counts, b0, rng)
+
+    return _bandit_task(k, steps, select, init_q, seed)
 
 
 # ---------------------------------------------------------------------------
@@ -571,19 +1124,31 @@ def plot_figure_2_3(save_path: str | None = None, show: bool = False, runs: int 
 
 
 def plot_figure_2_4(save_path: str | None = None, show: bool = False, runs: int = 500, seed: int = 0):
-    """Fig 2.4: UCB action selection, Sec. 2.7."""
+    """Fig 2.4: UCB action selection vs epsilon-greedy, Sec. 2.7.
+
+    Sutton & Barto (2nd ed.), Sec. 2.7, Fig. 2.4 / Eq. 2.10: UCB action
+    selection (c=2) compared with epsilon-greedy (epsilon=0.1) on the
+    10-armed testbed. Curves show average reward and % optimal action over
+    steps, averaged over independent bandit tasks/runs.
+    """
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     results = run_ucb_experiment(runs=runs, seed=seed)
-    fig, ax = plt.subplots(figsize=(7.5, 4.5))
+    steps = len(next(iter(results.values()))["average_reward"])
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(7.5, 6.5), sharex=True)
+    x = np.arange(1, steps + 1)
     for label, data in results.items():
-        ax.plot(data["average_reward"], label=label)
-    ax.set_xlabel("Steps")
-    ax.set_ylabel("Average reward")
-    ax.set_title("S&B (2nd ed.), Sec. 2.7, Fig. 2.4: UCB action selection")
-    ax.legend()
+        ax1.plot(x, data["average_reward"], label=label)
+        ax2.plot(x, data["optimal_action"], label=label)
+    ax1.set_ylabel("Average reward")
+    ax1.set_title("S&B (2nd ed.), Sec. 2.7, Fig. 2.4: UCB action selection")
+    ax1.legend()
+    ax2.set_xlabel("Steps")
+    ax2.set_ylabel("% Optimal action")
+    ax2.set_ylim(0, 100)
+    ax2.legend()
     fig.tight_layout()
     if save_path is not None:
         fig.savefig(save_path, dpi=150, bbox_inches="tight")
@@ -591,7 +1156,7 @@ def plot_figure_2_4(save_path: str | None = None, show: bool = False, runs: int 
         plt.show()
     else:
         plt.close(fig)
-    return fig, ax
+    return fig, (ax1, ax2)
 
 
 def plot_figure_2_5(save_path: str | None = None, show: bool = False, runs: int = 500, seed: int = 0):

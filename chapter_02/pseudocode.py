@@ -8,17 +8,19 @@ Reference: Sutton & Barto (2nd Ed), Chapter 2
 """
 
 # Book Step Mapping Table
-# | Book Step | Description           | Code Line |
-# |-----------|-----------------------|-----------|
-# | 2.1       | k-armed bandit        | TBD       |
-# | 2.2       | Action-value estim.   | TBD       |
-# | 2.3       | Epsilon-greedy        | TBD       |
-# | 2.4       | Upper-confidence bnd  | TBD       |
-# | 2.5       | Gradient bandit       | TBD       |
-# | Ex 2.3    | Non-stationary        | TBD       |
-# | Ex 2.4    | Optimistic init vals  | TBD       |
-# | Ex 2.5    | UCB uncertainty       | TBD       |
-# | Ex 2.6    | Contextual bandits    | TBD       |
+# | Book Step | Description                        | Code |
+# |-----------|------------------------------------|------|
+# | 2.1       | k-armed bandit problem             | BanditProblem |
+# | 2.2       | Action-value estimation           | ActionValueEstimator |
+# | 2.3       | ε-greedy action selection         | select_epsilon_greedy |
+# | 2.4       | UCB action selection (Alg 2.4)   | ucb_bonus, select_ucb |
+# | 2.5       | Gradient bandit                   | GradientBanditAgent, select_softmax |
+# | Ex 2.3    | Non-stationary bandits           | simulate_nonstationary |
+# | Ex 2.4    | Optimistic init / OFU          | run_optimistic_greedy_bandit, descending_bonus |
+# | Ex 2.5    | UCB with uncertainty          | run_ucb_bandit, q_learning_ucb |
+# | Ex 2.6    | Contextual bandits               | ContextualBandit |
+# | Sec 2.6   | Optimistic init / OFU          | descending_bonus, run_optimistic_greedy_bandit |
+# | Sec 2.7   | UCB / OFU                      | select_ucb, run_ucb_bandit, q_learning_ucb |
 
 
 # ============================================================================

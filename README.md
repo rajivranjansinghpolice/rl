@@ -20,7 +20,7 @@ Each `chapter_XX/` directory is a self-contained Python package with its own tes
 | `chapter_08/` | Eligibility traces (hosts **Book Chapter 12** material in this repository's numbering) |
 | `chapter_09/` | Planning and learning with tabular methods (hosts **Book Chapter 8** material in this repository's numbering) |
 | `chapter_10/` | On-policy control with approximation |
-| `chapter_11/` | Exploration strategies (derived exercises/notes; see `chapter_11/README.md`) |
+| `chapter_11/` | Reserved for book Chapter 11 (off-policy methods with approximation); the former exploration content now lives in `chapter_02/` (bandits) |
 | `chapter_12/` | Case studies / applications (derived exercises/notes; see `chapter_12/README.md`) |
 | `chapter_13/` | Policy gradient methods |
 | `chapter_14/` | Psychology (derived exercises/notes; see `chapter_14/README.md`) |
