@@ -18,6 +18,9 @@ Each `chapter_XX/` directory is a self-contained Python package with its own tes
 | `chapter_06/` | Temporal-difference learning (Book Ch. 6) |
 | `chapter_07/` | n-step bootstrapping (Book Ch. 7) |
 | `chapter_08/` | Planning and learning with tabular methods (**Book Chapter 8** — moved from old `chapter_09/`) |
+| `chapter_09/` | On-policy prediction with approximation (Book Ch. 9) |
+| `chapter_10/` | On-policy control with approximation (Book Ch. 10) |
+| `chapter_11/` | Off-policy methods with approximation (Book Ch. 11) |
 | `chapter_12/` | Eligibility traces (**Book Chapter 12** — merged old `chapter_08/` (traces) + old `chapter_10/` (Q(λ) Watkins)) |
 | `chapter_13/` | Policy gradient methods (Book Ch. 13) |
 | `chapter_14/` | Psychology (Book Ch. 14) |
@@ -25,7 +28,7 @@ Each `chapter_XX/` directory is a self-contained Python package with its own tes
 | `chapter_16/` | Applications and case studies (**Book Chapter 16** — merged old `chapter_16/` + old `chapter_12/` case studies) |
 | `chapter_17/` | Frontiers (Book Ch. 17) |
 
-> **Note:** Book Chapters 9, 10, and 11 (on-policy prediction/control with approximation; off-policy methods with approximation) are not yet scaffolded as dedicated directories; they will occupy `chapter_09/`, `chapter_10/`, and `chapter_11/` once implemented.
+> **Note:** Book Chapters 10 and 11 are not yet scaffolded as dedicated directories; they will occupy `chapter_10/` and `chapter_11/` once implemented.
 
 ## Chapter renumbering provenance
 
