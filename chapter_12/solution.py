@@ -906,3 +906,94 @@ def play_game(player_x: MCTSPlayer | RandomPlayer | GreedyPlayer,
         move = mover.select_move(state)
         state = TicTacToe.apply_move(state, move)
     return TicTacToe.winner(state)
+
+
+# ---------------------------------------------------------------------------
+# Figure reproduction (Sutton & Barto, 2nd ed., Ch. 16.1 / repo Ch. 12)
+# ---------------------------------------------------------------------------
+
+def plot_td_gammon_learning(
+    save_path: str | None = None,
+    show: bool = False,
+    n_games: int = 400,
+    eval_every: int = 50,
+    eval_games: int = 80,
+    alpha: float = 0.05,
+    lam: float = 0.7,
+    epsilon: float = 0.05,
+    seed: int = 0,
+):
+    """TD-Gammon-like self-play learning curve on PipRace (Sec. 16.1 demo).
+
+    Sutton & Barto (2nd ed.), Sec. 16.1 (TD-Gammon): self-play temporal-
+    difference learning with a function approximator learns strong play from
+    sparse terminal rewards. This demo trains the linear PipRace value function
+    (documented backgammon approximation in this repo) by semi-gradient TD(lambda)
+    self-play and periodically evaluates greedy play vs a random opponent
+    (`evaluate_match`). PipRace, features, and scale are simplified relative to
+    TD-Gammon/backgammon; the plot illustrates learning progress, not book-level
+    performance.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    rng = np.random.default_rng(seed)
+    weights = rng.normal(0.0, 0.01, N_FEATURES)
+    eval_points = []
+    scores = []
+
+    def maybe_eval(games_done: int):
+        if games_done % eval_every == 0 or games_done == n_games:
+            agent = TDGammonAgent(weights.copy())
+            score = evaluate_match(agent, n_games=eval_games, seed=seed + games_done + 1)
+            eval_points.append(games_done)
+            scores.append(score)
+
+    for g in range(1, n_games + 1):
+        env = PipRaceEnv(seed=int(rng.integers(0, 2**31 - 1)))
+        state = env.reset()
+        eligibility = np.zeros(N_FEATURES, dtype=np.float64)
+        while not PipRaceEnv.is_over(state, env.turn_count):
+            player = state[2]
+            dice = env.roll_dice()
+            plays = PipRaceEnv.legal_dice_plays(state, player, dice)
+            if rng.random() < epsilon:
+                play = plays[int(rng.integers(0, len(plays)))]
+            else:
+                scored = [linear_value(weights, pip_race_features(p)) for p in plays]
+                index = int(np.argmax(scored)) if player == WHITE else int(np.argmin(scored))
+                play = plays[index]
+            features = pip_race_features(state)
+            v_state = linear_value(weights, features)
+            next_turns = env.turn_count + 1
+            if PipRaceEnv.is_over(play, next_turns):
+                reward = PipRaceEnv.outcome(play, next_turns)
+                v_next = 0.0
+            else:
+                reward = 0.0
+                v_next = linear_value(weights, pip_race_features(play))
+            delta = reward + 1.0 * v_next - v_state
+            weights, eligibility = semi_gradient_td_lambda_update(
+                weights, eligibility, features, delta, alpha, 1.0, lam
+            )
+            state = env.play_turn(dice, play)
+        maybe_eval(g)
+
+    fig, ax = plt.subplots(figsize=(7.5, 4.5))
+    ax.plot(eval_points, scores, marker="o")
+    ax.axhline(0.5, color="#999999", linestyle="--", linewidth=1, label="Random baseline")
+    ax.set_xlabel("Self-play training games")
+    ax.set_ylabel("Score vs random (wins + 0.5*draws)")
+    ax.set_ylim(0, 1)
+    ax.set_title("S&B (2nd ed.), Sec. 16.1 (TD-Gammon-like): PipRace self-play")
+    ax.legend()
+    fig.tight_layout()
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+    return fig, ax
