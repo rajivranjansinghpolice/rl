@@ -41,15 +41,15 @@ the sections themselves and are labeled **[derived]**.
 
 - **Book location:** Section 14.2, PDF page 303 (classical conditioning).
 - **Type:** Math / Theory.
-- **Problem (paraphrased):** Derive the Rescorla–Wagner update `ΔV_i = α_i β(λ − Σ_j V_j)` for
+- **Problem (paraphrased):** Derive the Rescorla–Wagner update \(ΔV_i = \alpha _i \beta (\lambda - \sum _j V_j)\) for
   stimulus `i`; use it to predict Kamin's blocking experiment: (a) Phase 1: CS_A alone paired with the
   US until fully conditioned; (b) Phase 2: compound CS_A + CS_B paired with the same US. Show
   `V(CS_B)` remains near 0.
 - **Solution.** For a compound trial with present cues `x_i ∈ {0,1}`, the associative strength update is
-  `V_i ← V_i + α_i β (λ − V_AX)` where `V_AX = Σ_j x_j V_j` and `λ` is the US asymptote (e.g. 1).
-  **Phase 1 (A→US):** only A present, so `V_A ← V_A + α_A β(λ − V_A)` and `V_A → λ`; `V_B = 0`.
-  **Phase 2 (AX→US):** `V_AX = V_A + V_B ≈ λ + 0`, hence the prediction error
-  `δ = λ − V_AX ≈ 0` and `ΔV_B = α_B β δ ≈ 0`. Because A already fully predicts the US, no error
+  \(V_i \leftarrow V_i + \alpha _i \beta (\lambda - V_AX)\) where \(V_AX = \sum _j x_j V_j\) and \(\lambda\) is the US asymptote (e.g. 1).
+  **Phase 1 (A→US):** only A present, so \(V_A \leftarrow V_A + \alpha _A \beta (\lambda - V_A)\) and \(V_A \to \lambda\); `V_B = 0`.
+  **Phase 2 (AX→US):** \(V_AX = V_A + V_B \approx \lambda + 0\), hence the prediction error
+  \(\delta = \lambda - V_AX \approx 0\) and \(ΔV_B = \alpha _B \beta \delta \approx 0\). Because A already fully predicts the US, no error
   remains to drive learning for B — the **blocking** effect.
 - **Why this works / takeaway:** prediction errors drive learning; a fully predictive cue blocks
   association to redundant cues.
@@ -61,12 +61,12 @@ the sections themselves and are labeled **[derived]**.
 - **Problem (paraphrased):** Write the TD(0) update for a conditioning trial and show that (a) a
   presence trial (CS followed by US) increases `V(CS)`, (b) an extinction trial decreases `V(CS)`
   toward 0, and (c) conditioning reaches a nonzero fixed point when the US is reliably predicted.
-- **Solution.** The TD prediction error is `δ_t = R_{t+1} + γ V(S_{t+1}) − V(S_t)` with update
-  `V(S_t) ← V(S_t) + α δ_t`. (a) **Presence trial:** at the CS state preceding the US, `R_{t+1}>0`
-  (or `V(S_{t+1})` reflects the upcoming US) so `δ_t > 0` initially and `V(CS)` increases.
-  (b) **Extinction:** with no US, `R_{t+1}=0` and the bootstrapped target falls, so `δ_t < 0` when
-  `V(CS)` overpredicts, driving `V(CS) → 0`. (c) **Fixed point:** `E[δ_t | S_t]=0` implies
-  `V(S_t)=E[R_{t+1}+γ V(S_{t+1})]`; for a reliably predicted US this yields `V(CS)>0` (the CS
+- **Solution.** The TD prediction error is \(\delta _t = R_{t+1} + \gamma V(S_{t+1}) - V(S_t)\) with update
+  \(V(S_t) \leftarrow V(S_t) + \alpha \delta _t\). (a) **Presence trial:** at the CS state preceding the US, `R_{t+1}>0`
+  (or `V(S_{t+1})` reflects the upcoming US) so \(\delta _t > 0\) initially and `V(CS)` increases.
+  (b) **Extinction:** with no US, `R_{t+1}=0` and the bootstrapped target falls, so \(\delta _t < 0\) when
+  `V(CS)` overpredicts, driving \(V(CS) \to 0\). (c) **Fixed point:** \(E[\delta _t | S_t]=0\) implies
+  \(V(S_t)=E[R_{t+1}+\gamma V(S_{t+1})]\); for a reliably predicted US this yields `V(CS)>0` (the CS
   acquires predictive value equal to the discounted/expected outcome).
 - **Why this works / takeaway:** TD’s bootstrapped error explains acquisition, extinction, and
   second-order conditioning as consequences of one update rule.
@@ -92,14 +92,14 @@ the sections themselves and are labeled **[derived]**.
 - **Book location:** Section 14.4, PDF page 319.
 - **Type:** Math / Theory.
 - **Problem (paraphrased):** Derive how eligibility traces bridge the delay between an action/state and
-  a later outcome; explain the role of `λ`.
+  a later outcome; explain the role of \(\lambda\).
 - **Solution.** With linear value approximation `\hat v(s,w)=w^T x(s)`, accumulating eligibility traces
-  evolve as `e_t = γλ e_{t-1} + x(S_t)` (or `∇_w \hat v(S_t,w)` in general), and the TD(λ) weight
-  update is `w ← w + α δ_t e_t`, where `δ_t = R_{t+1} + γ \hat v(S_{t+1}) − \hat v(S_t)`. When a
+  evolve as \(e_t = \gamma \lambda e_{t-1} + x(S_t)\) (or `∇_w \hat v(S_t,w)` in general), and the TD(λ) weight
+  update is \(w \leftarrow w + \alpha \delta _t e_t\), where `δ_t = R_{t+1} + γ \hat v(S_{t+1}) − \hat v(S_t)`. When a
   delayed reward arrives at time `t+k`, `e_{t+k}` still contains a decayed trace
-  `(γλ)^k x(S_t)` of earlier states, so credit is assigned backward across the delay. Larger `λ`
+  \((\gamma \lambda )^k x(S_t)\) of earlier states, so credit is assigned backward across the delay. Larger \(\lambda\)
   (closer to 1) keeps traces alive longer, bridging longer delays but with higher variance; smaller
-  `λ` emphasizes recent, bootstrapped credit.
+  \(\lambda\) emphasizes recent, bootstrapped credit.
 - **Why this works / takeaway:** decaying eligibility traces propagate TD errors to temporally distant
   causes of reward.
 

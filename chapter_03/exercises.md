@@ -17,9 +17,9 @@
   - Section 3.5 — Bellman Equations (expectation and optimality; backups and exact solve).
 - **Key book equations referenced by the exercises:**
   - Eq. (3.2) — `p(s', r | s, a) = Pr{St+1 = s', Rt+1 = r | St = s, At = a}`.
-  - Eq. (3.3) — `Vπ(s) = Σ_a π(a|s) Σ_{s',r} p(s', r | s, a) [r + γ Vπ(s')]`.
-  - Eqs. (3.8)–(3.10) — discounted return `Gt = Σ_{k=0}^∞ γ^k Rt+k+1`; episodic return;
-    constant-reward return `G = R / (1 − γ)`.
+  - Eq. (3.3) — \(V\pi (s) = \sum _a \pi (a|s) \sum _{s',r} p(s', r | s, a) [r + \gamma V\pi (s')]\).
+  - Eqs. (3.8)–(3.10) — discounted return \(Gt = \sum _{k=0}^\infty \gamma ^k Rt+k+1\); episodic return;
+    constant-reward return \(G = R / (1 - \gamma )\).
   - Eq. (3.14) — Bellman expectation/optimality equations.
   - Eqs. (3.16)–(3.17) — backup diagrams rooted at a state / action.
 - **PDF page references (Barto_Sutton_Book.pdf, pypdf extraction):** the chapter opens at
@@ -110,11 +110,11 @@
 - **Book location:** Section 3.2 (equation 3.2), PDF page 59.
 - **Type:** Computation.
 - **Problem:** If the current state is `St` and actions are selected according to a stochastic
-  policy `π`, what is the expectation of `Rt+1` in terms of the four-argument function
+  policy \(\pi\), what is the expectation of `Rt+1` in terms of the four-argument function
   `p(s', r | s, a)`?
 - **Solution.** By the law of total expectation over the transition triples:
-  `E[Rt+1 | St = s, At = a] = Σ_{s', r} p(s', r | s, a) · r`.
-  For the recycling robot: `E[R | high, search] = α·r_search + (1 − α)·r_search = r_search`
+  \(E[Rt+1 | St = s, At = a] = \sum _{s', r} p(s', r | s, a) \cdot r\).
+  For the recycling robot: \(E[R | high, search] = \alpha \cdot r_search + (1 - \alpha )\cdot r_search = r_search\)
   (expected reward while searching is just the expected cans collected times unit reward).
 - **Why this works / takeaway:** this is the one-step "expected immediate reward" used by all
   tabular value functions and backups.
@@ -125,9 +125,9 @@
 - **Type:** Computation.
 - **Problem:** Give a table analogous to Table 3.1, but for `p(s', r | s, a)`, with columns for
   `s, a, s', r, p(s', r | s, a)`, and a row for every combination with `p > 0`.
-- **Solution.** Recycling robot table (states `high`/`low`, actions as per book; `α` = P(stay high
-  after searching from high, `β` = P(stay low after searching from low, rescue probability
-  `1 − β`):
+- **Solution.** Recycling robot table (states `high`/`low`, actions as per book; \(\alpha\) = P(stay high
+  after searching from high, \(\beta\) = P(stay low after searching from low, rescue probability
+  \(1 - \beta\)):
 
   | s        | a        | s'   | p(s', r \| s, a) | r       |
   |----------|----------|------|--------------------|---------|
@@ -153,10 +153,10 @@
 - **Problem:** The equations in Section 3.1 (agent–environment interface) and Section 3.3 (returns)
   are written for the continuing case and need slight modification to apply to episodic tasks. Give
   the modified version of (3.3).
-- **Solution.** Continuing: `Vπ(s) = Σ_a π(a|s) Σ_{s',r} p(s', r | s, a) [r + γ Vπ(s')]`.
+- **Solution.** Continuing: \(V\pi (s) = \sum _a \pi (a|s) \sum _{s',r} p(s', r | s, a) [r + \gamma V\pi (s')]\).
   Episodic: with finite episode length `T` and `G_T = 0`:
-  `G_t = R_{t+1} + γ G_{t+1}`, `G_t = Σ_{k=0}^{T−t−1} γ^k R_{t+k+1}`, and
-  `Vπ(s) = Σ_a π(a|s) Σ_{s',r} p(s', r | s, a) [r + γ Vπ(s')]` with terminal states valued `0`.
+  \(G_t = R_{t+1} + \gamma G_{t+1}\), \(G_t = \sum _{k=0}^{T-t-1} \gamma ^k R_{t+k+1}\), and
+  \(V\pi (s) = \sum _a \pi (a|s) \sum _{s',r} p(s', r | s, a) [r + \gamma V\pi (s')]\) with terminal states valued `0`.
 - **Why this works / takeaway:** the same Bellman backup, with terminal-state handling.
 
 ### Exercise 3.7 — Pole-balancing: episodic return with discounting
@@ -164,11 +164,11 @@
 - **Book location:** Section 3.3 (equations 3.7–3.10), PDF page 62.
 - **Type:** Computation.
 - **Problem:** Treat pole-balancing episodically but also use discounting; all rewards zero except
-  `−1` upon failure. What is the return at each time, and how does it differ from the discounted,
+  \(-1\) upon failure. What is the return at each time, and how does it differ from the discounted,
   continuing formulation?
-- **Solution.** Episodic: `G_t = Σ_{k=0}^{T−t−1} γ^k R_{t+k+1}`; continuing discounted:
-  `G_t = Σ_{k=0}^∞ γ^k R_{t+k+1}`. Since the only nonzero reward is `−1` at the failure step, both
-  give `G_t = −γ^m` where `m` is the number of steps from time `t` until the failure occurs (the `−1`
+- **Solution.** Episodic: \(G_t = \sum _{k=0}^{T-t-1} \gamma ^k R_{t+k+1}\); continuing discounted:
+  \(G_t = \sum _{k=0}^\infty \gamma ^k R_{t+k+1}\). Since the only nonzero reward is \(-1\) at the failure step, both
+  give \(G_t = -\gamma ^m\) where `m` is the number of steps from time `t` until the failure occurs (the \(-1\)
   reward lands at that offset) — they agree; the difference is the horizon handling (`G_T = 0` for
   episodic vs. infinite sum for continuing).
 - **Why this works / takeaway:** discounting and termination are orthogonal; the episodic return is
@@ -191,15 +191,15 @@
 
 - **Book location:** Section 3.3 (equations 3.8–3.10), PDF page 63.
 - **Type:** Computation.
-- **Problem:** With `γ = 0.5`, rewards `R1 = 1, R2 = 2, R3 = 6, R4 = 3, R5 = 2`, `T = 5`, find
+- **Problem:** With \(\gamma = 0.5\), rewards `R1 = 1, R2 = 2, R3 = 6, R4 = 3, R5 = 2`, `T = 5`, find
   `G0, G1, …, G5`. Hint: work backwards.
 - **Solution.** Backward recursion with `G_T = 0`:
   - `G5 = 0`
-  - `G4 = R5 + γ·G5 = 2`
-  - `G3 = R4 + γ·G4 = 3 + 0.5·2 = 4`
-  - `G2 = R3 + γ·G3 = 6 + 0.5·4 = 8`
-  - `G1 = R2 + γ·G2 = 2 + 0.5·8 = 6`
-  - `G0 = R1 + γ·G1 = 1 + 0.5·6 = 4`
+  - \(G4 = R5 + \gamma \cdot G5 = 2\)
+  - \(G3 = R4 + \gamma \cdot G4 = 3 + 0.5\cdot 2 = 4\)
+  - \(G2 = R3 + \gamma \cdot G3 = 6 + 0.5\cdot 4 = 8\)
+  - \(G1 = R2 + \gamma \cdot G2 = 2 + 0.5\cdot 8 = 6\)
+  - \(G0 = R1 + \gamma \cdot G1 = 1 + 0.5\cdot 6 = 4\)
   Answer: `G = [4, 6, 8, 4, 2, 0]` for `t = 0…5`.
 - **Coding pointer:** `chapter_03/solution.py` → `compute_return`, `compute_returns_to_go`;
   tests `TestComputeReturn`.
@@ -209,18 +209,18 @@
 
 - **Book location:** Section 3.3 (equation 3.10), PDF page 63.
 - **Type:** Computation.
-- **Problem:** With `γ = 0.9` and reward sequence `R1 = 2` followed by an infinite sequence of `7`s,
+- **Problem:** With \(\gamma = 0.9\) and reward sequence `R1 = 2` followed by an infinite sequence of `7`s,
   find `G1` and `G0`.
-- **Solution.** Infinite geometric series: `Gk = Σ_{k'=0}^∞ γ^{k'} · 7 = 7 / (1 − 0.9) = 70`.
-  Then `G0 = R1 + γ·G1 = 2 + 0.9·70 = 64`.
+- **Solution.** Infinite geometric series: \(Gk = \sum _{k'=0}^\infty \gamma ^{k'} \cdot 7 = 7 / (1 - 0.9) = 70\).
+  Then \(G0 = R1 + \gamma \cdot G1 = 2 + 0.9\cdot 70 = 64\).
 
 ### Exercise 3.11 — Proving the constant-reward return
 
 - **Book location:** Section 3.3 (equation 3.10), PDF page 63.
 - **Type:** Proof.
-- **Problem:** Prove equation (3.10): `G = R / (1 − γ)`.
-- **Solution.** For constant reward `R`: `G = Σ_{k=0}^∞ γ^k · R = R · Σ_{k=0}^∞ γ^k = R / (1 − γ)`
-  (geometric series, valid for `0 ≤ γ < 1`).
+- **Problem:** Prove equation (3.10): \(G = R / (1 - \gamma )\).
+- **Solution.** For constant reward `R`: \(G = \sum _{k=0}^\infty \gamma ^k \cdot R = R \cdot \sum _{k=0}^\infty \gamma ^k = R / (1 - \gamma )\)
+  (geometric series, valid for \(0 \le \gamma < 1\)).
 
 ### Exercise 3.12 — Bellman equation check on the gridworld
 
@@ -229,9 +229,9 @@
 - **Problem:** Show numerically that the Bellman equation holds for the center state of the
   gridworld (Example 3.6), valued at `+0.7`, with respect to its four neighbouring states (values
   `+2.3, +0.4, −0.4, +0.7).
-- **Solution.** Bellman expectation backup: `v'(s) = Σ_a π(a|s) Σ_{s',r} p(s', r | s, a) [r + γ v(s')]`.
+- **Solution.** Bellman expectation backup: \(v'(s) = \sum _a \pi (a|s) \sum _{s',r} p(s', r | s, a) [r + \gamma v(s')]\).
   Worked numerical check at the center state `s0` (value `+0.7`) under the equiprobable policy over the
-  four neighbouring moves (`γ = 0.9`):
+  four neighbouring moves (\(\gamma = 0.9\)):
   `v'(s0) = Σ_a (1/4)·[r_a + 0.9·v(s'_a)] = (1/4)·Σ_a r_a + 0.9·(1/4)·Σ_a v(s'_a)
        = (1/4)·Σ_a r_a + 0.9·(1/4)·(2.3 + 0.4 − 0.4 + 0.7)
        = (1/4)·Σ_a r_a + 0.9·0.75
@@ -245,18 +245,18 @@
 
 - **Book location:** Section 3.5 (equations 3.14–3.17), PDF page 66.
 - **Type:** Math.
-- **Problem:** What is the Bellman equation for action values `qπ(s, a)`? Give the sequence of
+- **Problem:** What is the Bellman equation for action values \(q\pi (s, a)\)? Give the sequence of
   equations analogous to (3.14) but for action values.
-- **Solution.** `qπ(s, a) = Σ_{s', r} p(s', r | s, a) [r + γ Vπ(s')]`
-  `= Σ_{s', r} p(s', r | s, a) [r + γ Σ_{a'} π(a' | s') qπ(s', a')]`.
+- **Solution.** \(q\pi (s, a) = \sum _{s', r} p(s', r | s, a) [r + \gamma V\pi (s')]\)
+  \(= \sum _{s', r} p(s', r | s, a) [r + \gamma \sum _{a'} \pi (a' | s') q\pi (s', a')]\).
 
 ### Exercise 3.14 — Value shift from a constant reward addition
 
 - **Book location:** Section 3.5, PDF page 66.
 - **Type:** Math.
 - **Problem:** Adding a constant `c` to all rewards adds a constant `v_c` to all state values; what
-  is `v_c` in terms of `c` and `γ`?
-- **Solution.** For continuing tasks: `v_c = c / (1 − γ)`. Optimal relative values are unchanged.
+  is `v_c` in terms of `c` and \(\gamma\)?
+- **Solution.** For continuing tasks: \(v_c = c / (1 - \gamma )\). Optimal relative values are unchanged.
 
 ### Exercise 3.15 — Constant reward shift in an episodic task
 
@@ -264,25 +264,25 @@
 - **Type:** Math.
 - **Problem:** In an episodic task (e.g., maze running), would adding a constant `c` to all rewards
   have any effect, or leave the task unchanged?
-- **Solution.** Episodic returns shift by `c · (1 − γ^T) / (1 − γ)` per episode; the optimal policy
+- **Solution.** Episodic returns shift by \(c \cdot (1 - \gamma ^T) / (1 - \gamma )\) per episode; the optimal policy
   is unaffected (only the return level changes).
 
 ### Exercise 3.16 — State backup via the stochastic policy
 
 - **Book location:** Section 3.5 (backup diagrams), PDF page 66.
 - **Type:** Math.
-- **Problem:** Give the Bellman equation for `vπ(s)` in terms of the actions available in `s` and
-  the probabilities `π(a|s)`.
-- **Solution.** `vπ(s) = Σ_a π(a|s) Σ_{s', r} p(s', r | s, a) [r + γ vπ(s')]`.
+- **Problem:** Give the Bellman equation for \(v\pi (s)\) in terms of the actions available in `s` and
+  the probabilities \(\pi (a|s)\).
+- **Solution.** \(v\pi (s) = \sum _a \pi (a|s) \sum _{s', r} p(s', r | s, a) [r + \gamma v\pi (s')]\).
 
-### Exercise 3.17 — Action backup for `qπ(s, a)`
+### Exercise 3.17 — Action backup for \(q\pi (s, a)\)
 
 - **Book location:** Section 3.5 (backup diagrams), PDF page 66.
 - **Type:** Math.
-- **Problem:** Give the equation for the action value `qπ(s, a)` in terms of the expected next reward
+- **Problem:** Give the equation for the action value \(q\pi (s, a)\) in terms of the expected next reward
   and expected next state value, with an explicit (non-expected-value) formulation.
-- **Solution.** (i) `qπ(s, a) = Σ_{s', r} p(s', r | s, a) [r + γ vπ(s')]`.
-  (ii) Expanded without expectation notation: `qπ(s, a) = Σ_{s', r} p(s', r | s, a) r + γ Σ_{s'} p(s' | s, a) vπ(s')`.
+- **Solution.** (i) \(q\pi (s, a) = \sum _{s', r} p(s', r | s, a) [r + \gamma v\pi (s')]\).
+  (ii) Expanded without expectation notation: \(q\pi (s, a) = \sum _{s', r} p(s', r | s, a) r + \gamma \sum _{s'} p(s' | s, a) v\pi (s')\).
 
 ### Exercise 3.18 — Optimal state-value function (golf)
 
@@ -291,7 +291,7 @@
 - **Problem:** Draw or describe the optimal state-value function for the golf example.
 - **Solution.** Under the optimal policy, `v*(s) = max_a q*(s, a)`; the optimal state-value function
   therefore assigns each state its best achievable expected return, and the optimal golfer puts with
-  the aim that maximises the expected return (equivalently, with the action maximising `q*(s, ·)` for
+  the aim that maximises the expected return (equivalently, with the action maximising \(q*(s, \cdot )\) for
   the current state).
 
 ### Exercise 3.19 — Optimal action-value contours for putting (golf)
@@ -309,7 +309,7 @@
 - **Book location:** Section 3.6, PDF page ~70.
 - **Type:** Math.
 - **Problem:** Give the Bellman equation for `q*` for the recycling robot.
-- **Solution.** `q*(s, a) = Σ_{s', r} p(s', r | s, a) [r + γ v*(s')]`, with `v*(s) = max_{a'} q*(s, a')`.
+- **Solution.** \(q*(s, a) = \sum _{s', r} p(s', r | s, a) [r + \gamma v*(s')]\), with `v*(s) = max_{a'} q*(s, a')`.
 
 ### Exercise 3.21 — Optimal gridworld value (24.4)
 
@@ -317,8 +317,8 @@
 - **Type:** Computation.
 - **Problem:** Figure 3.6 gives the optimal value of the best state of the gridworld as `24.4` (one
   decimal). Express this symbolically via (3.8), then compute to three decimals.
-- **Solution.** Symbolic: `v*(s) = max_a q*(s, a) = max_a Σ_{s', r} p(s', r | s, a) [r + γ v*(s')]`.
-  Numeric: expressing the optimal return via the geometric-series form `v*(s) = Σ_{k=0}^∞ γ^k E[R_k]`
+- **Solution.** Symbolic: \(v*(s) = max_a q*(s, a) = max_a \sum _{s', r} p(s', r | s, a) [r + \gamma v*(s')]\).
+  Numeric: expressing the optimal return via the geometric-series form \(v*(s) = \sum _{k=0}^\infty \gamma ^k E[R_k]\)
   and evaluating under the optimal policy gives `24.4` — `24.400` to three decimal places.
 
 ### Exercise 3.22 — Continuing MDP with two actions
@@ -328,7 +328,7 @@
 - **Problem:** Continuing MDP with only one decision point (top state), actions `left` and `right`,
   deterministic rewards.
 - **Solution.** Choose the action whose successor yields the higher expected value: greedy action
-  selection `A* = argmax_a Σ_{s', r} p(s', r | s, a) [r + γ v*(s')]`.
+  selection \(A* = argmax_a \sum _{s', r} p(s', r | s, a) [r + \gamma v*(s')]\).
 
 ### Exercise 3.23 — `v*` in terms of `q*`
 
@@ -342,21 +342,21 @@
 - **Book location:** Section 3.6, PDF pages ~72–76.
 - **Type:** Math.
 - **Problem:** Give an equation for `q*` in terms of `v*` and the world's dynamics `p(s', r | s, a)`.
-- **Solution.** `q*(s, a) = Σ_{s', r} p(s', r | s, a) [r + γ v*(s')]`.
+- **Solution.** \(q*(s, a) = \sum _{s', r} p(s', r | s, a) [r + \gamma v*(s')]\).
 
-### Exercise 3.25 — `π*` in terms of `q*`
-
-- **Book location:** Section 3.6, PDF pages ~72–76.
-- **Type:** Math.
-- **Problem:** Give an equation for `π*` in terms of `q*`.
-- **Solution.** `π*(s) = argmax_a q*(s, a)`.
-
-### Exercise 3.26 — `π*` in terms of `v*` and the dynamics
+### Exercise 3.25 — \(\pi *\) in terms of `q*`
 
 - **Book location:** Section 3.6, PDF pages ~72–76.
 - **Type:** Math.
-- **Problem:** Give an equation for `π*` in terms of `v*` and the world's dynamics `p(s', r | s, a)`.
-- **Solution.** `π*(s) = argmax_a Σ_{s', r} p(s', r | s, a) [r + γ v*(s')]`.
+- **Problem:** Give an equation for \(\pi *\) in terms of `q*`.
+- **Solution.** \(\pi *(s) = argmax_a q*(s, a)\).
+
+### Exercise 3.26 — \(\pi *\) in terms of `v*` and the dynamics
+
+- **Book location:** Section 3.6, PDF pages ~72–76.
+- **Type:** Math.
+- **Problem:** Give an equation for \(\pi *\) in terms of `v*` and the world's dynamics `p(s', r | s, a)`.
+- **Solution.** \(\pi *(s) = argmax_a \sum _{s', r} p(s', r | s, a) [r + \gamma v*(s')]\).
 
 ---
 

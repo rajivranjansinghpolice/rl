@@ -46,10 +46,10 @@ the applied case studies and the application-relevant sections, labeled **[deriv
 - **Problem (paraphrased):** Formulate the repo’s inventory control problem as a finite MDP: give state,
   action, reward, write the Bellman optimality equation, and justify tabular vs function approximation.
 - **Solution.** **State:** inventory level `s ∈ {0,…,s_max}` at period start. **Action:** order-up-to
-  level `a ∈ {0,…,s_max}` (order `max(0,a−s)` units). **Dynamics:** demand `D ~ Poisson(λ)`; leftover
-  `L=max(0, s+o−D)`, unmet `U=max(0, D−(s+o))`, next state `s'=min(L,s_max)`. **Reward:**
-  `R = −(c_o·o + h·L + p_u·U)`. **Bellman optimality:**
-  `Q*(s,a)=E[R + γ max_{a'} Q*(s',a') | s,a]`, `V*(s)=max_a Q*(s,a)`.
+  level `a ∈ {0,…,s_max}` (order \(max(0,a-s)\) units). **Dynamics:** demand \(D ~ Poisson(\lambda )\); leftover
+  \(L=max(0, s+o-D)\), unmet \(U=max(0, D-(s+o))\), next state `s'=min(L,s_max)`. **Reward:**
+  \(R = -(c_o\cdot o + h\cdot L + p_u\cdot U)\). **Bellman optimality:**
+  \(Q*(s,a)=E[R + \gamma max_{a'} Q*(s',a') | s,a]\), `V*(s)=max_a Q*(s,a)`.
   **Representation:** with small discrete `s_max` the problem is tabular (exact DP/TD feasible); large
   catalogs or continuous inventory would motivate function approximation.
 - **Why this works / takeaway:** a clear (S,A,R,P,γ) formulation enables DP/RL methods.
@@ -64,7 +64,7 @@ the applied case studies and the application-relevant sections, labeled **[deriv
   holding and shortage costs), and dynamic programming preserves convexity of the cost-to-go. This yields
   a **base-stock / order-up-to** structure: there exists `S*` with optimal action `a*(s)=max(s,S*)`
   (order up to `S*` when below, otherwise order nothing). In the finite-horizon/discounted Bellman
-  equation, `V_t(s)=max_a E[-c_o(a-s)^+ - h(L) - p(U) + γ V_{t+1}(s')]`, the minimizer in inventory
+  equation, \(V_t(s)=max_a E[-c_o(a-s)^+ - h(L) - p(U) + \gamma V_{t+1}(s')]\), the minimizer in inventory
   position is state-independent under these conditions. **Empirical check in this repo:** train/evaluate
   `sarsa_inventory` and inspect/evaluate the greedy policy via `evaluate_inventory_policy` (a full
   policy-iteration routine is not implemented in the repo API).
@@ -78,11 +78,11 @@ the applied case studies and the application-relevant sections, labeled **[deriv
   write its Bellman equation, and explain when expediting becomes preferable as congestion grows.
 - **Solution.** **State:** queue length `q ∈ {0,…,q_max}` (customers in system). **Actions:**
   `a=0` normal service, `a=1` expedited service. **Dynamics:** if `q>0`, a completion occurs with
-  probability `p(a)` (`p_expedited ≥ p_normal`) at service cost `c(a)` (`c_expedited ≥ c_normal`);
-  arrivals `A ~ Poisson(λ_arr)`; `q' = min(q_max, max(0,q−served)+A)`. **Reward:**
-  `R = −(h·q + c(a,q))` (waiting cost plus service cost). **Bellman optimality:**
-  `Q*(q,a)=E[R + γ max_{a'} Q*(q',a') | q,a]`.
-  As `q` grows, holding/waiting cost `h·q` dominates, so the marginal value of faster service
+  probability `p(a)` (\(p_expedited \ge p_normal\)) at service cost `c(a)` (\(c_expedited \ge c_normal\));
+  arrivals \(A ~ Poisson(\lambda _arr)\); \(q' = min(q_max, max(0,q-served)+A)\). **Reward:**
+  \(R = -(h\cdot q + c(a,q))\) (waiting cost plus service cost). **Bellman optimality:**
+  \(Q*(q,a)=E[R + \gamma max_{a'} Q*(q',a') | q,a]\).
+  As `q` grows, holding/waiting cost \(h\cdot q\) dominates, so the marginal value of faster service
   increases; this typically induces a **threshold-like** policy (expedite when `q` is high enough),
   depending on cost/probability parameters.
 - **Why this works / takeaway:** control actions trade immediate service cost against congestion cost.
@@ -125,7 +125,7 @@ the applied case studies and the application-relevant sections, labeled **[deriv
 - **Solution.** Optimizing `E[G]` can hide tail risk: two policies with equal mean return may differ in
   catastrophic failures (stockouts, crashes). Risk-sensitive objectives include variance penalties,
   worst-case/robust criteria, and **Conditional Value at Risk (CVaR)**:
-  `CVaR_α(X)=E[X | X ≤ VaR_α(X)]` for losses/returns in the worst `α` tail (definitions vary by sign
+  \(CVaR_\alpha (X)=E[X | X \le VaR_\alpha (X)]\) for losses/returns in the worst \(\alpha\) tail (definitions vary by sign
   convention), which explicitly optimizes tail performance. In inventory control, CVaR-like criteria
   penalize severe stockouts more than mean-cost optimization; in thermal soaring, they penalize rare
   land-out events. Such metrics require estimating tail distributions, not just expectations.

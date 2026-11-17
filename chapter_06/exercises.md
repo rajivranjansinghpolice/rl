@@ -20,13 +20,13 @@
   (Exercises 6.9–6.10), explicit afterstates, and Double Expected Sarsa (Exercise 6.12). Those
   exercises are answered conceptually below with coding pointers only where a close analogue exists.
 - **Key book equations (plausible citations, S&B 2nd ed.):**
-  - Eq. (6.1) — constant-α Monte Carlo: `V(S_t) ← V(S_t) + α [G_t − V(S_t)]`.
-  - Eq. (6.2) — TD(0): `V(S_t) ← V(S_t) + α [R_{t+1} + γ V(S_{t+1}) − V(S_t)]`.
-  - Eq. (6.5) — TD error: `δ_t = R_{t+1} + γ V(S_{t+1}) − V(S_t)`.
-  - Eq. (6.6) — MC error as sum of TD errors (fixed `V`): `G_t − V(S_t) = Σ_{k=t}^{T-1} γ^{k-t} δ_k`.
-  - Eq. (6.7) — Sarsa: `Q(S_t,A_t) ← Q(S_t,A_t) + α [R_{t+1} + γ Q(S_{t+1},A_{t+1}) − Q(S_t,A_t)]`.
-  - Eq. (6.8) — Q-learning: `Q(S_t,A_t) ← Q(S_t,A_t) + α [R_{t+1} + γ max_a Q(S_{t+1},a) − Q(S_t,A_t)]`.
-  - Eq. (5.3) / §6.7 — per-step importance-sampling ratio `ρ_{t:t} = π(A_t|S_t) / b(A_t|S_t)`.
+  - Eq. (6.1) — constant-α Monte Carlo: \(V(S_t) \leftarrow V(S_t) + \alpha [G_t - V(S_t)]\).
+  - Eq. (6.2) — TD(0): \(V(S_t) \leftarrow V(S_t) + \alpha [R_{t+1} + \gamma V(S_{t+1}) - V(S_t)]\).
+  - Eq. (6.5) — TD error: \(\delta _t = R_{t+1} + \gamma V(S_{t+1}) - V(S_t)\).
+  - Eq. (6.6) — MC error as sum of TD errors (fixed `V`): \(G_t - V(S_t) = \sum _{k=t}^{T-1} \gamma ^{k-t} \delta _k\).
+  - Eq. (6.7) — Sarsa: \(Q(S_t,A_t) \leftarrow Q(S_t,A_t) + \alpha [R_{t+1} + \gamma Q(S_{t+1},A_{t+1}) - Q(S_t,A_t)]\).
+  - Eq. (6.8) — Q-learning: \(Q(S_t,A_t) \leftarrow Q(S_t,A_t) + \alpha [R_{t+1} + \gamma max_a Q(S_{t+1},a) - Q(S_t,A_t)]\).
+  - Eq. (5.3) / §6.7 — per-step importance-sampling ratio \(\rho _{t:t} = \pi (A_t|S_t) / b(A_t|S_t)\).
 - **Plausible PDF/page anchors (for orientation only):** §6.1–6.3 ~pp. 99–107, §6.4–6.5 ~pp. 107–112,
   §6.7 ~pp. 113–116, exercises ~pp. 117–130 in common printings of the 2nd edition draft.
 
@@ -56,17 +56,17 @@
 - **Book location:** §6.1 (TD prediction), Eq. (6.5), Eq. (6.6), ~p. 117.
 - **Type:** Math / Proof.
 - **Problem (paraphrase):** Eq. (6.6) shows that, when the value estimates are held fixed during an
-  episode, the Monte Carlo error `G_t − V(S_t)` equals the discounted sum of TD errors. If `V`
+  episode, the Monte Carlo error \(G_t - V(S_t)\) equals the discounted sum of TD errors. If `V`
   changes during the episode (as in online TD), this identity holds only approximately. Let `V_t`
   denote the value array used at time `t`. Derive the exact difference and state what must be added
   to the sum of TD errors to recover the Monte Carlo error.
-- **Solution.** Assume terminal `V_T = 0` and write `δ_t^t = R_{t+1} + γ V_t(S_{t+1}) − V_t(S_t)`
+- **Solution.** Assume terminal `V_T = 0` and write \(\delta _t^t = R_{t+1} + \gamma V_t(S_{t+1}) - V_t(S_t)\)
   for the TD error computed with the values available at time `t`. Expand the discounted sum:
-  `Σ_{k=t}^{T-1} γ^{k-t} δ_k^t = (R_{t+1}+γR_{t+2}+⋯) + Σ_{k=t+1}^{T-1} γ^{k-t} V_k(S_k) − Σ_{k=t}^{T-1} γ^{k-t} V_k(S_k) = G_t − V_t(S_t) + Σ_{k=t+1}^{T-1} γ^{k-t} (V_k(S_k) − V_{k-1}(S_k))`.
+  \(\sum _{k=t}^{T-1} \gamma ^{k-t} \delta _k^t = (R_{t+1}+\gamma R_{t+2}+⋯) + \sum _{k=t+1}^{T-1} \gamma ^{k-t} V_k(S_k) - \sum _{k=t}^{T-1} \gamma ^{k-t} V_k(S_k) = G_t - V_t(S_t) + \sum _{k=t+1}^{T-1} \gamma ^{k-t} (V_k(S_k) - V_{k-1}(S_k))\).
   Therefore the exact identity is
-  `G_t − V_t(S_t) = Σ_{k=t}^{T-1} γ^{k-t} δ_k^t − Σ_{k=t+1}^{T-1} γ^{k-t} (V_k(S_k) − V_{k-1}(S_k))`.
+  \(G_t - V_t(S_t) = \sum _{k=t}^{T-1} \gamma ^{k-t} \delta _k^t - \sum _{k=t+1}^{T-1} \gamma ^{k-t} (V_k(S_k) - V_{k-1}(S_k))\).
   The additional amount that must be **added** to the sum of TD errors to equal the Monte Carlo
-  error is the correction term `− Σ_{k=t+1}^{T-1} γ^{k-t} (V_k(S_k) − V_{k-1}(S_k))`, i.e. minus
+  error is the correction term \(- \sum _{k=t+1}^{T-1} \gamma ^{k-t} (V_k(S_k) - V_{k-1}(S_k))\), i.e. minus
   the discounted accumulation of in-episode value changes. If `V` is fixed during the episode
   (`V_k = V_{k-1}`), this term vanishes and Eq. (6.6) is recovered exactly.
 - **Why this matters:** Online TD bootstraps from values that may already have been updated within
@@ -85,12 +85,12 @@
   predict total time remaining, but today traffic becomes unusually bad midway. A TD update can revise
   the estimate at the next state/time step immediately using the newly observed delay plus the
   predicted remainder, so later decisions along the same trip improve right away. A constant-α MC
-  update `V ← V + α(G_t − V)` (Eq. 6.1) must wait until you arrive home to observe `G_t`, so it cannot
+  update \(V \leftarrow V + \alpha (G_t - V)\) (Eq. 6.1) must wait until you arrive home to observe `G_t`, so it cannot
   correct the prediction mid-episode. TD is also preferable in continuing (non-episodic) tasks or very
   long episodes where waiting for a full return is impractical or high-variance.
 - **Why this matters:** TD learns from incomplete sequences by bootstrapping; MC requires complete
   returns.
-- **Coding pointer:** `td0_prediction` (online TD target `R+γV(S')`) vs.
+- **Coding pointer:** `td0_prediction` (online TD target \(R+\gamma V(S')\)) vs.
   `mc_prediction_incremental` (first-visit, sample-average return target `G_t`) in
   `chapter_06/solution.py`. See `TestTDPrediction` and `TestExercise61`.
 
@@ -103,14 +103,14 @@
   updated, and by how much?
 - **Solution.** In Example 6.2 all nonterminal estimates start at `V(s)=0.5`, the walk starts at `C`,
   and rewards are `0` except `+1` on entering the right terminal. With TD(0) (Eq. 6.2,
-  `γ=1`), `V(S_t) ← V(S_t) + α [R_{t+1} + V(S_{t+1}) − V(S_t)]`. For any nonterminal transition
+  \(\gamma =1\)), \(V(S_t) \leftarrow V(S_t) + \alpha [R_{t+1} + V(S_{t+1}) - V(S_t)]\). For any nonterminal transition
   with `R_{t+1}=0`, the target is `V(S_{t+1})=0.5`, so the TD error is `0` and no update occurs.
   The only time a nonzero error occurs on that episode is when transitioning from `A` to the left
-  terminal: reward `0`, terminal value `0`, so `δ = 0 + 0 − V(A) = −0.5` and
-  `V(A) ← V(A) + α (−0.5) = 0.5 − 0.5α`. Therefore the first episode visited `A` and then terminated
+  terminal: reward `0`, terminal value `0`, so \(\delta = 0 + 0 - V(A) = -0.5\) and
+  \(V(A) \leftarrow V(A) + \alpha (-0.5) = 0.5 - 0.5\alpha\). Therefore the first episode visited `A` and then terminated
   on the left (e.g. a path reaching `A` and stepping left). Only `A` changed because every earlier
   transition was to a nonterminal state whose value equaled `V(A)`’s initial value; the magnitude of
-  the change was `0.5α` downward.
+  the change was \(0.5\alpha\) downward.
 - **Why this matters:** Early TD learning propagates information only where a sampled transition’s
   target differs from the current estimate.
 - **Coding pointer:** `td0_prediction`, `RandomWalkEnv`, `random_walk_true_values` in
@@ -149,7 +149,7 @@
 - **Problem (paraphrase):** In the right graph, TD’s RMS error can decrease and then increase again
   for high α. What causes this? Does it happen for any choice of step size?
 - **Solution.** With a large constant step size, TD(0) takes aggressive updates
-  `V ← V + α (R + γV' − V)`. Early on, updates move estimates quickly toward the targets implied by
+  \(V \leftarrow V + \alpha (R + \gamma V' - V)\). Early on, updates move estimates quickly toward the targets implied by
   sampled transitions, so RMS error often drops. Later, the same large α causes persistent overshoot
   and oscillation around the correct values (and, in the extreme, can prevent convergence or even
   diverge), so error rises again instead of settling near zero. This is **not** inevitable for all α:
@@ -169,13 +169,13 @@
   `1/6, 2/6, 3/6, 4/6, 5/6` (i.e. the probability of terminating on the right from each state under
   the equiprobable policy). Describe at least two ways to compute these values. Which is most direct?
 - **Solution.** Let `v(A)..v(E)` be values of nonterminal states; terminals have values `v(L)=0`,
-  `v(R)=1`, `γ=1`, reward `1` only on entering `R`. For the uniform random policy
-  `π(left|s)=π(right|s)=1/2`:
+  `v(R)=1`, \(\gamma =1\), reward `1` only on entering `R`. For the uniform random policy
+  \(\pi (left|s)=\pi (right|s)=1/2\):
   **Method 1 (Bellman expectation equations / linear system):**
-  `v(A)=½·0 + ½·v(B)`, `v(B)=½·v(A)+½·v(C)`, `v(C)=½·v(B)+½·v(D)`, `v(D)=½·v(C)+½·v(E)`,
-  `v(E)=½·v(D)+½·1`. Solving gives `v = (1/6, 2/6, 3/6, 4/6, 5/6)`.
+  \(v(A)=½\cdot 0 + ½\cdot v(B)\), \(v(B)=½\cdot v(A)+½\cdot v(C)\), \(v(C)=½\cdot v(B)+½\cdot v(D)\), \(v(D)=½\cdot v(C)+½\cdot v(E)\),
+  \(v(E)=½\cdot v(D)+½\cdot 1\). Solving gives `v = (1/6, 2/6, 3/6, 4/6, 5/6)`.
   **Method 2 (iterative policy evaluation / DP):** start from any initial guess and repeatedly apply
-  the Bellman expectation operator `v_{k+1}(s)=Σ_a π(a|s) Σ_{s',r} p(s',r|s,a)[r + γ v_k(s')]` until
+  the Bellman expectation operator \(v_{k+1}(s)=\sum _a \pi (a|s) \sum _{s',r} p(s',r|s,a)[r + \gamma v_k(s')]\) until
   convergence (Eq. 4.5 / §4.1), which converges to the same fixed point for this finite episodic MRP.
   The **most direct** method here is the small linear system (Method 1), since it yields the exact
   closed-form values in one solve; the book’s stated values match this result.
@@ -189,15 +189,15 @@
 
 - **Book location:** §6.7 (off-policy TD via importance sampling), ~p. 123.
 - **Type:** Math / Programming.
-- **Problem (paraphrase):** Devise an off-policy version of the TD(0) update for estimating `v_π`
-  from data generated by a behavior policy `b` (with `b(a|s)>0` whenever `π(a|s)>0`), using the
+- **Problem (paraphrase):** Devise an off-policy version of the TD(0) update for estimating \(v_\pi\)
+  from data generated by a behavior policy `b` (with `b(a|s)>0` whenever \(\pi (a|s)>0\)), using the
   per-step importance-sampling ratio (Eq. 5.3).
 - **Solution.** For state-value TD(0), the sampled action is chosen by `b`, so the per-step
-  importance-sampling ratio is `ρ_t = ρ_{t:t} = π(A_t|S_t) / b(A_t|S_t)`. The off-policy TD(0)
+  importance-sampling ratio is \(\rho _t = \rho _{t:t} = \pi (A_t|S_t) / b(A_t|S_t)\). The off-policy TD(0)
   update (ordinary importance sampling form) is
-  `V(S_t) ← V(S_t) + α · ρ_t · [R_{t+1} + γ V(S_{t+1}) − V(S_t)]`,
+  \(V(S_t) \leftarrow V(S_t) + \alpha \cdot \rho _t \cdot [R_{t+1} + \gamma V(S_{t+1}) - V(S_t)]\),
   with `V(terminal)=0` (Eq. 6.2 combined with §6.7 importance sampling). This corrects the update for
-  the fact that transitions were generated under `b` rather than `π`: actions likelier under `π` than
+  the fact that transitions were generated under `b` rather than \(\pi\): actions likelier under \(\pi\) than
   `b` receive larger weight, and vice versa. (Related off-policy control, e.g. Q-learning Eq. 6.8,
   avoids explicit ρ for the greedy target by bootstrapping from `max_a Q(S_{t+1},a)`.)
 - **Why this matters:** Importance sampling enables learning about a target policy from different
@@ -213,19 +213,19 @@
 - **Type:** Math / Proof.
 - **Problem (paraphrase):** Show that when action-value estimates `Q` are held fixed during an
   episode, the Monte Carlo action-value error equals the discounted sum of action-value TD errors
-  `δ_t = R_{t+1} + γ Q(S_{t+1},A_{t+1}) − Q(S_t,A_t)`.
-- **Solution.** With fixed `Q` and `Q(terminal,·)=0`, define
-  `δ_t = R_{t+1} + γ Q(S_{t+1},A_{t+1}) − Q(S_t,A_t)` and let `G_t = Σ_{k=t}^{T-1} γ^{k-t} R_{k+1}`.
+  \(\delta _t = R_{t+1} + \gamma Q(S_{t+1},A_{t+1}) - Q(S_t,A_t)\).
+- **Solution.** With fixed `Q` and \(Q(terminal,\cdot )=0\), define
+  \(\delta _t = R_{t+1} + \gamma Q(S_{t+1},A_{t+1}) - Q(S_t,A_t)\) and let \(G_t = \sum _{k=t}^{T-1} \gamma ^{k-t} R_{k+1}\).
   Then
-  `Σ_{k=t}^{T-1} γ^{k-t} δ_k = Σ_{k=t}^{T-1} γ^{k-t} R_{k+1} + Σ_{k=t}^{T-1} γ^{k-t+1} Q(S_{k+1},A_{k+1}) − Σ_{k=t}^{T-1} γ^{k-t} Q(S_k,A_k)`.
-  The last two sums telescope to `−Q(S_t,A_t)`, hence
-  `G_t − Q(S_t,A_t) = Σ_{k=t}^{T-1} γ^{k-t} δ_k`,
+  \(\sum _{k=t}^{T-1} \gamma ^{k-t} \delta _k = \sum _{k=t}^{T-1} \gamma ^{k-t} R_{k+1} + \sum _{k=t}^{T-1} \gamma ^{k-t+1} Q(S_{k+1},A_{k+1}) - \sum _{k=t}^{T-1} \gamma ^{k-t} Q(S_k,A_k)\).
+  The last two sums telescope to \(-Q(S_t,A_t)\), hence
+  \(G_t - Q(S_t,A_t) = \sum _{k=t}^{T-1} \gamma ^{k-t} \delta _k\),
   the action-value analogue of Eq. (6.6). If `Q` changes within the episode, a correction term
   analogous to Exercise 6.1 appears.
 - **Why this matters:** The return–TD-error relationship generalizes from `V` to `Q`, underpinning
   Sarsa and related methods.
 - **Coding pointer:** `sarsa` in `chapter_06/solution.py` uses the action-value TD error/target
-  `R_{t+1} + γ Q(S_{t+1},A_{t+1})` (Eq. 6.7). Covered by `TestSarsa`
+  \(R_{t+1} + \gamma Q(S_{t+1},A_{t+1})\) (Eq. 6.7). Covered by `TestSarsa`
   (`test_policy_sums_to_one`, `test_q_keys_cover_all_pairs`, `test_learns_right_preference`).
 
 ### Exercise 6.9 — Windy gridworld with king’s moves
@@ -259,7 +259,7 @@
   still chooses king’s moves as in Exercise 6.9.
 - **Solution.** Stochastic wind makes transitions random even for a fixed action, so value estimates
   must average over possible wind outcomes. Sarsa’s expected update
-  `Q(s,a) ← Q(s,a) + α [r + γ Q(s',a') − Q(s,a)]` remains valid because it is a sample-based backup;
+  \(Q(s,a) \leftarrow Q(s,a) + \alpha [r + \gamma Q(s',a') - Q(s,a)]\) remains valid because it is a sample-based backup;
   learning will be noisier and typically slower, and optimal paths/step counts may differ (the agent
   must account for variability rather than a deterministic push). An empirical solution consists of
   implementing the stochastic-wind transition, running Sarsa with exploration (e.g. ε-greedy) for many
@@ -275,7 +275,7 @@
 - **Type:** Theory.
 - **Problem (paraphrase):** Explain why Q-learning is considered an off-policy control method.
 - **Solution.** Q-learning’s update is
-  `Q(S_t,A_t) ← Q(S_t,A_t) + α [R_{t+1} + γ max_a Q(S_{t+1},a) − Q(S_t,A_t)]` (Eq. 6.8). The
+  \(Q(S_t,A_t) \leftarrow Q(S_t,A_t) + \alpha [R_{t+1} + \gamma max_a Q(S_{t+1},a) - Q(S_t,A_t)]\) (Eq. 6.8). The
   bootstrapped target uses the **greedy** action at `S_{t+1}` (`max_a Q`), which corresponds to
   learning about a greedy target policy, regardless of which action `A_{t+1}` the agent actually takes
   next. Meanwhile the data can be generated by any sufficiently exploratory behavior policy (e.g.
@@ -300,9 +300,9 @@
   and reduce maximization bias). For an ε-greedy target policy derived from the other estimate, let
   `A* = argmax_a Q_other(S_{t+1}, a)` (breaking ties arbitrarily/consistently) and define the
   expected target under ε-greedy:
-  `E_{a~π_other}[Q_other(S_{t+1},a)] = (1-ε) Q_other(S_{t+1}, A*) + (ε/|A|) Σ_a Q_other(S_{t+1}, a)`.
+  \(E_{a~\pi _other}[Q_other(S_{t+1},a)] = (1-\epsilon ) Q_other(S_{t+1}, A*) + (\epsilon /|A|) \sum _a Q_other(S_{t+1}, a)\).
   The corresponding Double Expected Sarsa update (e.g. updating `Q_1`) is
-  `Q_1(S_t,A_t) ← Q_1(S_t,A_t) + α [R_{t+1} + γ ((1-ε) Q_2(S_{t+1}, argmax_a Q_2(S_{t+1},a)) + (ε/|A|) Σ_a Q_2(S_{t+1},a)) − Q_1(S_t,A_t)]`,
+  \(Q_1(S_t,A_t) \leftarrow Q_1(S_t,A_t) + \alpha [R_{t+1} + \gamma ((1-\epsilon ) Q_2(S_{t+1}, argmax_a Q_2(S_{t+1},a)) + (\epsilon /|A|) \sum _a Q_2(S_{t+1},a)) - Q_1(S_t,A_t)]\),
   and symmetrically when updating `Q_2` (swap `Q_1/Q_2` in the target). Behavior can be, for example,
   ε-greedy with respect to `Q_1+Q_2`.
 - **Why this matters:** Double learning reduces maximization bias; the expected (over target-policy

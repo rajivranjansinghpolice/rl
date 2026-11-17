@@ -17,8 +17,8 @@
 - **Key chapter concepts:** agent, environment, state, action, reward, return `G_t`, expected value
   `V(s) = E[G | S]`.
 - **Return / value equations:** the chapter introduces the discounted return
-  `G_t = Σ_{k=0}^∞ γ^k R_{t+k+1}` and the expected value `vπ(s) = E[G | S = s, π]` under a policy
-  `π`, with optimal values `v*(s)`.
+  \(G_t = \sum _{k=0}^\infty \gamma ^k R_{t+k+1}\) and the expected value \(v\pi (s) = E[G | S = s, \pi ]\) under a policy
+  \(\pi\), with optimal values `v*(s)`.
 - **PDF page references (Barto_Sutton_Book.pdf, pypdf extraction):** the chapter opens around
   PDF page 19; the gridworld material and the exercises (1.1–1.5) were extracted from PDF page 28.
 
@@ -110,7 +110,7 @@
      values `v*(s) = E[G | S = s]`.
   2. **Learning only from moves actually taken:** updates follow realised trajectories, so the
      converged estimates approach the values of the exploratory behaviour policy,
-     `vπ(s) = E[G | S = s, π]`.
+     \(v\pi (s) = E[G | S = s, \pi ]\).
   With continued exploration, the **optimal** estimate set (case 1) is the better one; it is the one
   that leads to better behaviour and, ultimately, more wins, since the agent can act greedily from
   optimal values.

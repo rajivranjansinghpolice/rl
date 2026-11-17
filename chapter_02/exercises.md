@@ -23,10 +23,10 @@
   - Section 2.6 — Optimistic initial values; Section 2.7 — Upper-confidence-bound action selection;
     Section 2.8 — Gradient bandit algorithms; Section 2.9 — Associative search / contextual bandits.
 - **Key book equations referenced by the exercises:**
-  - Eq. (2.1) — sample average: `Q_t(a) = (Σ_{i=1}^{t} R_i · I_i(a)) / (Σ_{i=1}^{t} I_i(a))` with
+  - Eq. (2.1) — sample average: \(Q_t(a) = (\sum _{i=1}^{t} R_i \cdot I_i(a)) / (\sum _{i=1}^{t} I_i(a))\) with
     `I_i(a) = 1/n` for the sample-average case.
   - Eq. (2.2) — greedy: `A_t = argmax_a Q_t(a)`.
-  - Eq. (2.8) — UCB1: `A_t = argmax_a [Q_t(a) + c·√(ln(t) / N_t(a))]`.
+  - Eq. (2.8) — UCB1: \(A_t = argmax_a [Q_t(a) + c\cdot \sqrt (ln(t) / N_t(a))]\).
   - Eq. (2.10) — gradient bandit preference updates.
 - **PDF page references (Barto_Sutton_Book.pdf, pypdf extraction):** Chapter 2 content spans
   roughly PDF pages 30–52; the exercises were extracted from PDF pages 39, 41, 44, 45, 47, 50, and 52.
@@ -65,10 +65,10 @@
 - **Type:** Computation.
 - **Problem:** In ε-greedy action selection, for the case of two actions and ε = 0.5, what is the
   probability that the greedy action is selected?
-- **Solution.** With `k = 2` actions: with probability `1 − ε` the greedy action is selected; with
-  probability `ε` an action is drawn uniformly at random from all `k` actions, so the random choice is
+- **Solution.** With `k = 2` actions: with probability \(1 - \epsilon\) the greedy action is selected; with
+  probability \(\epsilon\) an action is drawn uniformly at random from all `k` actions, so the random choice is
   the greedy action with probability `1/k`. Hence
-  `P(greedy) = (1 − ε)·1 + ε·(1/k) = 1 − ε + ε/k = 1 − 0.5 + 0.25 = 0.75`.
+  \(P(greedy) = (1 - \epsilon )\cdot 1 + \epsilon \cdot (1/k) = 1 - \epsilon + \epsilon /k = 1 - 0.5 + 0.25 = 0.75\).
 - **Why this works / takeaway:** ε-greedy explores rarely when ε is small and mostly exploits when ε
   is large.
 
@@ -118,10 +118,10 @@
   average of previously received rewards with a weighting different from that given by Eq. (2.1). What
   is the weighting on each prior reward for the general case, analogous to Eq. (2.1)?
 - **Solution.** With a constant step size `I_n = I`, the incremental recursion is
-  `Q_n ← (1 − I)·Q_{n−1} + I·R_n`, whose solution gives the geometric weighting
-  `Q_n = Σ_{i=1}^{n} (1 − I)^{n−i} · I · R_i` — each reward `R_i` is weighted by
-  `(1 − I)^{n−i}·I`.
-  The sample-average estimator corresponds to step size `I_i = δ / N_i` (δ = 1 here), which yields
+  \(Q_n \leftarrow (1 - I)\cdot Q_{n-1} + I\cdot R_n\), whose solution gives the geometric weighting
+  \(Q_n = \sum _{i=1}^{n} (1 - I)^{n-i} \cdot I \cdot R_i\) — each reward `R_i` is weighted by
+  \((1 - I)^{n-i}\cdot I\).
+  The sample-average estimator corresponds to step size \(I_i = \delta / N_i\) (δ = 1 here), which yields
   equal weights `1/n`. In the general case, the weighting on each prior reward is determined by the
   sequence of step sizes `I_i`.
 - **Why this works / takeaway:** step-size sequences control both the weighting and (via the second
@@ -157,7 +157,7 @@
 - **Type:** Math / Proof.
 - **Problem:** Show that in the case of two actions, the softmax distribution is the same as the
   logistic/sigmoid function used in statistics and neural networks.
-- **Solution.** `p(a1) = e^{H(a1)} / (e^{H(a1)} + e^{H(a2)}) = σ(H(a1) − H(a2))`, where `σ(x) = 1/(1+e^{-x})`.
+- **Solution.** \(p(a1) = e^{H(a1)} / (e^{H(a1)} + e^{H(a2)}) = \sigma (H(a1) - H(a2))\), where \(\sigma (x) = 1/(1+e^{-x})\).
 - **Why this works / takeaway:** softmax with two actions reduces exactly to the sigmoid.
 
 ### Exercise 2.8 — Associative search / contextual bandits
@@ -204,15 +204,15 @@
 - **Problem:** Sample-average returns treat the past uniformly; the constant-step-size estimator
   weights recent rewards more. Show that sample-average estimates are unbiased once every action has
   been selected at least once, while constant-step-size estimates carry bias that decreases with time.
-- **Solution.** `Q_n(a) = (1/n)·Σ_{i=1}^{n} R_i` is an unbiased estimator of `q*(a)` once
-  `n ≥ 1` under stationary rewards. With constant step size `α` and initial estimate `Q1`, the
-  incremental update `Q_{k+1} = Q_k + α(R_k − Q_k)` unrolls to
-  `Q_{n+1} = (1−α)^n Q1 + Σ_{i=1}^{n} α(1−α)^{n−i} R_i`. The reward weights sum to
-  `Σ_{i=1}^{n} α(1−α)^{n−i} = 1 − (1−α)^n`, so the remaining weight `(1−α)^n` stays on the
+- **Solution.** \(Q_n(a) = (1/n)\cdot \sum _{i=1}^{n} R_i\) is an unbiased estimator of `q*(a)` once
+  \(n \ge 1\) under stationary rewards. With constant step size \(\alpha\) and initial estimate `Q1`, the
+  incremental update \(Q_{k+1} = Q_k + \alpha (R_k - Q_k)\) unrolls to
+  \(Q_{n+1} = (1-\alpha )^n Q1 + \sum _{i=1}^{n} \alpha (1-\alpha )^{n-i} R_i\). The reward weights sum to
+  \(\sum _{i=1}^{n} \alpha (1-\alpha )^{n-i} = 1 - (1-\alpha )^n\), so the remaining weight \((1-\alpha )^n\) stays on the
   initial estimate. For stationary rewards with `E[R_i]=q*(a)`,
-  `E[Q_{n+1}] − q*(a) = (1−α)^n (Q1 − q*(a))`: the initial bias decays geometrically as `(1−α)^n`
+  \(E[Q_{n+1}] - q*(a) = (1-\alpha )^n (Q1 - q*(a))\): the initial bias decays geometrically as \((1-\alpha )^n\)
   but is nonzero for finite `n` (and never fully “forgets” in the sample-mean sense, since recent
-  rewards are weighted more). This recency weighting is why constant `α` tracks nonstationary
+  rewards are weighted more). This recency weighting is why constant \(\alpha\) tracks nonstationary
   problems better than sample averages.
 - **Why this works / takeaway:** sample averages are unbiased in the stationary case; constant-step
   estimates trade a decaying initial bias for responsiveness to recent changes.
@@ -230,14 +230,14 @@
 
 - **Book location:** Section 2.7, PDF pages 45–46.
 - **Type:** Math / Proof.
-- **Problem:** Derive the UCB index `Q_t(a) + c·sqrt(ln t / N_t(a))` from a Chernoff/Hoeffding-style
+- **Problem:** Derive the UCB index \(Q_t(a) + c\cdot sqrt(ln t / N_t(a))\) from a Chernoff/Hoeffding-style
   confidence bound. Explain why `ln t` (and not `t`) appears and why untried actions are preferred.
 - **Solution.** With bounded rewards in [0,1], Hoeffding's inequality gives
-  `P(|Q̂_t(a) − q*(a)| > ε) ≤ 2·exp(−2N_t(a)ε²)`. Set a per-(action,time) tail budget
-  `δ_t` with `2·exp(−2N_t(a)ε²) = δ_t`, so `ε_t(a) = sqrt(ln(2/δ_t) / (2N_t(a)))`.
-  Choosing a summable schedule (e.g. `δ_t ∝ 1/t²`) yields `ε_t(a) = O(sqrt(ln t / N_t(a)))`,
-  i.e. the UCB bonus `c·sqrt(ln t / N_t(a))`. Because `Σ_t δ_t < ∞`, a union bound over time
-  (and actions) implies the true value stays below `Q̂_t(a)+ε_t(a)` with high probability uniformly
+  \(P(|Q̂_t(a) - q*(a)| > \epsilon ) \le 2\cdot exp(-2N_t(a)\epsilon ^2 )\). Set a per-(action,time) tail budget
+  \(\delta _t\) with \(2\cdot exp(-2N_t(a)\epsilon ^2 ) = \delta _t\), so \(\epsilon _t(a) = sqrt(ln(2/\delta _t) / (2N_t(a)))\).
+  Choosing a summable schedule (e.g. \(\delta _t ∝ 1/t^2\)) yields \(\epsilon _t(a) = O(sqrt(ln t / N_t(a)))\),
+  i.e. the UCB bonus \(c\cdot sqrt(ln t / N_t(a))\). Because \(\sum _t \delta _t < \infty\), a union bound over time
+  (and actions) implies the true value stays below \(Q̂_t(a)+\epsilon _t(a)\) with high probability uniformly
   often enough that suboptimal actions are pulled only `O(log t)` times. `ln t` (not `t`) is the
   right scale: it grows slowly enough to keep exploration efficient while still being summable as a
   failure budget. Untried actions (`N_t(a)=0`) are treated as maximizing to force initial sampling.

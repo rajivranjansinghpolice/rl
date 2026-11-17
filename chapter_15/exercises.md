@@ -47,15 +47,15 @@ the sections themselves and are labeled **[derived]**.
 
 - **Book location:** Section 15.3, PDF page 334.
 - **Type:** Math / Theory.
-- **Problem (paraphrased):** Derive the TD reward prediction error `δ_t = R_{t+1} + γV(S_{t+1}) − V(S_t)`
+- **Problem (paraphrased):** Derive the TD reward prediction error \(\delta _t = R_{t+1} + \gamma V(S_{t+1}) - V(S_t)\)
   and explain, under the reward-prediction-error hypothesis, why phasic dopamine is better modeled as
   encoding prediction error than reward itself, and why responses shift from outcomes to predictive cues.
 - **Solution.** From the Bellman prediction target, the one-step TD error is
-  `δ_t = R_{t+1} + γV(S_{t+1}) − V(S_t)` (the difference between received+predicted future value and
-  current prediction). **Before learning** `V≈0`, so an unexpected reward gives `δ_t ≈ R_{t+1} > 0`
+  \(\delta _t = R_{t+1} + \gamma V(S_{t+1}) - V(S_t)\) (the difference between received+predicted future value and
+  current prediction). **Before learning** \(V\approx 0\), so an unexpected reward gives \(\delta _t \approx R_{t+1} > 0\)
   (phasic burst at US). **After learning**, the cue predicts reward (`V(CS)` rises, `V` before US
-  approaches expected discounted reward), so `δ_t` becomes positive at the predictive **cue** and ~0 at a
-  fully predicted US (`R_{t+1} + γV(S_{t+1}) ≈ V(S_t)`). Thus phasic dopamine tracks *changes in
+  approaches expected discounted reward), so \(\delta _t\) becomes positive at the predictive **cue** and ~0 at a
+  fully predicted US (\(R_{t+1} + \gamma V(S_{t+1}) \approx V(S_t)\)). Thus phasic dopamine tracks *changes in
   prediction* (RPE), not reward magnitude per se.
 - **Why this works / takeaway:** bootstrapping makes δ respond to surprise, explaining the cue shift.
 
@@ -63,13 +63,13 @@ the sections themselves and are labeled **[derived]**.
 
 - **Book location:** Section 15.5, PDF page 339; Section 15.6, PDF page 341.
 - **Type:** Computation / Math.
-- **Problem (paraphrased):** Show how `δ_t` explains (a) burst to unexpected US, (b) burst to CS with
+- **Problem (paraphrased):** Show how \(\delta _t\) explains (a) burst to unexpected US, (b) burst to CS with
   ~0 response to predicted US, and (c) dip at omitted US.
-- **Solution.** Let the predicted value just before US be `V^- ≈ E[R]` after conditioning.
-  (a) **Unpredicted US:** `V≈0 ⇒ δ_US ≈ R - 0 > 0`.
-  (b) **Predicted US:** cue onset yields `δ_CS = 0 + γV^+ - V_CS^- > 0` (prediction increases), while
-  at US `δ_US ≈ R + 0 - V^- ≈ 0`.
-  (c) **Omission:** at expected US time `R=0` but `V^- > 0`, so `δ_US ≈ 0 + 0 - V^- < 0` (a phasic dip).
+- **Solution.** Let the predicted value just before US be \(V^- \approx E[R]\) after conditioning.
+  (a) **Unpredicted US:** \(V\approx 0 ⇒ \delta _US \approx R - 0 > 0\).
+  (b) **Predicted US:** cue onset yields \(\delta _CS = 0 + \gamma V^+ - V_CS^- > 0\) (prediction increases), while
+  at US \(\delta _US \approx R + 0 - V^- \approx 0\).
+  (c) **Omission:** at expected US time `R=0` but `V^- > 0`, so \(\delta _US \approx 0 + 0 - V^- < 0\) (a phasic dip).
   These three signatures follow directly from the same TD error signal.
 - **Why this works / takeaway:** one RPE variable unifies burst, transfer, and omission responses.
 
@@ -78,13 +78,13 @@ the sections themselves and are labeled **[derived]**.
 - **Book location:** Sections 15.7–15.8, PDF pages 346–348.
 - **Type:** Math / Theory.
 - **Problem (paraphrased):** Derive actor and critic learning rules in the TD actor–critic framework and
-  map actor/critic roles to brain structures; explain the role of `δ` for both.
+  map actor/critic roles to brain structures; explain the role of \(\delta\) for both.
 - **Solution.** **Critic (value/prediction):** learns `V_w(s)` with TD error
-  `δ_t = R_{t+1} + γV_w(S_{t+1}) − V_w(S_t)` and update `w ← w + α_c δ_t ∇_w V_w(S_t)` (policy
-  evaluation). **Actor (policy):** parameterizes `π_θ(a|s)` and updates
-  `θ ← θ + α_a δ_t ∇_θ ln π_θ(A_t|S_t)` (policy improvement), using the same scalar `δ_t` as a
+  \(\delta _t = R_{t+1} + \gamma V_w(S_{t+1}) - V_w(S_t)\) and update \(w \leftarrow w + \alpha _c \delta _t \nabla _w V_w(S_t)\) (policy
+  evaluation). **Actor (policy):** parameterizes \(\pi _\theta (a|s)\) and updates
+  \(\theta \leftarrow \theta + \alpha _a \delta _t \nabla _\theta ln \pi _\theta (A_t|S_t)\) (policy improvement), using the same scalar \(\delta _t\) as a
   reinforcement signal. Neurally, the critic is often associated with VTA/SNc dopamine projections
-  signaling `δ_t`, while the actor is associated with dorsal/ventral striatum and corticostriatal
+  signaling \(\delta _t\), while the actor is associated with dorsal/ventral striatum and corticostriatal
   plasticity selecting actions; both are modulated by dopamine/RPE.
 - **Why this works / takeaway:** a shared TD error can train both action selection and value prediction.
 
@@ -136,9 +136,9 @@ the sections themselves and are labeled **[derived]**.
 - **Problem (paraphrased):** Show how a population of noisy/correlated neurons can encode signals more
   reliably than a single neuron and relate to collective coding.
 - **Solution.** Let each neuron `i` report `x_i = s + η_i` with noise `η_i`. Averaging `N` neurons gives
-  `\bar x = s + (1/N)Σ η_i`; if noises are independent with variance `σ²`, `Var(\bar x)=σ²/N`,
+  `\bar x = s + (1/N)Σ η_i`; if noises are independent with variance \(\sigma ^2\), `Var(\bar x)=σ²/N`,
   improving signal-to-noise with population size. With correlations, variance becomes
-  `(σ²/N)(1 + (N−1)ρ)` (for equal pairwise correlation `ρ`), so diversity/redundancy still helps unless
+  \((\sigma ^2 /N)(1 + (N-1)\rho )\) (for equal pairwise correlation \(\rho\)), so diversity/redundancy still helps unless
   correlations are perfect. Distributed dopamine/value signals can thus support robust collective
   reinforcement coding.
 - **Why this works / takeaway:** population codes average noise and increase reliability.
@@ -147,12 +147,12 @@ the sections themselves and are labeled **[derived]**.
 
 - **Book location:** Section 15.7–15.8, PDF pages 346–348.
 - **Type:** Math.
-- **Problem (paraphrased):** Derive how the actor update depends on `δ_t` and eligibility traces, and
+- **Problem (paraphrased):** Derive how the actor update depends on \(\delta _t\) and eligibility traces, and
   why actor learning is bootstrapped to the critic.
-- **Solution.** For policy gradient with a critic baseline, `∇_θ J(θ) ≈ E[δ_t ∇_θ ln π_θ(A_t|S_t)]`
-  with `δ_t = R_{t+1}+γV_w(S_{t+1})-V_w(S_t)`. With eligibility traces, the actor maintains
-  `z_t = γλ z_{t-1} + ∇_θ ln π_θ(A_t|S_t)` and updates `θ ← θ + α_a δ_t z_t`, assigning credit to
-  earlier actions in proportion to their decayed trace. Because `δ_t` is computed from the critic’s
+- **Solution.** For policy gradient with a critic baseline, \(\nabla _\theta J(\theta ) \approx E[\delta _t \nabla _\theta ln \pi _\theta (A_t|S_t)]\)
+  with \(\delta _t = R_{t+1}+\gamma V_w(S_{t+1})-V_w(S_t)\). With eligibility traces, the actor maintains
+  \(z_t = \gamma \lambda z_{t-1} + \nabla _\theta ln \pi _\theta (A_t|S_t)\) and updates \(\theta \leftarrow \theta + \alpha _a \delta _t z_t\), assigning credit to
+  earlier actions in proportion to their decayed trace. Because \(\delta _t\) is computed from the critic’s
   value estimates, the actor’s improvement signal is bootstrapped to (and limited by) the critic’s
   predictions.
 - **Why this works / takeaway:** traces distribute credit over time, but the TD error source is the critic.

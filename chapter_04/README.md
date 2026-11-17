@@ -20,7 +20,7 @@ value iteration, and the classic gambler's problem.
 - [x] exercise_4.1 — Gambler's problem (`gamblers_problem`, Example 4.3 / Exercise 4.9) ✅
 
 ## Book Reference
-- Section 4.1: Iterative policy evaluation (converges as `Δ ≤ θ`)
+- Section 4.1: Iterative policy evaluation (converges as \(Δ \le \theta\))
 - Section 4.2: Policy improvement theorem — greedy policy is as good as or better
 - Section 4.3: Policy iteration (Jack's car rental is Example 4.2)
 - Section 4.4: Value iteration (Section 4.4 box, Eq. 4.10)
