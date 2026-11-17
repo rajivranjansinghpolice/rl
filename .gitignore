@@ -1,0 +1,56 @@
+# Public trim: ignore non-chapter paths and local artifacts
+
+# Local environments and caches
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+
+# Book / copyrighted artifacts (keep local, never track)
+Barto_Sutton_Book.pdf
+RL_book_djvu.txt
+chapters/
+
+# Internal tooling, docs, and project scaffolding (kept on disk, not public)
+_bmad/
+.bmad-loop/
+.claude/
+.cline/
+.clinerules/
+.pi/
+.qwen/
+assets/
+config/
+docs/
+langgraph_agent/
+scripts/
+skills/
+src/
+tests/
+.bmad-loop
+
+# Root project files not part of public chapter snapshot
+AGENTS.md
+CLINE_WORKFLOW.md
+IDEA.md
+PROGRESS.md
+TODO.md
+pyproject.toml
+uv.lock
+
+# Root utility scripts
+check_*.py
+test_*.py
+write_state.py
+verify_package.py
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
