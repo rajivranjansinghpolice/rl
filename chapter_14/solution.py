@@ -468,3 +468,75 @@ def run_blocking_experiment(
         "mean_blocking_delta": float(np.mean(record["blocking_delta_b"])),
         "mean_control_delta": float(np.mean(record["control_delta_b"])),
     }
+
+
+# ---------------------------------------------------------------------------
+# Figure reproduction (Sutton & Barto, 2nd ed., Ch. 14)
+# ---------------------------------------------------------------------------
+
+def plot_conditioning_and_blocking(
+    save_path: str | None = None,
+    show: bool = False,
+    n_trials: int = 60,
+    seed: int = 0,
+):
+    """Classical conditioning acquisition and blocking demos (Sec. 14.2).
+
+    Sutton & Barto (2nd ed.), Ch. 14 (Psychology), Sec. 14.2.2 (Rescorla-Wagner
+    model) and Sec. 14.2.1-14.2.3 (blocking, TD model of conditioning):
+      - Left: acquisition curve for a single CS under Rescorla-Wagner
+        (associative strength approaches lambda_US over trials).
+      - Right: Kamin blocking experiment via `run_blocking_experiment` comparing
+        control (B alone in phase 2) vs blocked (B paired with pretrained A);
+        blocked B acquires much less association than control, illustrating the
+        prediction-error account of blocking.
+    This is a demonstration of implemented models/experiments, not a pixel-
+    perfect reproduction of a specific book figure.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    rng = np.random.default_rng(seed)
+
+    # Acquisition (RW), Sec. 14.2.2
+    model = RescorlaWagnerModel(n_stimuli=1, alpha=0.1, lambda_us=1.0)
+    strengths = []
+    for _ in range(n_trials):
+        model.trial(np.array([1.0]), target=1.0)
+        strengths.append(model.weights[0])
+
+    # Blocking (RW experiment), Sec. 14.2.1-14.2.2
+    blk = run_blocking_experiment(
+        phase1_trials=40, phase2_trials=40, alpha=0.1, lambda_us=1.0,
+        replicates=30, us_noise=0.0, seed=seed,
+    )
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4.2))
+    ax1.plot(np.arange(1, n_trials + 1), strengths, color="#1f77b4")
+    ax1.set_xlabel("Trials")
+    ax1.set_ylabel("Associative strength V(CS)")
+    ax1.set_ylim(0, 1.05)
+    ax1.set_title("Acquisition (Rescorla-Wagner)")
+
+    labels = ["Control B", "Blocked B"]
+    vals = [float(blk.get("mean_control_delta", np.mean(blk["control_delta_b"]))),
+            float(blk.get("mean_blocking_delta", np.mean(blk["blocking_delta_b"])))]
+    ctrl_arr = np.asarray(blk["control_delta_b"], dtype=float)
+    blk_arr = np.asarray(blk["blocking_delta_b"], dtype=float)
+    errs = [float(np.std(ctrl_arr)), float(np.std(blk_arr))]
+    ax2.bar(labels, vals, yerr=errs, capsize=5, color=["#4c78a8", "#f58518"], alpha=0.9)
+    ax2.set_ylabel("Phase-2 change in V(B)")
+    ax2.set_ylim(0, max(1.05, max(vals) + max(errs) + 0.1))
+    ax2.set_title("Kamin blocking")
+
+    fig.suptitle("S&B (2nd ed.), Ch. 14 (Sec. 14.2): Classical conditioning demos")
+    fig.tight_layout()
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+    return fig, (ax1, ax2)

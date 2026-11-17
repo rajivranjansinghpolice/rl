@@ -267,3 +267,71 @@ def simulate_conditioning_trace(
         "n_states": n_states,
         "reward": float(reward),
     }
+
+
+# ---------------------------------------------------------------------------
+# Figure reproduction (Sutton & Barto, 2nd ed., Ch. 15)
+# ---------------------------------------------------------------------------
+
+def plot_phasic_dopamine_conditioning(
+    save_path: str | None = None,
+    show: bool = False,
+    n_states: int = 20,
+    us_index: int = 15,
+    seed: int = 0,
+):
+    """Phasic dopamine / TD-error conditioning traces (Sec. 15.6, Fig. 15.5-like).
+
+    Sutton & Barto (2nd ed.), Sec. 15.3 & 15.6, Fig. 15.5 (reward prediction
+    error hypothesis of dopamine): TD error delta_t models phasic dopamine during
+    classical conditioning with a CSC representation.
+      - Early acquisition: positive delta at reward delivery (US), ~0 at cue.
+      - Late acquisition: delta shifts to cue onset (CS); ~0 at predicted US.
+      - Omission after learning: positive delta at cue, negative dip at omitted US.
+    Uses `simulate_conditioning` to obtain within-trial delta traces.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    # Acquisition run: early vs late trial deltas
+    acq = simulate_conditioning(
+        n_trials=50, n_states=n_states, us_index=us_index, reward=1.0,
+        alpha=0.1, gamma=1.0, lam=0.95,
+    )
+    early = np.asarray(acq["deltas"][0], dtype=np.float64)
+    late = np.asarray(acq["deltas"][-1], dtype=np.float64)
+
+    # Train then omit reward to show dip at expected US time
+    omit = simulate_conditioning(
+        n_trials=51, n_states=n_states, us_index=us_index, reward=1.0,
+        alpha=0.1, gamma=1.0, lam=0.95, omit_trials=(50,),
+    )
+    omission = np.asarray(omit["deltas"][-1], dtype=np.float64)
+
+    t = np.arange(len(early))
+    fig, axes = plt.subplots(3, 1, figsize=(8, 6.5), sharex=True)
+    panels = [
+        (axes[0], early, "Early acquisition: delta at reward (US)"),
+        (axes[1], late, "Late acquisition: delta shifts to cue (CS)"),
+        (axes[2], omission, "Omission after learning: dip at omitted US"),
+    ]
+    for ax, d, title in panels:
+        ax.plot(t, d, color="#2c7fb8")
+        ax.axhline(0.0, color="#999999", linewidth=0.8)
+        ax.axvline(0, color="#55a868", linestyle="--", linewidth=1, alpha=0.7, label="CS onset")
+        ax.axvline(min(us_index, len(d)-1), color="#c44e52", linestyle="--", linewidth=1, alpha=0.7, label="US time")
+        ax.set_ylabel("TD error (delta)")
+        ax.set_title(title)
+    axes[0].legend(loc="upper right", fontsize=8)
+    axes[-1].set_xlabel("Time step within trial")
+    fig.suptitle("S&B (2nd ed.), Sec. 15.6 (Fig. 15.5-like): Phasic dopamine / TD error")
+    fig.tight_layout()
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+    return fig, axes
