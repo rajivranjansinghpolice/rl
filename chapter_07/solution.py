@@ -264,3 +264,92 @@ def sarsa_lambda(
         for s in env.STATES
     }
     return policy, q_table
+
+
+# ---------------------------------------------------------------------------
+# Figure reproduction (Sutton & Barto, 2nd ed., Ch. 7)
+# ---------------------------------------------------------------------------
+
+def _state_values_from_q(env, q_table):
+    return {s: max(q_table[(s, a)] for a in env.ACTIONS) for s in env.STATES}
+
+
+def _rms_vs_true(values: dict) -> float:
+    from chapter_06.solution import random_walk_true_values
+
+    true_values = random_walk_true_values()
+    errs = [values[s] - true_values[s] for s in true_values]
+    return float(np.sqrt(np.mean(np.square(errs))))
+
+
+def plot_n_step_methods_random_walk(
+    save_path: str | None = None,
+    show: bool = False,
+    n_episodes: int = 200,
+    runs: int = 20,
+    seed: int = 0,
+):
+    """Demonstration: n-step/on-policy trace methods on the random walk.
+
+    Sutton & Barto (2nd ed.), Ch. 7 "n-step Bootstrapping" (Sec. 7.2 n-step
+    Sarsa, Sec. 7.5 n-step Tree Backup) and Sec. 12.7/related SARSA(lambda)
+    control: compares implemented control methods on the 5-state random walk
+    (Example 6.2 environment reused here). Plots RMS error of greedy state-value
+    estimates max_a Q(s,a) vs true v*(s) over episodes, averaged over runs, for
+    n-step Sarsa (n=4), Tree Backup (n=4), and SARSA(lambda) (lambda=0.9).
+    This is an implementation demonstration (not a direct reproduction of the
+    book's 19-state n-step TD prediction Fig. 7.2, whose prediction experiment
+    is not implemented in this module).
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    from chapter_06.solution import RandomWalkEnv
+
+    methods = [
+        ("n-step Sarsa (n=4)", lambda env, ep_seed: n_step_sarsa(env, n=4, n_episodes=1, seed=ep_seed)),
+        ("Tree Backup (n=4)", lambda env, ep_seed: tree_backup(env, n=4, n_episodes=1, seed=ep_seed)),
+        ("SARSA(lambda), l=0.9", lambda env, ep_seed: sarsa_lambda(env, lam=0.9, n_episodes=1, seed=ep_seed)),
+    ]
+    # Incremental training by running 1 episode repeatedly is not how APIs work;
+    # instead run full training up to ep episodes for each checkpoint? cheaper to
+    # run once per total episodes and track by re-training is expensive. We'll
+    # record error after every episode by training in chunks is not supported.
+    # So we simulate learning curves by training for e episodes for a set of e.
+    checkpoints = list(range(1, n_episodes + 1, max(1, n_episodes // 40)))
+    if checkpoints[-1] != n_episodes:
+        checkpoints.append(n_episodes)
+
+    curves = {name: np.zeros(len(checkpoints), dtype=np.float64) for name, _ in methods}
+    for r in range(runs):
+        base = seed + r * 1009
+        for mi, (name, _) in enumerate(methods):
+            for ci, ep in enumerate(checkpoints):
+                env = RandomWalkEnv(seed=base + mi * 97)
+                if name.startswith("n-step Sarsa"):
+                    _, q = n_step_sarsa(env, n=4, alpha=0.1, epsilon=0.1, n_episodes=ep, seed=base + mi)
+                elif name.startswith("Tree"):
+                    _, q = tree_backup(env, n=4, alpha=0.1, epsilon=0.1, n_episodes=ep, seed=base + mi)
+                else:
+                    _, q = sarsa_lambda(env, lam=0.9, alpha=0.1, epsilon=0.1, n_episodes=ep, seed=base + mi)
+                curves[name][ci] += _rms_vs_true(_state_values_from_q(env, q))
+    for name in curves:
+        curves[name] /= runs
+
+    fig, ax = plt.subplots(figsize=(7.5, 4.5))
+    for name, _ in methods:
+        ax.plot(checkpoints, curves[name], label=name)
+    ax.set_xlabel("Episodes")
+    ax.set_ylabel("RMS error vs true v* (greedy from Q)")
+    ax.set_title("S&B (2nd ed.), Ch. 7: n-step/trace methods on random walk (demo)")
+    ax.legend()
+    fig.tight_layout()
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+    return fig, ax
