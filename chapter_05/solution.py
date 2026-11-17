@@ -421,3 +421,80 @@ def blackjack_stick_on_threshold(stick_threshold: int = 20) -> Callable:
         return np.array([1.0, 0.0])
 
     return policy_fn
+
+
+# ---------------------------------------------------------------------------
+# Figure reproduction (Sutton & Barto, 2nd ed., Ch. 5)
+# ---------------------------------------------------------------------------
+
+def _blackjack_value_grid(values: dict, usable_ace: bool):
+    """Build a (player_sum 12-21) x (dealer_showing 1-10) grid from MC values."""
+    grid = np.full((10, 10), np.nan, dtype=np.float64)
+    for player_sum in range(12, 22):
+        for dealer in range(1, 11):
+            state = (player_sum, dealer, usable_ace)
+            if state in values:
+                grid[player_sum - 12, dealer - 1] = values[state]
+    return grid
+
+
+def plot_blackjack_value_functions(
+    save_path: str | None = None,
+    show: bool = False,
+    n_episodes: int = 500_000,
+    seed: int = 0,
+):
+    """Blackjack state-value functions (Example 5.1, Fig. 5.1).
+
+    Sutton & Barto (2nd ed.), Sec. 5.1, Fig. 5.1: approximate state-value
+    functions for the blackjack policy that sticks on 20 or 21, computed by
+    Monte Carlo prediction (first-visit MC, Alg. 5.1) from sample episodes.
+    States are (player sum, dealer showing, usable ace). Shown for player sums
+    12-21 and dealer showing Ace(1)-10, separately for usable and no usable ace.
+    Values are expected returns in [-1, 1]. Episode count controls accuracy; book
+    used 10,000 and 500,000 episodes.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
+
+    env = BlackjackEnv(seed=seed)
+    policy = blackjack_stick_on_threshold(20)
+    values = mc_first_visit_prediction(env, policy, n_episodes=n_episodes, seed=seed)
+
+    X, Y = np.meshgrid(np.arange(1, 11), np.arange(12, 22))
+
+    fig = plt.figure(figsize=(11, 4.8))
+    for idx, (usable, title) in enumerate(((True, "Usable ace"), (False, "No usable ace")), start=1):
+        ax = fig.add_subplot(1, 2, idx, projection="3d")
+        Z = _blackjack_value_grid(values, usable)
+        Z_plot = np.where(np.isnan(Z), 0.0, Z)
+        ax.plot_surface(X, Y, Z_plot, cmap="viridis", edgecolor="none", alpha=0.9)
+        ax.set_xlabel("Dealer showing")
+        ax.set_ylabel("Player sum")
+        ax.set_zlabel("Value")
+        ax.set_zlim(-1, 1)
+        ax.set_title(title)
+        ax.set_xticks(range(1, 11))
+        ax.set_yticks(range(12, 22, 2))
+
+    fig.suptitle(
+        "S&B (2nd ed.), Sec. 5.1, Fig. 5.1: Blackjack value function\n"
+        f"Policy: stick on 20/21, first-visit MC, {n_episodes:,} episodes"
+    )
+    fig.tight_layout()
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+    return fig, fig.axes
+
+
+def plot_figure_5_1(save_path: str | None = None, show: bool = False, n_episodes: int = 500_000, seed: int = 0):
+    """Alias for blackjack value function plot (Fig. 5.1)."""
+    return plot_blackjack_value_functions(save_path=save_path, show=show, n_episodes=n_episodes, seed=seed)
+
