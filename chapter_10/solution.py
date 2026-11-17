@@ -222,3 +222,76 @@ def watkins_lambda_return(
         ) + (lam ** n_max) * n_step_return(t, t + n_max)
         returns.append(g_lambda)
     return returns
+
+
+# ---------------------------------------------------------------------------
+# Figure reproduction (Sutton & Barto, 2nd ed., Ch. 12 / repo Ch. 10)
+# ---------------------------------------------------------------------------
+
+def _rms_error(values: dict, true_values: dict) -> float:
+    states = list(true_values)
+    errs = [values[s] - true_values[s] for s in states]
+    return float(np.sqrt(np.mean(np.square(errs))))
+
+
+def plot_watkins_q_lambda_random_walk(
+    save_path: str | None = None,
+    show: bool = False,
+    lambdas: tuple[float, ...] = (0.0, 0.4, 0.8),
+    alpha: float = 0.1,
+    epsilon: float = 0.1,
+    gamma: float = 0.99,
+    n_episodes: int = 150,
+    runs: int = 20,
+    seed: int = 0,
+):
+    """Watkins's Q(lambda) on the random walk (Sec. 12.10, Fig. 12.12 context).
+
+    Sutton & Barto (2nd ed.), Sec. 12.10 "Watkins's Q(lambda)" (Fig. 12.12):
+    off-policy control with eligibility traces cut at the first non-greedy
+    action. This demo trains `watkins_q_lambda` on the 5-state random walk
+    (Example 6.2) for several lambda values and plots RMS error of greedy state
+    values max_a Q(s,a) vs true v* over episodes (averaged over runs). Uses
+    gamma<1 by default for stability (see implementation notes).
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    from chapter_06.solution import RandomWalkEnv, random_walk_true_values
+
+    true_values = random_walk_true_values()
+    checkpoints = list(range(1, n_episodes + 1, max(1, n_episodes // 40)))
+    if checkpoints[-1] != n_episodes:
+        checkpoints.append(n_episodes)
+    curves = {lam: np.zeros(len(checkpoints), dtype=np.float64) for lam in lambdas}
+
+    for lam in lambdas:
+        for r in range(runs):
+            rs = seed + r * 1009 + int(lam * 1000)
+            for ci, ep in enumerate(checkpoints):
+                env = RandomWalkEnv(seed=rs)
+                _, q = watkins_q_lambda(
+                    env, n_episodes=ep, alpha=alpha, lam=lam, epsilon=epsilon,
+                    gamma=gamma, seed=rs,
+                )
+                values = {s: max(q[(s, a)] for a in env.ACTIONS) for s in env.STATES}
+                curves[lam][ci] += _rms_error(values, true_values)
+        curves[lam] /= runs
+
+    fig, ax = plt.subplots(figsize=(7.5, 4.5))
+    for lam in lambdas:
+        ax.plot(checkpoints, curves[lam], label=f"lambda={lam:g}")
+    ax.set_xlabel("Episodes")
+    ax.set_ylabel("RMS error (greedy max_a Q vs v*)")
+    ax.set_title("S&B (2nd ed.), Sec. 12.10: Watkins's Q(lambda) on random walk")
+    ax.legend()
+    fig.tight_layout()
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+    return fig, ax
