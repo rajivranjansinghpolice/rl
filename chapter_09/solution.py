@@ -617,3 +617,67 @@ def compare_sample_vs_expected_dyna(
         "expected": _run("expected"),
         "q_star_max": float(max(abs(v) for v in q_star.values())),
     }
+
+
+# ---------------------------------------------------------------------------
+# Figure reproduction (Sutton & Barto, 2nd ed., Ch. 8 / repo Ch. 9)
+# ---------------------------------------------------------------------------
+
+def plot_dyna_maze(
+    save_path: str | None = None,
+    show: bool = False,
+    planning_steps: tuple[int, ...] = (0, 5, 50),
+    n_episodes: int = 50,
+    runs: int = 30,
+    seed: int = 0,
+):
+    """Dyna-Q planning demonstration (Sec. 8.2, Fig. 8.2-like).
+
+    Sutton & Barto (2nd ed.), Ch. 8 "Planning and Learning with Tabular
+    Methods", Sec. 8.2 / Example 8.1 (Dyna maze) and Fig. 8.2: Dyna-Q agents
+    learn faster as the number of planning steps n per real step increases,
+    shown as steps per episode vs episodes. This demo uses the implemented
+    gridworld MDP (`make_gridworld`, default 2x4) and `dyna_q` (Tabular Dyna-Q,
+    direct RL + model learning + sample planning updates). Curves are averaged
+    over runs. Environment/layout differs from the book's 6x9 maze, so this is
+    a faithful demonstration of the same planning effect on the available task.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    curves = {n: np.zeros(n_episodes, dtype=np.float64) for n in planning_steps}
+    for n in planning_steps:
+        for r in range(runs):
+            rs = seed + r * 1009 + n
+            env = make_gridworld(rows=4, cols=6, start="0,0", goal="3,5", gamma=0.95, seed=rs)
+            _, _, stats = dyna_q(
+                env,
+                n_planning=n,
+                n_episodes=n_episodes,
+                alpha=0.1,
+                epsilon=0.1,
+                gamma=0.95,
+                seed=rs,
+                max_steps=500,
+                start_state="0,0",
+            )
+            curves[n] += np.array(stats["episode_steps"], dtype=np.float64)
+        curves[n] /= runs
+
+    fig, ax = plt.subplots(figsize=(7.5, 4.5))
+    for n in planning_steps:
+        ax.plot(np.arange(1, n_episodes + 1), curves[n], label=f"n={n} planning steps")
+    ax.set_xlabel("Episodes")
+    ax.set_ylabel("Steps per episode")
+    ax.set_title("S&B (2nd ed.), Sec. 8.2 (Fig. 8.2-like): Dyna-Q planning")
+    ax.legend()
+    fig.tight_layout()
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+    return fig, ax
