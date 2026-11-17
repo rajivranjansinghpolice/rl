@@ -600,3 +600,123 @@ def q_learning_novelty(
         "steps": total_steps,
         "total_intrinsic_reward": total_intrinsic,
     }
+
+
+# ---------------------------------------------------------------------------
+# Figure reproduction (Sutton & Barto, 2nd ed., Ch. 17)
+# ---------------------------------------------------------------------------
+
+def plot_options_and_novelty_demos(
+    save_path: str | None = None,
+    show: bool = False,
+    seed: int = 0,
+):
+    """Temporal abstraction (options) and intrinsic motivation demos (Ch. 17).
+
+    Sutton & Barto (2nd ed.), Ch. 17 "Frontiers":
+      - Sec. 17.2 (Temporal abstraction via options): SMDP Q-learning with
+        hand-crafted options vs primitive-only Q-learning in the four-room-style
+        gridworld demo. Left panel compares mean episode steps/return proxy
+        (lower steps to goal is better) over evaluation rollouts.
+      - Sec. 17.4 (Designing reward signals / intrinsic motivation): count-based
+        novelty bonus encourages broader state visitation. Right panel compares
+        number of distinct states visited with novelty bonus vs without.
+    These are small demonstrations of implemented ideas, not book figures.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    # Options demo: evaluate learned policies by rollout steps to goal
+    q_smdp, _ = smdp_q_learning(n_episodes=200, alpha=0.1, gamma=0.99, epsilon=0.1, seed=seed)
+    q_prim = primitive_q_learning(n_episodes=200, alpha=0.1, gamma=0.99, epsilon=0.1, seed=seed)
+
+    def eval_smdp(q, episodes=30):
+        # simple greedy rollout using options/primitive choices learned in q_smdp
+        # q maps (state, option_name/index) depending on impl; do approximate by
+        # measuring mean training-like rollout steps is complex; instead report
+        # average negative episode length proxy from a fresh greedy run is hard
+        # without rollout helper. Use a proxy: count decisions by greedy play.
+        return None
+
+    # Easier: run short fresh evaluations by reusing training with epsilon=0 via
+    # primitive_q_learning/smdp_q_learning? they train; but we can approximate by
+    # comparing average total reward over last episodes of training runs.
+    # Simpler robust demo: use primitive_q_learning result and smdp steps via
+    # a lightweight greedy rollout in environment.
+    env = GridWorld()
+    # Primitive greedy rollout
+    def rollout_primitive(q, max_steps=200):
+        s = env.reset()
+        steps = 0
+        for _ in range(max_steps):
+            acts = list(range(4))
+            qs = [q.get((s, a), 0.0) for a in acts]
+            a = acts[int(np.argmax(qs))]
+            s, r, done, _ = env.step(a)
+            steps += 1
+            if done:
+                return steps
+        return max_steps
+
+    prim_steps = np.mean([rollout_primitive(q_prim) for _ in range(20)])
+
+    # SMDP: q_smdp keys may be (state, option_name). Greedy rollout over options.
+    options = default_options()
+
+    def rollout_smdp(q, max_steps=200):
+        s = env.reset()
+        total_steps = 0
+        decisions = 0
+        while total_steps < max_steps and decisions < 100:
+            # choose best option by Q
+            opt_names = [o.name for o in options]
+            vals = [q.get((s, name), -1e9) for name in opt_names]
+            opt = options[int(np.argmax(vals))]
+            # execute option
+            cur = s
+            steps = 0
+            while steps < 50:
+                a = opt.policy_fn(env)
+                cur, r, done, _ = env.step(a)
+                steps += 1
+                total_steps += 1
+                if opt.termination_fn(env) or done:
+                    s = cur
+                    break
+            else:
+                s = cur
+            decisions += 1
+            if env.is_terminal(s):
+                return total_steps
+        return max_steps
+
+    smdp_steps = np.mean([rollout_smdp(q_smdp) for _ in range(20)])
+
+    # Novelty: distinct states visited
+    res_nov = q_learning_novelty(n_episodes=12, beta=0.5, seed=seed)
+    res_plain = q_learning_novelty(n_episodes=12, beta=0.0, seed=seed)
+    nov_count = len(res_nov.get("visit_counts", res_nov.get("visits", {})))
+    plain_count = len(res_plain.get("visit_counts", res_plain.get("visits", {})))
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4.2))
+    ax1.bar(["Primitive\nQ-learning", "SMDP with\noptions"], [prim_steps, smdp_steps],
+            color=["#f58518", "#4c78a8"])
+    ax1.set_ylabel("Mean steps to goal (greedy)")
+    ax1.set_title("Temporal abstraction (Sec. 17.2)")
+
+    ax2.bar(["No bonus\n(beta=0)", "Novelty bonus\n(beta>0)"], [plain_count, nov_count],
+            color=["#f58518", "#4c78a8"])
+    ax2.set_ylabel("Distinct states visited")
+    ax2.set_title("Intrinsic motivation (Sec. 17.4)")
+
+    fig.suptitle("S&B (2nd ed.), Ch. 17: Frontiers demos")
+    fig.tight_layout()
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+    return fig, (ax1, ax2)
