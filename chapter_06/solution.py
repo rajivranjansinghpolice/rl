@@ -364,3 +364,47 @@ def run_random_walk_comparison(
             mc_errors[repeat, ep] = _rms_error(mc_values, true_values)
 
     return {"td0": td_errors.mean(axis=0).tolist(), "mc": mc_errors.mean(axis=0).tolist()}
+
+
+# ---------------------------------------------------------------------------
+# Figure reproduction (Sutton & Barto, 2nd ed., Ch. 6)
+# ---------------------------------------------------------------------------
+
+def plot_figure_6_2(
+    save_path: str | None = None,
+    show: bool = False,
+    repeats: int = 100,
+    episodes: int = 100,
+    alpha: float = 0.1,
+    seed: int = 0,
+):
+    """TD(0) vs constant-alpha MC on the random walk (Example 6.2, Fig. 6.2).
+
+    Sutton & Barto (2nd ed.), Sec. 6.2, Fig. 6.2: RMS error in value estimates
+    over episodes for TD(0) and constant-alpha MC on the 5-state random walk
+    (Example 6.2, states A-E, start C, right terminal +1). Both methods start
+    from V(s)=0.5 and use step size alpha. Curves are averaged over `repeats`
+    independent runs; TD(0) typically converges faster.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    results = run_random_walk_comparison(repeats=repeats, episodes=episodes, alpha=alpha, seed=seed)
+    x = np.arange(1, episodes + 1)
+    fig, ax = plt.subplots(figsize=(7.5, 4.5))
+    ax.plot(x, results["td0"], label=f"TD(0), alpha={alpha}")
+    ax.plot(x, results["mc"], label=f"MC, alpha={alpha}")
+    ax.set_xlabel("Episodes")
+    ax.set_ylabel("RMS error (averaged over states)")
+    ax.set_title("S&B (2nd ed.), Sec. 6.2, Fig. 6.2: Random walk TD vs MC")
+    ax.legend()
+    fig.tight_layout()
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+    return fig, ax
