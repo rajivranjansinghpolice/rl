@@ -28,7 +28,7 @@ Each `chapter_XX/` directory is a self-contained Python package with its own tes
 | `chapter_16/` | Applications and case studies (**Book Chapter 16** — merged old `chapter_16/` + old `chapter_12/` case studies) |
 | `chapter_17/` | Frontiers (Book Ch. 17) |
 
-> **Note:** Book Chapters 10 and 11 are not yet scaffolded as dedicated directories; they will occupy `chapter_10/` and `chapter_11/` once implemented.
+> **Note:** Book Chapter 11 (off-policy methods with approximation) is not yet scaffolded as a dedicated directory; it will occupy `chapter_11/` once implemented.
 
 ## Chapter renumbering provenance
 
