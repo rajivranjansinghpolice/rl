@@ -470,3 +470,92 @@ def recycling_robot(
         ("low", "recharge"): [(1.0, 0.0, "high")],
     }
     return FiniteMDP(states, actions, transitions, gamma=gamma, seed=seed)
+
+
+# ---------------------------------------------------------------------------
+# Figure reproduction (Sutton & Barto, 2nd ed., Ch. 3)
+# ---------------------------------------------------------------------------
+
+def _optimal_values_and_policy(mdp: FiniteMDP, tolerance: float = 1e-10, max_iter: int = 10000):
+    values = np.zeros(mdp.n_states, dtype=np.float64)
+    for _ in range(max_iter):
+        updated = bellman_backup_optimality(mdp, values)
+        if np.max(np.abs(updated - values)) < tolerance:
+            values = updated
+            break
+        values = updated
+    policy = np.zeros((mdp.n_states, mdp.n_actions), dtype=np.float64)
+    for i, s in enumerate(mdp.states):
+        if s in mdp.terminal_states:
+            continue
+        q_vals = []
+        for a in mdp.actions:
+            q = mdp.expected_reward(s, a) + mdp.gamma * mdp._expected_next_value(s, a, values)
+            q_vals.append(q)
+        q_vals = np.array(q_vals)
+        best = np.flatnonzero(np.isclose(q_vals, q_vals.max()))
+        policy[i, best] = 1.0 / len(best)
+    return values, policy
+
+
+def plot_recycling_robot_example(
+    save_path: str | None = None,
+    show: bool = False,
+    alpha: float = 0.7,
+    beta: float = 0.4,
+    gamma: float = 0.9,
+):
+    """Recycling robot demonstration (Example 3.3, Sec. 3.4-3.5).
+
+    Sutton & Barto (2nd ed.), Example 3.3 "Recycling Robot": a finite MDP with
+    states {high, low} (battery level) and actions {search, wait, recharge}.
+    Dynamics/returns follow the implementation's modeling choices (see
+    ``recycling_robot``): searching can deplete the battery; rescuing from low
+    incurs reward -3. This figure computes the optimal state values v* by
+    iterating the Bellman optimality backup (Eq. 3.19/3.20, Sec. 3.6) and shows
+    v*(high), v*(low) alongside greedy action preferences, illustrating how
+    value functions summarize long-term return under the MDP dynamics.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    mdp = recycling_robot(alpha=alpha, beta=beta, gamma=gamma)
+    values, policy = _optimal_values_and_policy(mdp)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(9, 4.2))
+
+    states = list(mdp.states)
+    v = [values[mdp.state_index[s]] for s in states]
+    ax1.bar(states, v, color=["#4c78a8", "#f58518"])
+    ax1.set_ylabel("State value v*(s)")
+    ax1.set_title("Optimal state values (Bellman optimality)")
+    for idx, val in enumerate(v):
+        ax1.text(idx, val, f"{val:.2f}", ha="center", va="bottom", fontsize=9)
+
+    actions = list(mdp.actions)
+    x = np.arange(len(states))
+    width = 0.25
+    for j, a in enumerate(actions):
+        probs = [policy[mdp.state_index[s], j] for s in states]
+        ax2.bar(x + (j - 1) * width, probs, width, label=a)
+    ax2.set_xticks(x)
+    ax2.set_xticklabels(states)
+    ax2.set_ylim(0, 1.1)
+    ax2.set_ylabel("Greedy probability")
+    ax2.set_title("Greedy action(s) w.r.t. v*")
+    ax2.legend()
+
+    fig.suptitle(
+        "S&B (2nd ed.), Example 3.3 Recycling Robot (Sec. 3.4-3.6)\n"
+        f"alpha={alpha}, beta={beta}, gamma={gamma}",
+        fontsize=10,
+    )
+    fig.tight_layout()
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+    return fig, (ax1, ax2)
