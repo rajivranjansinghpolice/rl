@@ -309,6 +309,114 @@ def run_multiple_episodes(
     return stats
 
 
+def plot_gridworld_figure(save_path: str | None = None, show: bool = False):
+    """Create a demonstration chart of this chapter's GridWorld example.
+
+    Sutton & Barto (2nd ed.), Section 1.3 "An Example Agent", Figure 1.2
+    (gridworld example): the book introduces the RL agent-environment interface
+    with a gridworld MDP (states as grid cells, actions as moves, rewards on
+    transitions, and terminal/special outcomes).
+
+    This repository implements an adapted 4x4 gridworld demonstration (see
+    ``GridWorld`` in this module and ``chapter_01/README.md``): special states
+    A (0,0), B (0,3), C (0,2), terminals A+ (3,0, reward +10 on entry from A)
+    and D (3,3), with deterministic moves and step reward -1 in ordinary cells.
+
+    The figure visualizes the implemented environment layout and the special
+    transition/reward structure so students can connect code to the book's
+    gridworld concepts (states, actions, rewards, terminal states).
+
+    Args:
+        save_path: Optional path to save the figure (e.g. PNG). Parent
+            directories should exist.
+        show: If True, display the figure window (default False for headless use).
+
+    Returns:
+        (fig, ax): Matplotlib figure and axes.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import FancyArrowPatch, Rectangle
+
+    env = GridWorld(grid_width=4, grid_height=4, discount=1.0)
+    fig, ax = plt.subplots(figsize=(6.5, 6.2))
+
+    # Draw grid cells (row 0 at top to match render/layout in this module).
+    for r in range(env.grid_height):
+        for c in range(env.grid_width):
+            state = (r, c)
+            if state == env.state_A_plus:
+                face = "#d9f2d9"
+            elif state == env.state_D:
+                face = "#f9d6d5"
+            elif state == env.state_A:
+                face = "#dcecff"
+            elif state == env.state_B:
+                face = "#fff2cc"
+            elif state == env.state_C:
+                face = "#f3e8ff"
+            else:
+                face = "#ffffff"
+            rect = Rectangle((c, r), 1, 1, facecolor=face, edgecolor="#444444", linewidth=1.2)
+            ax.add_patch(rect)
+            label = f"({r},{c})"
+            if state == env.state_A:
+                label = "A (0,0)"
+            elif state == env.state_B:
+                label = "B (0,3)"
+            elif state == env.state_A_plus:
+                label = "A+ terminal\nr=+10"
+            elif state == env.state_D:
+                label = "D terminal"
+            elif state == env.state_C:
+                label = "C (0,2)"
+            ax.text(c + 0.5, r + 0.5, label, ha="center", va="center", fontsize=9)
+
+    def arrow(x1, y1, x2, y2, text, color="#333333"):
+        patch = FancyArrowPatch((x1, y1), (x2, y2), arrowstyle="->", mutation_scale=12,
+                                linewidth=1.4, color=color)
+        ax.add_patch(patch)
+        ax.text((x1 + x2) / 2, (y1 + y2) / 2 - 0.08, text, fontsize=7.5,
+                ha="center", va="top", color=color,
+                bbox={"boxstyle": "round,pad=0.15", "fc": "white", "ec": "none", "alpha": 0.8})
+
+    # Annotate special transitions (book concepts: actions -> next state, reward).
+    # From A: UP/LEFT -> A+ (+10), DOWN/RIGHT -> B (+5)
+    arrow(0.35, 0.65, 0.35, 2.6, "A: up/left\nr=+10", color="#2e7d32")
+    arrow(0.75, 0.35, 2.6, 0.35, "A: down/right\nr=+5", color="#1565c0")
+    # From B: UP/RIGHT -> C (+5), DOWN/LEFT -> D (+5)
+    arrow(3.35, 0.65, 2.65, 0.65, "B: up/right\nr=+5", color="#6a1b9a")
+    arrow(3.55, 0.75, 3.55, 2.6, "B: down/left\nr=+5", color="#6a1b9a")
+
+    ax.set_xlim(0, env.grid_width)
+    ax.set_ylim(env.grid_height, 0)
+    ax.set_aspect("equal")
+    ax.set_xticks(range(env.grid_width + 1))
+    ax.set_yticks(range(env.grid_height + 1))
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+    ax.grid(False)
+    ax.set_title(
+        "GridWorld demonstration (adapted from Sutton & Barto, 2nd ed.,\n"
+        "Sec. 1.3, Fig. 1.2): states, actions, rewards, terminals"
+    )
+    ax.text(0.0, 4.35,
+            "Ordinary moves: deterministic step, r = -1 (unless off-grid: stay in place).",
+            fontsize=8)
+
+    fig.tight_layout()
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    if show:
+        matplotlib.use("TkAgg", force=True)
+        plt.show()
+    else:
+        plt.close(fig)
+    return fig, ax
+
+
 def main() -> None:
     """Run a demo of the Gridworld environment."""
     print("=" * 60)
