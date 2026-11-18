@@ -472,6 +472,61 @@ def recycling_robot(
     return FiniteMDP(states, actions, transitions, gamma=gamma, seed=seed)
 
 
+def example_3_5_gridworld(gamma: float = 0.9) -> FiniteMDP:
+    """Example 3.5: the 5x5 gridworld MDP (Sutton & Barto, 2nd ed., Sec. 3.5).
+
+    5x5 grid; deterministic actions ``up``, ``down``, ``left``, ``right``.
+    Moving off the grid leaves the agent in place with reward -1; all other
+    moves yield reward 0, except:
+
+        A  (row 0, col 1): any action yields +10 and teleports to A' (row 4, col 1)
+        B  (row 0, col 3): any action yields +5  and teleports to B' (row 2, col 3)
+
+    The task is continuing. Under the equiprobable random policy the converged
+    values match the book's Figure 3.2 (2018 edition; local draft PDF numbers it
+    as part of the Example 3.5 figures), e.g. v_random(A) ~ 8.8 (2017-era drafts
+    show ~8.8, consistent with gamma = 0.9). Solving the Bellman optimality
+    equations reproduces the v* grid with v*(A) ~ 24.42 (the book: "about 24.4").
+    Figure identities cannot be re-verified against the local PDF summary text,
+    so this MDP is implemented from the book's dynamics description; all figure
+    reproductions are labelled as illustrative demonstrations.
+    """
+    A, Ap = (0, 1), (4, 1)
+    B, Bp = (0, 3), (2, 3)
+    grid = 5
+    states = [(r, c) for r in range(grid) for c in range(grid)]
+    actions = ["up", "down", "left", "right"]
+    deltas = {"up": (-1, 0), "down": (1, 0), "left": (0, -1), "right": (0, 1)}
+    transitions = {}
+    for s in states:
+        if s == A:
+            for a in actions:
+                transitions[(s, a)] = [(1.0, 10.0, Ap)]
+            continue
+        if s == B:
+            for a in actions:
+                transitions[(s, a)] = [(1.0, 5.0, Bp)]
+            continue
+        for a in actions:
+            dr, dc = deltas[a]
+            nr, nc = s[0] + dr, s[1] + dc
+            if 0 <= nr < grid and 0 <= nc < grid:
+                transitions[(s, a)] = [(1.0, 0.0, (nr, nc))]
+            else:
+                transitions[(s, a)] = [(1.0, -1.0, s)]
+    return FiniteMDP(states, actions, transitions, gamma=gamma)
+
+
+def example_3_5_gridworld_random_policy_values(gamma: float = 0.9) -> np.ndarray:
+    """Converged state values v_pi for the equiprobable random policy (pi = 1/4 each action).
+
+    Uses the exact Bellman expectation solve. Book Section 3.5, Example 3.5.
+    """
+    mdp = example_3_5_gridworld(gamma=gamma)
+    uniform = np.full((mdp.n_states, mdp.n_actions), 1.0 / mdp.n_actions)
+    return solve_bellman_expectation(mdp, uniform)
+
+
 # ---------------------------------------------------------------------------
 # Figure reproduction (Sutton & Barto, 2nd ed., Ch. 3)
 # ---------------------------------------------------------------------------
@@ -559,3 +614,64 @@ def plot_recycling_robot_example(
     else:
         plt.close(fig)
     return fig, (ax1, ax2)
+
+
+def plot_example_3_5_gridworld(save_path: str | None = None, show: bool = False,
+                               gamma: float = 0.9):
+    """Example 3.5 (5x5 gridworld): v_pi (random policy) and v* (optimal), as in the book.
+
+    Two heatmaps: (a) converged state values under the equiprobable random policy,
+    and (b) the optimal state-value function from the Bellman optimality equation
+    (value iteration). Special cells A (+10 -> A' teleport) and B (+5 -> B' teleport)
+    are marked. Reproduced as an illustrative demonstration; figure identities differ
+    across editions (Figs 3.2/3.5 in the 2018 edition; the local in-progress draft PDF
+    shows the same dynamics in the Example 3.5 figures and its exercises cite v*(A) ~
+    24.4). MDP is implemented from the dynamics description, not from figure pixels.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    mdp = example_3_5_gridworld(gamma=gamma)
+    uniform = np.full((mdp.n_states, mdp.n_actions), 1.0 / mdp.n_actions)
+    v_random = solve_bellman_expectation(mdp, _policy_matrix(mdp, uniform))
+    v_optimal, _ = _optimal_values_and_policy(mdp)
+
+    grid = 5
+    vr = v_random.reshape(grid, grid)
+    vo = v_optimal.reshape(grid, grid)
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 5.0))
+    for ax, data, title in (
+        (ax1, vr, "(a) v_pi, equiprobable random policy"),
+        (ax2, vo, "(b) v*, optimal (Bellman optimality)"),
+    ):
+        im = ax.imshow(data, cmap="viridis")
+        ax.set_title(title, fontsize=10)
+        for r in range(grid):
+            for c in range(grid):
+                ax.text(c, r, f"{data[r, c]:.2f}", ha="center", va="center",
+                        color="white", fontsize=8)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_xlabel("col")
+        ax.set_ylabel("row")
+        fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
+    for (r, c), mark in (((0, 1), "A"), ((0, 3), "B"), ((4, 1), "A'"), ((2, 3), "B'")):
+        for ax in (ax1, ax2):
+            ax.text(c - 0.45, r - 0.45, mark, fontsize=11, ha="center", va="center",
+                    color="red", fontweight="bold")
+
+    fig.suptitle("S&B (2nd ed.), Example 3.5: the 5x5 gridworld (illustrative demonstration; "
+                 "figure numbering differs across editions)", fontsize=10)
+    fig.tight_layout()
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+    return fig, ax2
+

@@ -318,8 +318,19 @@
 - **Problem:** Figure 3.6 gives the optimal value of the best state of the gridworld as `24.4` (one
   decimal). Express this symbolically via (3.8), then compute to three decimals.
 - **Solution.** Symbolic: \(v*(s) = max_a q*(s, a) = max_a \sum _{s', r} p(s', r | s, a) [r + \gamma v*(s')]\).
-  Numeric: expressing the optimal return via the geometric-series form \(v*(s) = \sum _{k=0}^\infty \gamma ^k E[R_k]\)
-  and evaluating under the optimal policy gives `24.4` — `24.400` to three decimal places.
+  Along the optimal policy the return from A chains through A' (row 4, col 1); solving the Bellman
+  optimality equation exactly gives \(v*(A) = 24.4194\ldots\) — `24.4` to one decimal and `24.419`
+  to three decimals. (Independent hand-derivations online of the same chain —\(10 + 0.9 \times v*(A')\)
+  with \(v*(A') = 16.0216\ldots\) — converge on the same value.)
+- **Coding pointer:** implemented in `chapter_03/solution.py` as `example_3_5_gridworld` (the 5x5
+  gridworld MDP, deterministic actions, off-grid -> stay with reward −1, A -> teleport to A′ with +10,
+  B -> teleport to B′ with +5, γ = 0.9). Value iteration on the Bellman optimality equation gives
+  `v*(A) = 24.4194…`, matching the book to one decimal (24.4) and to three decimals (24.419). The
+  `fig_3_5_gridworld.png` figure reproduces the vπ/v* grids; see `plot_example_3_5_gridworld`. Note:
+  figure numbering differs across editions — the 2018 edition shows Example 3.5 in Sec. 3.5-3.6 with
+  values vπ/v*, while the local in-progress draft PDF is used elsewhere in this document as the
+  citation source; this reproduction is an illustrative demonstration of Example 3.5, not a pixel-level
+  copy of a specific edition's figure.
 
 ### Exercise 3.22 — Continuing MDP with two actions
 
@@ -367,7 +378,7 @@
 | 3.1–3.2 | §3.1–3.2 | `chapter_03/solution.py` (`FiniteMDP`) | `TestFiniteMDP` | `python -m pytest chapter_03/tests/ -v` |
 | 3.4–3.5 | §3.2 | `chapter_03/solution.py` (`FiniteMDP.expected_reward`, `FiniteMDP.transition_probs`) | `TestFiniteMDP` | `python -m pytest chapter_03/tests/ -v` |
 | 3.9–3.10 | §3.3 | `chapter_03/solution.py` (`compute_return`, `compute_returns_to_go`) | `TestComputeReturn` | `python -m pytest chapter_03/tests/ -v` |
-| 3.12–3.13, 3.16–17 | §3.5 | `chapter_03/solution.py` (`bellman_backup_expectation`, `bellman_backup_optimality`, `bellman_backup_*`) | `TestBellman` | `python -m pytest chapter_03/tests/ -v` |
+| 3.12–3.13, 3.16–17 | §3.5 | `chapter_03/solution.py` (`bellman_backup_expectation`, `bellman_backup_optimality`, `bellman_backup_*`); Example 3.5 gridworld MDP `example_3_5_gridworld` + `example_3_5_gridworld_random_policy_values` + `plot_example_3_5_gridworld` (`fig_3_5_gridworld.png`) cover the book's gridworld example; v*(A) = 24.4194 (one decimal: 24.4) matching the book's cite for Exercise 3.21 | `TestBellman`, `TestExample35Gridworld` | `python -m pytest chapter_03/tests/ -v` |
 | 3.6, 3.14–15 | §3.3–3.5 | `chapter_03/solution.py` (`compute_return`, `bellman_backup_*`, `verify_bellman`) | `TestComputeReturn`, `TestBellman` | `python -m pytest chapter_03/tests/ -v` |
 
 - Full chapter command: `python -m pytest chapter_03/tests/ -v`
