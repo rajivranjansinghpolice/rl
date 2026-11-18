@@ -12,7 +12,10 @@ policy for continuous actions.
 
 ## Exercises and Solutions
 
-- [exercises.md](exercises.md) — Exercises 13.1–13.3 with from-scratch solutions (derivation of p* = 2 − √2 ≈ 0.586 for Example 13.1), book §/equation/PDF-page citations, and coding-exercise pointers into this chapter (`PolicyGradientAlgorithm`, `PolicyGradientWithBaseline`, `ActorCriticAlgorithm`, `GaussianPolicy`).
+- [exercises.md](exercises.md) — Exercises 13.1–13.3 with from-scratch solutions (derivation of p* = 2 − √2 ≈ 0.586 for Example 13.1), book §/equation/PDF-page citations, and coding-exercise pointers into this chapter (`PolicyGradientAlgorithm`, `PolicyGradientWithBaseline`, `ActorCriticAlgorithm`, `GaussianPolicy`, `ShortCorridorEnv`).
+- Figures: `figures/fig_13_1_short_corridor_value.png` (closed-form V1(p) curve + MC cross-checks, p* marker),
+  `figures/fig_13_2_reinforce_short_corridor.png` (REINFORCE learning curve + exact value-ascent).
+  See `figures/generate_figures.py` to regenerate.
 
 ## Algorithms Implemented
 - [x] algorithm_13.1 — Policy gradient theorem: numeric verification (`check_policy_gradient_theorem`) ✅
@@ -21,6 +24,11 @@ policy for continuous actions.
 - [x] algorithm_13.4 — Actor-critic methods, one-step episodic (`ActorCriticAlgorithm`, `ActorCriticAgent`) ✅
 - [x] algorithm_13.5 — Policy gradient for continuing problems (`ContinuingActorCritic`, average-reward delta) ✅
 - [x] algorithm_13.6 — Policy parameterization for continuous actions (`GaussianPolicy`, tabular mean + learnable log-sigma) ✅
+- [x] Example 13.1 — Short corridor MDP (`ShortCorridorEnv`, `ShortCorridorREINFORCE`,
+  `run_short_corridor_reinforce`, `run_short_corridor_value_ascent`) with closed-form
+  V1(p) = 2(p-2)/(p(1-p)) maximized at p* = 2 - √2 ≈ 0.586; REINFORCE and exact
+  value-ascent, plus Monte-Carlo cross-checks. Illustrative demonstration; figure
+  identities cannot be verified against the local PDF summary. ✅
 
 ## Book Reference
 - Section 13.2: The Policy Gradient Theorem (episodic and continuing forms)
@@ -29,6 +37,7 @@ policy for continuous actions.
 - Section 13.5: Actor-Critic Methods
 - Section 13.6: Policy Gradient for Continuing Problems
 - Section 13.7: Policy Parameterization for Continuous Actions
+- Section 13.1: Policy Approximation and its Advantages (Example 13.1 — short corridor)
 
 ## Implementation Notes
 - Policies are tabular softmax over action preferences (the book's running
@@ -37,6 +46,14 @@ policy for continuous actions.
 - `run_policy_gradient_simulation(algorithm, env, ...)` trains on a bandit
   `PolicyEnvironment` and returns per-episode total rewards.
 - `main(seed=...)` runs a REINFORCE-with-baseline demo.
+- **Example 13.1 (short corridor):** `ShortCorridorEnv` implements the 3-state
+  switched-action MDP; episodes are capped by `max_steps` (5000) to bound the
+  self-loop at state 1. `short_corridor_value_gradient` gives the analytic
+  dV1/dp (numerically stable from p in (0,1)); `run_short_corridor_value_ascent`
+  converges deterministically to p*, while `run_short_corridor_reinforce`
+  demonstrates empirical REINFORCE (high-variance with all-negative rewards).
+  Figures 13.1 and 13.2 are reproduced as illustrative demonstrations; exact
+  book-figure identities cannot be verified against the local PDF summary.
 - Import as a package (`from chapter_13.solution import ...`); see
   `chapter_13/__init__.py` for the package marker.
 

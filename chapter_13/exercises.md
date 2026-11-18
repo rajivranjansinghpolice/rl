@@ -131,15 +131,20 @@
 
 | Book exercise(s) | Book section | Repo code | Repo tests | Pytest command |
 |---|---|---|---|---|
-| 13.1 | §13.1 (Example 13.1, short corridor) | *(no direct implementation in this repo; derivation-only in this document — the repo’s `PolicyEnvironment` is a multi-armed bandit, not the short-corridor MDP)* | *(none; not covered by current tests)* | — |
+| 13.1 | §13.1 (Example 13.1, short corridor) | `ShortCorridorEnv`, `ShortCorridorREINFORCE`, `run_short_corridor_reinforce`, `run_short_corridor_value_ascent`, `short_corridor_value` (closed form), `short_corridor_value_gradient` (analytic dV1/dp), `short_corridor_optimal_p` | `TestShortCorridor` (transitions, sigmoid policy, closed-form p*/v*, curve max, MC cross-check, REINFORCE validity), `TestValueAscent` (gradient sign, convergence to p*) | `python -m pytest chapter_13/tests/ -v` |
 | 13.2 | §13.3 (Eq. 13.7, softmax eligibility) | `chapter_13/solution.py` uses the softmax score form \(onehot(a) - \pi (\cdot |s)\) in tabular updates (supporting usage, not an implementation of the Eq. 13.7 proof) | `TestPolicyGradientTheorem` (numeric policy-gradient-theorem check, not the Eq. 13.7 derivation) | `python -m pytest chapter_13/tests/ -v` |
 | 13.3 | §13.3 / §13.5 (Bernoulli-logistic unit) | *(no direct implementation in this repo; repo policies are tabular softmax / Gaussian, not a sigmoid Bernoulli-logistic unit)* | *(none)* | — |
 
 - Full chapter command: `python -m pytest chapter_13/tests/ -v`
 - Lint: `ruff check chapter_13/`
 - No standalone `exercise_*.py` file exists for this chapter; the policy-gradient machinery lives in
-  `solution.py` and the tests group it by algorithm. Note: 13.1 and 13.3 are derivation-only here;
-  13.2 is supported conceptually by the tabular softmax score form but its proof is not directly tested.
+  `solution.py` and the tests group it by algorithm. Note: 13.2 remains supported conceptually by the
+  tabular softmax score form but its proof is not directly tested. 13.3 remains derivation-only.
+- 13.1 is now implemented in `solution.py`: the short-corridor MDP (`ShortCorridorEnv`), the closed-form
+  start-state value \(V_1(p) = 2(p-2)/(p(1-p))\), the analytic gradient \(dV_1/dp = 2(p^2-4p+2)/(p(1-p))^2\),
+  and exact value-ascent (`run_short_corridor_value_ascent`) which converges deterministically to p*. The
+  empirical REINFORCE path (`run_short_corridor_reinforce`) is also included but is high-variance with
+  all-negative rewards and may not reach p* in few episodes.
 
 ---
 

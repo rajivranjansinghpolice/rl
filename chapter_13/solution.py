@@ -564,3 +564,303 @@ def plot_policy_gradient_comparison(
     else:
         plt.close(fig)
     return fig, ax
+
+
+# ---------------------------------------------------------------------------
+# Example 13.1: the short corridor (Section 13.1)
+# ---------------------------------------------------------------------------
+
+LEFT = 0
+RIGHT = 1
+N_CORRIDOR_ACTIONS = 2
+
+
+class ShortCorridorEnv:
+    """Short-corridor MDP (Example 13.1, Section 13.1).
+
+    Three nonterminal states (1, 2, 3) and a terminal state (4). Actions are
+    LEFT and RIGHT. Every state looks identical to the agent, and the actions
+    are switched in the middle state, so the optimal deterministic policy
+    (right, left, right) is not reachable by a state-independent stochastic
+    policy. Transitions:
+
+        state 1: RIGHT -> 2, LEFT -> 1
+        state 2: RIGHT -> 1, LEFT -> 3     (switched actions)
+        state 3: RIGHT -> terminal, LEFT -> 2
+
+    Reward is -1 on every step. With state-independent features the agent can
+    only choose one P(RIGHT) = p for all states; the best such p is
+    p* = 2 - sqrt(2) ~ 0.586 (see ``short_corridor_optimal_p``).
+    """
+
+    TERMINAL = 4
+
+    def __init__(self, seed: int | None = None) -> None:
+        self.rng = np.random.default_rng(seed)
+        self.state = 1
+
+    def reset(self) -> int:
+        """Start a new episode at state 1."""
+        self.state = 1
+        return self.state
+
+    def step(self, action: int) -> tuple[int, float, bool]:
+        """Take ``action`` (LEFT=0 or RIGHT=1); return (next_state, -1.0, done)."""
+        s = self.state
+        if s == 1:
+            nxt = 2 if action == RIGHT else 1
+        elif s == 2:
+            nxt = 1 if action == RIGHT else 3
+        else:  # s == 3
+            nxt = self.TERMINAL if action == RIGHT else 2
+        done = nxt == self.TERMINAL
+        self.state = self.TERMINAL if done else nxt
+        return nxt, -1.0, done
+
+
+def short_corridor_features(action: int) -> np.ndarray:
+    """State-independent one-hot features x(s, a): RIGHT -> [1, 0], LEFT -> [0, 1]."""
+    return np.array([1.0, 0.0]) if action == RIGHT else np.array([0.0, 1.0])
+
+
+def short_corridor_right_prob(theta: np.ndarray) -> float:
+    """Softmax policy: pi(RIGHT | s) = sigmoid(theta[0] - theta[1])."""
+    theta = np.asarray(theta, dtype=np.float64)
+    return float(1.0 / (1.0 + np.exp(-(theta[0] - theta[1]))))
+
+
+def short_corridor_optimal_p() -> tuple[float, float]:
+    """Return (p*, v*(p*)) with p* = 2 - sqrt(2) and v* = -6 - 4*sqrt(2).
+
+    Derived in exercises.md (Exercise 13.1) by maximising the closed-form
+    start-state value V1(p) = 2(p - 2) / (p(1 - p)).
+    """
+    p = 2.0 - np.sqrt(2.0)
+    v = -6.0 - 4.0 * np.sqrt(2.0)
+    return float(p), float(v)
+
+
+def short_corridor_value_gradient(p: float) -> float:
+    """Analytic derivative dV1/dp = 2(p^2 - 4p + 2) / (p(1-p))^2, 0 < p < 1."""
+    p = float(p)
+    if not 0.0 < p < 1.0:
+        raise ValueError("p must be in (0, 1)")
+    num = 2.0 * (p * p - 4.0 * p + 2.0)
+    den = (p * (1.0 - p)) ** 2
+    return float(num / den)
+
+
+def run_short_corridor_value_ascent(start_p: float = 0.5, alpha: float = 0.01,
+                                    max_iter: int = 10000, tol: float = 1e-8) -> dict:
+    """Exact policy-gradient ascent on V1(p) using the closed-form gradient.
+
+    Because V1(p) is known analytically for the short corridor (Section 13.1),
+    each update uses dV1/dp directly rather than Monte-Carlo sampling. Starting
+    from the neutral policy (p = 0.5, sec 13.1 example) avoids the steep cliff
+    near the boundaries; the exact gradient is tiny at the optimum, so the
+    iterate converges deterministically. Clips p into (0, 1) each iteration.
+    """
+    p = float(start_p)
+    history: dict = {"iter": [], "p": [], "v1": [], "grad": []}
+    for it in range(max_iter):
+        grad = short_corridor_value_gradient(p)
+        p = min(max(p + alpha * grad, 1e-4), 1.0 - 1e-4)
+        if abs(grad) < tol:
+            break
+        history["iter"].append(it)
+        history["p"].append(p)
+        history["v1"].append(short_corridor_value(p))
+        history["grad"].append(grad)
+    return history
+
+
+def short_corridor_value(p: float) -> float:
+    """Closed-form start-state value V1(p) = 2(p - 2) / (p(1 - p)), 0 < p < 1."""
+    p = float(p)
+    if not 0.0 < p < 1.0:
+        raise ValueError("p must be in (0, 1)")
+    return 2.0 * (p - 2.0) / (p * (1.0 - p))
+
+
+def simulate_short_corridor(p: float, gamma: float = 1.0, episodes: int = 1000,
+                            seed: int = 0, max_steps: int = 100000) -> float:
+    """Monte-Carlo estimate of V1 under the aggregate policy P(RIGHT) = p.
+
+    ``max_steps`` bounds each episode as a practical safeguard: for 0 < p < 1 the
+    MDP terminates with probability 1, but p very near 0 or 1 makes episodes long.
+    """
+    rng = np.random.default_rng(seed)
+    total = 0.0
+    for _ in range(episodes):
+        env = ShortCorridorEnv(seed=int(rng.integers(1 << 30)))
+        env.reset()
+        ret = 0.0
+        discount = 1.0
+        for _ in range(max_steps):
+            action = RIGHT if rng.random() < p else LEFT
+            _, reward, done = env.step(action)
+            ret += discount * reward
+            discount *= gamma
+            if done:
+                break
+        total += ret
+    return total / episodes
+
+
+class ShortCorridorREINFORCE:
+    """REINFORCE on the short corridor (Example 13.1).
+
+    Learns two action-preference parameters theta so that the state-independent
+    probability of RIGHT approaches p* = 2 - sqrt(2). The eligibility for this
+    parameterisation is x(s,a) - sum_b pi(b|s) x(s,b).
+    """
+
+    def __init__(self, lr: float = 0.01, gamma: float = 1.0,
+                 seed: int | None = None) -> None:
+        self.learning_rate = float(lr)
+        self.gamma = float(gamma)
+        self.theta = np.zeros(2, dtype=np.float64)
+        self.rng = np.random.default_rng(seed)
+
+    def right_prob(self) -> float:
+        """Current P(RIGHT)."""
+        return short_corridor_right_prob(self.theta)
+
+    def select_action(self) -> int:
+        """Sample an action from the current softmax policy."""
+        return RIGHT if self.rng.random() < self.right_prob() else LEFT
+
+    def episode_update(self, actions: list, rewards: list) -> None:
+        """One REINFORCE update from a finished episode."""
+        returns = _discounted_returns([float(r) for r in rewards], self.gamma)
+        p = self.right_prob()
+        delta = np.zeros(2, dtype=np.float64)
+        for t, action in enumerate(actions):
+            if action == RIGHT:
+                grad = np.array([1.0 - p, -(1.0 - p)])
+            else:
+                grad = np.array([-p, p])
+            delta += self.learning_rate * returns[t] * grad
+        self.theta += delta
+
+
+def run_short_corridor_reinforce(lr: float = 0.01, gamma: float = 1.0,
+                                 episodes: int = 1000, seed: int = 0,
+                                 eval_every: int = 50,
+                                 max_steps: int = 5000) -> tuple[ShortCorridorREINFORCE, dict]:
+    """Train REINFORCE on the short corridor; return (agent, learning history).
+
+    ``max_steps`` is a practical safeguard: the MDP terminates with probability
+    1 for any 0 < p < 1, but when the learned p drifts near 0 or 1 episodes can
+    become arbitrarily long. Episodes that hit the cap are truncated and the
+    partial return is used as-is; this never occurs once p stays away from the
+    extremes (checked by the tests).
+    """
+    agent = ShortCorridorREINFORCE(lr=lr, gamma=gamma, seed=seed)
+    history: dict = {"episode": [], "p": [], "v1": []}
+    for ep in range(episodes):
+        env = ShortCorridorEnv()
+        env.reset()
+        actions, rewards = [], []
+        for _ in range(max_steps):
+            action = agent.select_action()
+            _, reward, done = env.step(action)
+            actions.append(action)
+            rewards.append(reward)
+            if done:
+                break
+        agent.episode_update(actions, rewards)
+        if ep % eval_every == 0 or ep == episodes - 1:
+            p = agent.right_prob()
+            history["episode"].append(ep)
+            history["p"].append(p)
+            history["v1"].append(short_corridor_value(min(max(p, 1e-3), 1.0 - 1e-3)))
+    return agent, history
+
+
+# ---------------------------------------------------------------------------
+# Figures 13.1 and 13.2: the short corridor (Example 13.1)
+# ---------------------------------------------------------------------------
+
+def plot_figure_13_1(save_path: str | None = None, show: bool = False,
+                     seed: int = 0, n_mc: int = 2000):
+    """Value of the short corridor as a function of P(RIGHT) (Example 13.1).
+
+    Sutton & Barto (2nd ed.), Sec. 13.1 / Example 13.1: with state-independent
+    features the agent can only choose one p = P(RIGHT); the start-state value
+    is maximised at p* = 2 - sqrt(2) ~ 0.586. Illustrative reproduction; the
+    exact book figure identity cannot be verified against the local PDF summary.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    ps = np.linspace(0.02, 0.98, 200)
+    vals = [short_corridor_value(p) for p in ps]
+    p_star, v_star = short_corridor_optimal_p()
+
+    mc_ps = np.linspace(0.1, 0.9, 9)
+    mc_vals = [simulate_short_corridor(p, episodes=n_mc, seed=seed) for p in mc_ps]
+
+    fig, ax = plt.subplots(figsize=(7.5, 4.5))
+    ax.plot(ps, vals, lw=2.0, color="tab:blue", label=r"closed form $V_1(p)$")
+    ax.plot(mc_ps, mc_vals, "o", color="tab:orange", label="Monte-Carlo estimate")
+    ax.axvline(p_star, color="tab:red", ls="--", lw=1.0,
+               label=rf"$p^* = 2-\sqrt{{2}} \approx {p_star:.3f}$")
+    ax.plot([p_star], [v_star], "r*", ms=12)
+    ax.set_xlabel(r"$p = P(\mathrm{right})$")
+    ax.set_ylabel(r"start-state value $V_1(p)$")
+    ax.set_title("S&B (2nd ed.), Sec. 13.1 / Example 13.1: short corridor (illustrative)")
+    ax.set_ylim(top=-6.0)
+    ax.legend()
+    fig.tight_layout()
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+    return fig, ax
+
+
+def plot_figure_13_2(save_path: str | None = None, show: bool = False,
+                     lr: float = 0.02, episodes: int = 1500, seed: int = 0):
+    """REINFORCE learning on the short corridor (Example 13.1).
+
+    Sutton & Barto (2nd ed.), Sec. 13.1 / Example 13.1: policy-gradient learning
+    of the state-independent right-probability, which converges toward
+    p* = 2 - sqrt(2). Illustrative reproduction; the exact book figure identity
+    cannot be verified against the local PDF summary.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    _, history = run_short_corridor_reinforce(lr=lr, episodes=episodes, seed=seed)
+    p_star, _ = short_corridor_optimal_p()
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4.5))
+    ax1.plot(history["episode"], history["p"], lw=1.5, color="tab:blue")
+    ax1.axhline(p_star, color="tab:red", ls="--", lw=1.0,
+                label=rf"$p^* \approx {p_star:.3f}$")
+    ax1.set_xlabel("Episode")
+    ax1.set_ylabel(r"$\pi(\mathrm{right})$")
+    ax1.set_title("Learned right-probability")
+    ax1.legend()
+
+    ax2.plot(history["episode"], history["v1"], lw=1.5, color="tab:green")
+    ax2.set_xlabel("Episode")
+    ax2.set_ylabel(r"$V_1(p)$ (closed form)")
+    ax2.set_title("Implied start-state value")
+    fig.suptitle("S&B (2nd ed.), Sec. 13.1 / Example 13.1: REINFORCE on the "
+                 "short corridor (illustrative)")
+    fig.tight_layout()
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+    return fig, ax1
