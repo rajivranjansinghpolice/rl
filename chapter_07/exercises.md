@@ -8,23 +8,27 @@
 ## Scope and Book Mapping
 
 - **Repo chapter:** `chapter_07` — n-step bootstrapping.
-- **Implemented APIs (actual):** `n_step_sarsa`, `tree_backup`, `sarsa_lambda` in
-  `chapter_07/solution.py`.
-- **Implemented tests (actual):** `TestNStepSarsa`, `TestTreeBackup`, `TestSarsaLambda` in
-  `chapter_07/tests/test_solution.py`.
+- **Implemented APIs (actual):** `n_step_td_prediction`, `run_n_step_prediction_experiment`,
+  `n_step_sarsa`, `tree_backup`, `sarsa_lambda` in `chapter_07/solution.py`.
+- **Implemented tests (actual):** `TestNStepTDPrediction`, `TestNStepSarsa`, `TestTreeBackup`,
+  `TestSarsaLambda` in `chapter_07/tests/test_solution.py`.
 - **Book chapter:** Chapter 7, *n-step Bootstrapping*.
 - **Book sections covered by this repo implementation:**
+  - §7.1 — n-step TD prediction (Eq. 7.1–7.2) and Example 7.1 / Figure 7.2: prediction on the
+    19-state random walk (A..S, left outcome −1, right +1, values initialized to 0).
+    `n_step_td_prediction` runs the box; `run_n_step_prediction_experiment` reproduces
+    Figure 7.2 (error vs. α for n = 1..512, averaged over the first 10 episodes and
+    repetitions, same walks for every setting).
   - §7.2 — n-step Sarsa / on-policy n-step control (Eq. 7.4–7.5), via `n_step_sarsa`.
   - §7.5 — n-step Tree Backup, off-policy control without importance sampling
-    (Eq. 7.8/7.11–7.12 style backup recurrences), via `tree_backup`.
-  - Eligibility-trace control related to §12.7 / SARSA(λ) (accumulating traces), via
+    (backup recurrences), via `tree_backup`.
+  - Eligibility-trace control related to §12.2 / SARSA(λ) (accumulating traces), via
     `sarsa_lambda` (included here for trace-based bootstrapping continuity; not a Chapter 7
     n-step IS algorithm).
-- **Not implemented in this repo (theory-only where exercises ask for them):** n-step TD
-  prediction API, off-policy n-step prediction/control with importance-sampling ratios
-  (ordinary or per-decision/per-reward forms), and Expected Sarsa n-step variants. Exercises
-  that request such algorithms are answered with derivations/pseudocode but are labeled
-  **theory-only (no repo API)**.
+- **Not implemented in this repo (theory-only where exercises ask for them):** off-policy n-step
+  prediction/control with importance-sampling ratios (ordinary or per-decision/per-reward forms),
+  and Expected Sarsa n-step variants. Exercises that request such algorithms are answered with
+  derivations/pseudocode but are labeled **theory-only (no repo API)**.
 
 **Key equations (paraphrased notation):**
 - n-step return for state values (Eq. 7.1): \(G_{t:t+n} = \sum_{k=0}^{n-1} \gamma^k R_{t+k+1} + \gamma^n V(S_{t+n})\), with the usual terminal convention.
@@ -81,9 +85,10 @@ references.
   \[
   G_{t:t+n}-V(S_t)=\sum_{k=0}^{n-1} \gamma^k \delta_{t+k}\,\quad (\text{fixed }V,\ \text{Eq. 7.1–7.2}).
   \]
-- **Coding pointer / status:** **Theory-only (no repo API).** `solution.py` does not implement
-  n-step TD prediction/V updates; implemented control methods are `n_step_sarsa`, `tree_backup`,
-  `sarsa_lambda`.
+- **Coding pointer / status:** **Theory (identity); exercised by implementation.** `n_step_td_prediction`
+  implements the standard (changing-V) form of the box in §7.1; the identity above is verified for the
+  fixed-V case in the derivation. See `TestNStepTDPrediction` and the Figure 7.2 experiment
+  (`run_n_step_prediction_experiment`).
 
 ### Exercise 7.2 — Is the sum-of-TD-errors form better when values change?
 
@@ -101,8 +106,11 @@ references.
   **Experiment (theory proposal):** on a random-walk prediction task (e.g. the 19-state walk of
   §7.1), compare RMS value error vs. episodes/steps for (a) standard n-step TD (Eq. 7.2) and
   (b) the sum-of-changing-\(\delta\) variant, sweeping \(n\) and \(\alpha\) with multiple seeds.
-- **Coding pointer / status:** **Theory-only (no repo API).** No n-step prediction or TD-error-sum
-  variant is implemented; related control code is `n_step_sarsa` (on-policy, Eq. 7.5 form).
+- **Coding pointer / status:** **Implemented (prediction API).** `n_step_td_prediction` in
+  `chapter_07/solution.py` implements the online variant exactly as written; the
+  sum-of-changing-δ variant is not implemented (it is not the algorithm the book's box
+  describes). Related control code: `n_step_sarsa` (on-policy, Eq. 7.5 form); tests in
+  `TestNStepTDPrediction`.
 
 ### Exercise 7.3 — Why a larger random walk task?
 
@@ -120,9 +128,12 @@ references.
   not fundamentally change which \(n\) best balances bootstrapping bias and sampling variance;
   the optimal \(n\) is driven mainly by timescale/horizon and step size rather than by a uniform
   shift in terminal reward sign/magnitude.
-- **Coding pointer / status:** **Theory-only (no repo API).** This repo’s control experiments run
-  on `chapter_06.solution.RandomWalkEnv` via `n_step_sarsa` / `tree_backup` / `sarsa_lambda`; no
-  19-state prediction benchmark script is included.
+- **Coding pointer / status:** **Implemented (Example 7.1).** The 19-state walk is
+  `RandomWalkEnv(n_states=19, left_reward=-1.0, right_reward=1.0)` in `rl_envs/random_walk.py`
+  (shared with Chapter 6's `RandomWalkEnv`); `n_step_td_prediction` predicts on it, and
+  `run_n_step_prediction_experiment` reproduces Figure 7.2 (intermediate n, e.g. 2–16, beats the
+  extremes at moderate α). Reproduction: `chapter_07/figures/fig_7_2_n_step_td_alpha.png`
+  (`python chapter_07/figures/generate_figures.py`). See also `TestNStepTDPrediction`.
 
 ### Exercise 7.4 — Pseudocode for off-policy n-step state-value prediction
 
@@ -241,6 +252,8 @@ Q(S_t,A_t) <- Q(S_t,A_t) + α * rho * (G_{t:t+n} - Q(S_t,A_t))
 
 | Book exercise(s) | Book section / topic | Repo code (actual) | Repo tests (actual) | Status |
 |---|---|---|---|---|
+| 7.1 (n-step return identity; fixed-V view) | §7.1 n-step TD prediction | `n_step_td_prediction` (implementation of the box) | `TestNStepTDPrediction` | Implemented |
+| Example 7.1 / Figure 7.2 (19-state random walk) | §7.1 | `run_n_step_prediction_experiment`, `plot_figure_7_2` | `TestNStepTDPrediction` | Implemented (illustrative reproduction) |
 | 7.2, 7.3 (control intuition; not prediction APIs) | §7.2 n-step Sarsa control | `n_step_sarsa` | `TestNStepSarsa` | Implemented (on-policy control) |
 | 7.4–7.8 (off-policy IS / per-decision / Expected Sarsa) | §7.3–7.4 theory | — | — | **Theory-only (no repo API)** |
 | Off-policy without IS (related concept) | §7.5 Tree Backup | `tree_backup` | `TestTreeBackup` | Implemented (different from 7.4–7.8) |
@@ -248,8 +261,15 @@ Q(S_t,A_t) <- Q(S_t,A_t) + α * rho * (G_{t:t+n} - Q(S_t,A_t))
 
 - **Full chapter command:** `python -m pytest chapter_07/tests/ -v`
 - **Lint:** `ruff check chapter_07/`
-- No standalone `exercise_*.py` scripts exist for this chapter. Do not claim `td0_prediction` or
-  off-policy importance-sampling APIs; they are not present in `chapter_07/solution.py`.
+- No standalone `exercise_*.py` scripts exist for this chapter. Do not claim off-policy
+  importance-sampling APIs; they are not present in `chapter_07/solution.py`.
+  (`n_step_td_prediction` **is** present and powers the Example 7.1 / Figure 7.2 reproduction:
+  `chapter_07/figures/fig_7_2_n_step_td_alpha.png`; error vs. α for
+  n = 1, 2, 4, 8, 16, 32, 64, 128, 256, 512 on the 19-state walk, averaged over the first
+  10 episodes and 100 repetitions, same walk sets for all settings. The plotted x-axis
+  runs α ∈ [0, 1], which is the repo's choice: the book's printed x-axis range is not
+  legible from the draft images. The figure is an illustrative reproduction; the
+  deterministic seed is 0.)
 
 ---
 
@@ -257,6 +277,9 @@ Q(S_t,A_t) <- Q(S_t,A_t) + α * rho * (G_{t:t+n} - Q(S_t,A_t))
 
 - Derivations (7.1, 7.6, 7.7) are algebraic/telescoping arguments under the stated fixed-estimate
   assumptions, consistent with Chapter 7 equations.
+- Figure 7.2 reproduction was verified by tests: `test_intermediate_n_beats_extremes` checks
+  the book's headline finding (intermediate n beats the extremes) on the same fixed seed, and
+  `test_experiment_output_shapes` checks the experiment plumbing.
 - 7.4–7.5 provide explicit theory-only pseudocode because the requested IS-based APIs are not in
   this repo; 7.8 specifies a reproducible comparison experiment without asserting an implementation.
 - Exercise statements are paraphrased; citations use stable §/Eq. labels.

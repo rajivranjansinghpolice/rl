@@ -11,13 +11,41 @@ Reference: Sutton & Barto (2nd Ed), Chapter 7
 # Book Step Mapping Table
 # | Book Step | Description             | Code (chapter_07/solution.py)     |
 # |-----------|-------------------------|-----------------------------------|
+# | 7.1       | n-step TD prediction    | n_step_td_prediction              |
 # | 7.2       | n-step Sarsa            | n_step_sarsa                      |
 # | 7.5       | n-step Tree Backup      | tree_backup                       |
-# | 7.2-acc   | SARSA(lambda) (Sarsa-lambda) | sarsa_lambda                   |
+# | 12.2-acc  | SARSA(lambda) (Sarsa-lambda) | sarsa_lambda                   |
 
 
 # ============================================================================
-# Algorithm 7.1: n-step Sarsa
+# Box: n-step TD prediction (Sec. 7.1)
+# ============================================================================
+# Book Section 7.1: n-step TD for estimating V ~= v_pi
+# Pseudocode: n-step TD prediction for the equiprobable random-walk MRP.
+# 1. Initialize V(s) arbitrarily for all s   (Example 7.1 initializes to 0)
+# 2. Repeat (for each episode):
+#    a. Initialize and store S_0 != terminal
+#    b. T <- infinity
+#    c. For t = 0, 1, ... :
+#       | If t < T: take an action according to pi(.|S_t); observe and store
+#       |   the next reward as R_{t+1} and the next state as S_{t+1}
+#       |   If S_{t+1} is terminal: T <- t + 1
+#       |   tau <- t - n + 1
+#       |   If tau >= 0:
+#       |     G <- sum_{i=tau+1}^{min(tau+n, T)} gamma^{i-tau-1} * R_i
+#       |     if tau + n < T: G <- G + gamma^n * V(S_{tau+n})
+#       |     V(S_tau) <- V(S_tau) + alpha * (G - V(S_tau))
+#    until tau = T - 1
+# ============================================================================
+
+
+def pseudocode_n_step_td_prediction():
+    """Pseudocode for n-step TD prediction. Book Sec. 7.1."""
+    pass
+
+
+# ============================================================================
+# Box: n-step Sarsa (Sec. 7.2)
 # ============================================================================
 # Book Section 7.2: n-step Sarsa
 # Pseudocode: n-step Sarsa for estimating Q ~= q*
@@ -42,12 +70,12 @@ Reference: Sutton & Barto (2nd Ed), Chapter 7
 
 
 def pseudocode_n_step_sarsa():
-    """Pseudocode for n-step Sarsa. Book Step 7.2."""
+    """Pseudocode for n-step Sarsa. Book Sec. 7.2."""
     pass
 
 
 # ============================================================================
-# Algorithm 7.2: n-step Tree Backup algorithm
+# Box: n-step Tree Backup algorithm (Sec. 7.5)
 # ============================================================================
 # Book Section 7.5: The n-step Tree Backup Algorithm (off-policy without IS)
 # Pseudocode: n-step Tree Backup for estimating Q ~= q* (or q_pi for given pi)
@@ -77,14 +105,14 @@ def pseudocode_n_step_sarsa():
 
 
 def pseudocode_tree_backup():
-    """Pseudocode for n-step Tree Backup. Book Step 7.5."""
+    """Pseudocode for n-step Tree Backup. Book Sec. 7.5."""
     pass
 
 
 # ============================================================================
-# Algorithm 7.3: SARSA(lambda) control
+# Box: SARSA(lambda) control (Sec. 12.2-style)
 # ============================================================================
-# Book Section 12.2/7.2-acc: Sarsa(lambda) with eligibility traces (accumulating)
+# Book Section 12.2 (traces), used in Sec. 7.2 for bootstrapping control
 # Pseudocode: SARSA(lambda), for estimating Q ~= q*, epsilon-greedy
 # 1. Initialize Q(s,a) arbitrarily for all s, a
 # 2. Repeat (for each episode):
@@ -103,5 +131,5 @@ def pseudocode_tree_backup():
 
 
 def pseudocode_sarsa_lambda():
-    """Pseudocode for SARSA(lambda). Book Step 7.3 / 12.2."""
+    """Pseudocode for SARSA(lambda). Book Sec. 12.2-style."""
     pass

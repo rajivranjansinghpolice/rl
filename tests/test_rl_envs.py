@@ -40,6 +40,41 @@ def test_random_walk_basic():
     assert tv == {"A": 1/6, "B": 2/6, "C": 3/6, "D": 4/6, "E": 5/6}
 
 
+def test_random_walk_default_true_values_match_module_helper():
+    assert RandomWalkEnv().true_values() == pytest.approx(random_walk_true_values())
+
+
+def test_random_walk_19_state_walk():
+    env = RandomWalkEnv(n_states=19, left_reward=-1.0, right_reward=1.0, seed=0)
+    assert len(env.STATES) == 19
+    assert env.reset() == "J"  # middle of A..S
+    tv = env.true_values()
+    assert tv["A"] == pytest.approx(-0.9)
+    assert tv["J"] == pytest.approx(0.0)
+    assert tv["S"] == pytest.approx(0.9)
+    env.reset()
+    done = False
+    for _ in range(100):
+        reward, obs, done = env.step("left")
+        if done:
+            break
+    assert done
+    assert obs == "left_end"
+    assert reward == pytest.approx(-1.0)
+
+
+def test_random_walk_custom_rewards_default_states():
+    env = RandomWalkEnv(left_reward=-0.5, right_reward=1.5, seed=0)
+    env.reset()
+    done = False
+    for _ in range(20):
+        reward, obs, done = env.step("right")
+        if done:
+            break
+    assert obs == "right_end"
+    assert reward == pytest.approx(1.5)
+
+
 def test_blackjack_reset_step():
     env = BlackjackEnv(seed=0)
     obs = env.reset()

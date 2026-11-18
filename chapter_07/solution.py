@@ -2,18 +2,20 @@
 
 Reference: Sutton & Barto (2nd Ed), Chapter 7
 
-Implements: Alg 7.1 (n-step Sarsa),
-Alg 7.2 (n-step Tree Backup),
-Alg 7.3 (SARSA(lambda) control, accumulating traces).
+Implements: the n-step TD prediction box (Sec. 7.1) as `n_step_td_prediction`,
+n-step Sarsa (Sec. 7.2) as `n_step_sarsa`,
+n-step Tree Backup (Sec. 7.5) as `tree_backup`,
+SARSA(lambda) control with accumulating traces (Sec. 12.2-style) as `sarsa_lambda`.
 
-Uses the RandomWalkEnv from chapter_06 for the random-walk examples.
+The chapter's 19-state random walk (Example 7.1 / Figure 7.2) is built on the
+shared `RandomWalkEnv(n_states=19, left_reward=-1.0, right_reward=1.0)`.
 """
 
 from __future__ import annotations
 
 import numpy as np
 
-from chapter_06.solution import RandomWalkEnv
+from rl_envs.random_walk import RandomWalkEnv
 
 
 def _epsilon_greedy_probs(q_values: np.ndarray, epsilon: float) -> np.ndarray:
@@ -52,7 +54,7 @@ def n_step_sarsa(
     n_episodes: int = 5000,
     seed: int | None = None,
 ) -> tuple[dict, dict]:
-    """n-step Sarsa (Algorithm 7.2). Book Section 7.2.
+    """n-step Sarsa (Sec. 7.2, box titled "State-action n-step Sarsa"). Book Section 7.2.
 
     Args:
         env: The environment.
@@ -128,7 +130,7 @@ def tree_backup(
     n_episodes: int = 5000,
     seed: int | None = None,
 ) -> tuple[dict, dict]:
-    """n-step Tree Backup (Algorithm 7.5). Book Section 7.5.
+    """n-step Tree Backup (Sec. 7.5, box titled "State-action n-step Tree Backup"). Book Section 7.5.
 
     Off-policy control without importance sampling: the target policy is the
     epsilon-greedy policy w.r.t. q_table (a 50/50 random policy for eps-greedy-0.5,
@@ -206,10 +208,10 @@ def sarsa_lambda(
     n_episodes: int = 5000,
     seed: int | None = None,
 ) -> tuple[dict, dict]:
-    """SARSA(lambda) with accumulating eligibility traces (Algorithm 7.3).
+    """SARSA(lambda) with accumulating eligibility traces (Sec. 12.2-style box, adapted for control).
 
-    Book Section 12.2 style traces adapted to control; lambda = 0 recovers
-    one-step Sarsa, lambda = 1 recovers the Monte Carlo return.
+    Book Section 12.2 traces; lambda = 0 recovers one-step Sarsa, lambda = 1
+    recovers the Monte Carlo return.
 
     Returns:
         (policy, q_table): policy[state] = probability vector over ACTIONS;
@@ -267,84 +269,185 @@ def sarsa_lambda(
 
 
 # ---------------------------------------------------------------------------
+# n-step TD prediction (Sec. 7.1, Example 7.1 / Figure 7.2)
+# ---------------------------------------------------------------------------
+
+_STATES_19 = tuple(chr(ord("A") + i) for i in range(19))
+
+
+def _n_step_td_sweep(
+    values: dict,
+    states: list,
+    rewards: list[float],
+    n: int,
+    alpha: float,
+    gamma: float,
+) -> None:
+    """One episode of the n-step TD prediction box (Sec. 7.1), in-place."""
+    total = len(rewards)
+    powers = [gamma**i for i in range(total + 1)]
+    for tau in range(total):
+        target = 0.0
+        for k in range(tau, min(tau + n, total)):
+            target += powers[k - tau] * rewards[k]
+        if tau + n < total:
+            target += powers[n] * values[states[tau + n]]
+        values[states[tau]] += alpha * (target - values[states[tau]])
+
+
+def n_step_td_prediction(
+    env: RandomWalkEnv | None = None,
+    n: int = 1,
+    alpha: float = 0.4,
+    n_episodes: int = 10,
+    gamma: float = 1.0,
+    init_value: float = 0.0,
+    seed: int | None = None,
+) -> dict:
+    """n-step TD prediction for the random walk (box, Sec. 7.1).
+
+    Prediction on the random-walk MRP under the equiprobable policy. The
+    book's Example 7.1 uses the 19-state walk (left outcome -1, right +1,
+    all values initialized to 0) as the running example; the same 5-state,
+    0/+1 walk of Example 6.2 is the default here when `env` is omitted.
+
+    Returns V as a dict over env.STATES.
+    """
+    _check_n(n)
+    if alpha <= 0.0:
+        raise ValueError("alpha must be positive")
+    if gamma <= 0.0:
+        raise ValueError("gamma must be positive")
+    if env is None:
+        env = RandomWalkEnv(seed=seed)
+    rng = np.random.default_rng(seed)
+    values = {s: float(init_value) for s in env.STATES}
+    for _ in range(n_episodes):
+        states = [env.reset()]
+        rewards = []
+        done = False
+        while not done:
+            action = "left" if rng.random() < 0.5 else "right"
+            reward, next_state, done = env.step(action)
+            rewards.append(float(reward))
+            states.append(next_state)
+        _n_step_td_sweep(values, states, rewards, n, alpha, gamma)
+    return values
+
+
+def _sample_walks(repeats: int, n_episodes: int, seed: int):
+    """Pre-sample the walk sets used for every (n, alpha) setting.
+
+    The book used the same sets of walks for all parameter settings,
+    controlling for walk difficulty. Each walk is a (states, rewards) pair.
+    """
+    rng = np.random.default_rng(seed)
+    walks = []
+    for _ in range(repeats):
+        rep = []
+        for _ in range(n_episodes):
+            env = RandomWalkEnv(
+                n_states=19, left_reward=-1.0, right_reward=1.0,
+                seed=int(rng.integers(0, 2**31 - 1)),
+            )
+            states = [env.reset()]
+            rewards = []
+            done = False
+            while not done:
+                action = "left" if rng.random() < 0.5 else "right"
+                reward, next_state, done = env.step(action)
+                rewards.append(float(reward))
+                states.append(next_state)
+            rep.append((states, rewards))
+        walks.append(rep)
+    return walks
+
+
+def run_n_step_prediction_experiment(
+    ns: tuple[int, ...] = (1, 2, 4, 8, 16, 32, 64, 128, 256, 512),
+    alphas=(0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0),
+    repeats: int = 100,
+    n_episodes: int = 10,
+    gamma: float = 1.0,
+    seed: int = 0,
+) -> dict:
+    """Example 7.1 / Figure 7.2: n-step TD prediction vs alpha, for various n.
+
+    Prediction on the 19-state walk (A..S, left outcome -1, right +1, all
+    values initialized to 0) using the equiprobable policy. The same sets of
+    walks are used for every (n, alpha) setting, as in the book.
+
+    Performance measure for each setting: the square root of the mean squared
+    error against the true values, taken at the end of each of the first
+    `n_episodes` episodes, then averaged over episodes and over `repeats`
+    repetitions of the whole experiment.
+
+    Returns {'alphas', 'ns', 'curves': {n: [error per alpha]}}.
+    """
+    if repeats < 1 or n_episodes < 1:
+        raise ValueError("repeats and n_episodes must be >= 1")
+    for n in ns:
+        _check_n(n)
+    true_values = RandomWalkEnv(n_states=19, left_reward=-1.0, right_reward=1.0).true_values()
+    states_19 = tuple(true_values)
+    walks = _sample_walks(repeats, n_episodes, seed)
+    curves: dict[int, list[float]] = {}
+    for n in ns:
+        curve = []
+        for alpha in alphas:
+            total_error = 0.0
+            for rep in walks:
+                values = dict.fromkeys(states_19, 0.0)
+                for states, rewards in rep:
+                    _n_step_td_sweep(values, states, rewards, n, alpha, gamma)
+                    err = float(
+                        np.sqrt(np.mean([(values[s] - true_values[s]) ** 2 for s in states_19]))
+                    )
+                    total_error += err
+            curve.append(total_error / (repeats * n_episodes))
+        curves[n] = curve
+    return {"alphas": list(alphas), "ns": list(ns), "curves": curves}
+
+
+# ---------------------------------------------------------------------------
 # Figure reproduction (Sutton & Barto, 2nd ed., Ch. 7)
 # ---------------------------------------------------------------------------
 
-def _state_values_from_q(env, q_table):
-    return {s: max(q_table[(s, a)] for a in env.ACTIONS) for s in env.STATES}
-
-
-def _rms_vs_true(values: dict) -> float:
-    from chapter_06.solution import random_walk_true_values
-
-    true_values = random_walk_true_values()
-    errs = [values[s] - true_values[s] for s in true_values]
-    return float(np.sqrt(np.mean(np.square(errs))))
-
-
-def plot_n_step_methods_random_walk(
+def plot_figure_7_2(
     save_path: str | None = None,
     show: bool = False,
-    n_episodes: int = 200,
-    runs: int = 20,
+    repeats: int = 100,
+    n_episodes: int = 10,
     seed: int = 0,
+    ns: tuple[int, ...] = (1, 2, 4, 8, 16, 32, 64, 128, 256, 512),
+    alphas=(0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0),
 ):
-    """Demonstration: n-step/on-policy trace methods on the random walk.
+    """Performance of n-step TD methods vs alpha, for various n (Fig. 7.2).
 
-    Sutton & Barto (2nd ed.), Ch. 7 "n-step Bootstrapping" (Sec. 7.2 n-step
-    Sarsa, Sec. 7.5 n-step Tree Backup) and Sec. 12.7/related SARSA(lambda)
-    control: compares implemented control methods on the 5-state random walk
-    (Example 6.2 environment reused here). Plots RMS error of greedy state-value
-    estimates max_a Q(s,a) vs true v*(s) over episodes, averaged over runs, for
-    n-step Sarsa (n=4), Tree Backup (n=4), and SARSA(lambda) (lambda=0.9).
-    This is an implementation demonstration (not a direct reproduction of the
-    book's 19-state n-step TD prediction Fig. 7.2, whose prediction experiment
-    is not implemented in this module).
+    19-state random walk (Example 7.1, Sec. 7.1). Error = RMS vs the true
+    values at the end of each of the first `n_episodes` episodes, averaged
+    over episodes and repetitions (book: 100 repetitions); the same walk sets
+    are used for every (n, alpha) setting. The x-axis is alpha; each curve is
+    one value of n. Intermediate n performs best.
     """
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    from chapter_06.solution import RandomWalkEnv
-
-    methods = [
-        ("n-step Sarsa (n=4)", lambda env, ep_seed: n_step_sarsa(env, n=4, n_episodes=1, seed=ep_seed)),
-        ("Tree Backup (n=4)", lambda env, ep_seed: tree_backup(env, n=4, n_episodes=1, seed=ep_seed)),
-        ("SARSA(lambda), l=0.9", lambda env, ep_seed: sarsa_lambda(env, lam=0.9, n_episodes=1, seed=ep_seed)),
-    ]
-    # Incremental training by running 1 episode repeatedly is not how APIs work;
-    # instead run full training up to ep episodes for each checkpoint? cheaper to
-    # run once per total episodes and track by re-training is expensive. We'll
-    # record error after every episode by training in chunks is not supported.
-    # So we simulate learning curves by training for e episodes for a set of e.
-    checkpoints = list(range(1, n_episodes + 1, max(1, n_episodes // 40)))
-    if checkpoints[-1] != n_episodes:
-        checkpoints.append(n_episodes)
-
-    curves = {name: np.zeros(len(checkpoints), dtype=np.float64) for name, _ in methods}
-    for r in range(runs):
-        base = seed + r * 1009
-        for mi, (name, _) in enumerate(methods):
-            for ci, ep in enumerate(checkpoints):
-                env = RandomWalkEnv(seed=base + mi * 97)
-                if name.startswith("n-step Sarsa"):
-                    _, q = n_step_sarsa(env, n=4, alpha=0.1, epsilon=0.1, n_episodes=ep, seed=base + mi)
-                elif name.startswith("Tree"):
-                    _, q = tree_backup(env, n=4, alpha=0.1, epsilon=0.1, n_episodes=ep, seed=base + mi)
-                else:
-                    _, q = sarsa_lambda(env, lam=0.9, alpha=0.1, epsilon=0.1, n_episodes=ep, seed=base + mi)
-                curves[name][ci] += _rms_vs_true(_state_values_from_q(env, q))
-    for name in curves:
-        curves[name] /= runs
-
+    results = run_n_step_prediction_experiment(
+        ns=ns, alphas=alphas, repeats=repeats, n_episodes=n_episodes, seed=seed
+    )
     fig, ax = plt.subplots(figsize=(7.5, 4.5))
-    for name, _ in methods:
-        ax.plot(checkpoints, curves[name], label=name)
-    ax.set_xlabel("Episodes")
-    ax.set_ylabel("RMS error vs true v* (greedy from Q)")
-    ax.set_title("S&B (2nd ed.), Ch. 7: n-step/trace methods on random walk (demo)")
-    ax.legend()
+    for n in results["ns"]:
+        ax.plot(results["alphas"], results["curves"][n], marker="o", markersize=4, label=str(n))
+    ax.set_xlabel("alpha")
+    ax.set_ylabel("RMS error (avg over states, first 10 episodes)")
+    ax.set_title(
+        "S&B (2nd ed.), Sec. 7.1, Example 7.1 / Fig. 7.2:\n"
+        "n-step TD prediction on a 19-state random walk"
+    )
+    ax.legend(title="n")
     fig.tight_layout()
     if save_path is not None:
         fig.savefig(save_path, dpi=150, bbox_inches="tight")
@@ -353,3 +456,4 @@ def plot_n_step_methods_random_walk(
     else:
         plt.close(fig)
     return fig, ax
+
