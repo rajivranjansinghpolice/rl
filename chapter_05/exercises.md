@@ -8,8 +8,9 @@
 ## Scope and Book Mapping
 
 - **Repo chapter:** `chapter_05` — Monte Carlo prediction and control (first-visit/every-visit
-  prediction, on-policy ε-greedy control, off-policy prediction and control with ordinary and
-  weighted importance sampling) plus the Blackjack environment.
+  prediction, MC ES exploring starts, on-policy ε-greedy control, off-policy prediction and control
+  with ordinary and weighted importance sampling), the Blackjack environment, the Racetrack
+  environment (Exercise 5.8, in `rl_envs`), and scripted reproductions of Figures 5.2–5.4.
 - **Book chapter:** Chapter 5 — Monte Carlo Methods.
 - **Book sections covered by the implementation:**
   - **§5.1** Monte Carlo prediction (`mc_first_visit_prediction`, `mc_every_visit_prediction`).
@@ -169,7 +170,11 @@ huge variance; weighted IS is biased (especially early) but usually much lower v
 
 **Coding pointer.** `mc_off_policy_prediction(..., weighted=False)` implements ordinary IS (Eq. 5.4
 behavior in code) and `weighted=True` implements weighted IS (Eq. 5.5). `mc_control_off_policy`
-supports `weighted=True/False`. Tests: `TestOffPolicyPrediction`, `TestOffPolicyControl`.
+supports `weighted=True/False`. Figure 5.3 itself is reproducible via
+`plot_importance_sampling` in `chapter_05/solution.py` (MSE of ordinary vs weighted IS on the
+single blackjack state, player sum 13 / dealer 2 / usable ace, averaged over 100 runs; the
+reference value is estimated by a 200,000-episode first-visit MC prediction, not hardcoded).
+Tests: `TestOffPolicyPrediction`, `TestOffPolicyControl`.
 
 ---
 
@@ -201,9 +206,15 @@ contrast, bounds/normalizes contributions and has finite variance in this settin
 **Why this matters.** Visit definition (first vs every) affects estimator details, but it does not
 cure the fundamental tail/ratio explosion that makes ordinary IS variance infinite in Example 5.5.
 
-**Coding pointer.** `mc_off_policy_prediction` supports `weighted` and `first_visit` flags and is
-used in `TestOffPolicyPrediction::test_weighted_is_infinite_variance_example` and
-`test_ordinary_is_returns_entries`. **Not implemented:** a dedicated experiment reproducing Fig. 5.4.
+**Coding pointer.** Figure 5.3 and 5.4 are both scripted in `chapter_05/solution.py`:
+`plot_importance_sampling` (Fig. 5.3) and `plot_ordinary_is_unstable` (Fig. 5.4, Example 5.5
+one-state MDP via `OneStateIsEnv` / vectorized `_one_state_is_samples`). `mc_off_policy_prediction`
+supports `weighted` and `first_visit` flags and is used in
+`TestOffPolicyPrediction::test_weighted_is_infinite_variance_example` and
+`test_ordinary_is_returns_entries`. Tests for the vectorized sampler: `TestOneStateIs`.
+Note: the vectorized run uses 10^6 episodes per run (the book prints to 10^8), so deep-tail
+spikes are smaller here; per-run means (≈0.78–0.92) typically sit below the true value,
+which is itself the infinite-variance phenomenon (rare huge samples dominate in expectation).
 
 ---
 
@@ -276,18 +287,32 @@ per time step until crossing the finish line, and must stay on the track (with a
 rule when it leaves). Apply a Monte Carlo control method to learn a policy to reach the finish from
 start states.
 
-**Solution (what to do).** A standard solution models states as \((x,y,v_x,v_y)\) with bounded
-velocities, actions as increments in \(\{-1,0,1\}^2\) (9 actions), stochastic zero-acceleration noise
-optional per book variant, and episodes ending on finish-line crossing. Use on-policy MC control
-(ε-soft, exploring starts or ε-greedy) or off-policy MC control over sampled episodes; update
-\(Q(s,a)\) from returns \(G_t=-\text{steps-to-finish}\) (γ=1) and improve the policy toward greedy.
-Because transitions are unknown/complex, Monte Carlo’s model-free sampling is a natural fit.
+**Solution (implemented).** `RacetrackEnv` in `rl_envs/racetrack.py` implements the book's rules:
+state \((\text{row},\text{col},v_x,v_y)\) with both velocity components clipped to \(\{0,\dots,4\}\);
+velocity may not be \((0,0)\) off the start line; 9 actions (each component increases/stays/decreases
+by 1); reward \(-1\) per step; episodes start at a random starting-line cell with \(v=(0,0)\);
+before a move is applied the straight projected path is checked — if it crosses the finish line the
+episode ends, else if it crosses off-track the car is reset to a random start cell with \(v=(0,0)\)
+and the episode continues (boundary checked *after* the finish); with probability `noise_prob`
+(0.1 in the book) the velocity increments are forced to zero that step; `max_steps` optionally caps
+episode length so control episodes terminate. Tracks are ASCII maps; the default is a small
+right-turn track in the spirit of the book's Fig. 5.5 and is an **illustrative demonstration**, not a
+pixel-identical copy of the printed grid (the exact book grid is edition-specific).
+
+Training works with the repo's MC control: `mc_control_epsilon_greedy` on `RacetrackEnv(seed=0,
+noise_prob=0.0, max_steps=100)` runs and returns 9-dimensional ε-soft policies (see
+`TestRacetrackControl`); `mc_exploring_starts` also applies (exploring starts cover every
+(state, action) pair reachable). The state space is \(46 \times 25 = 1150\) cells × 9 actions
+(\(\approx\)10k \(Q\)-entries). A full racetrack solve (competing with the book's tuned runs) is not
+claimed here; the environment and the MC machinery to train it are implemented and tested.
 
 **Why this matters.** It demonstrates MC control on a larger trajectory task where DP is impractical
 without an explicit model.
 
-**Coding pointer.** **Not implemented in `chapter_05/` (no racetrack env/API/tests).** General MC
-control machinery in this repo: `mc_control_epsilon_greedy`, `mc_control_off_policy`.
+**Coding pointer.** Implemented: `RacetrackEnv` (`rl_envs/racetrack.py`), exports in
+`rl_envs/__init__.py`; tests `tests/test_rl_envs.py::TestRacetrack` (reset/step/finish/boundary/
+noise/`max_steps`/validation) and `chapter_05/tests/test_solution.py::TestRacetrackControl`
+(ε-greedy MC control runs on the racetrack and returns well-formed 9-dim policies).
 
 ---
 
@@ -328,11 +353,11 @@ standard greedy-target IS with backward accumulation. Tests: `TestOffPolicyContr
 | 5.1 | §5.1 | `BlackjackEnv`, `blackjack_stick_on_threshold` | `TestBlackjackEnv`, `test_blackjack_stick_on_threshold` | Implemented (env/policy); value-estimation plots not included |
 | 5.2 | §5.2 | (action-value backup used inside control) `mc_control_epsilon_greedy` | `TestOnPolicyControl` | Theory/diagram; no standalone \(q_\pi\) predictor |
 | 5.3 | §5.2 | `mc_control_epsilon_greedy` (Q averaging) | `TestOnPolicyControl` | Implemented as control updates |
-| 5.4 | §5.5 | `mc_off_policy_prediction(weighted=...)`, `mc_control_off_policy(weighted=...)` | `TestOffPolicyPrediction`, `TestOffPolicyControl` | Implemented estimators |
-| 5.5 | §5.5 | `mc_off_policy_prediction(weighted=..., first_visit=...)` | `TestOffPolicyPrediction` (incl. infinite-variance weighted case) | Estimators implemented; Fig. 5.4 experiment not scripted |
+| 5.4 | §5.5 | `mc_off_policy_prediction(weighted=...)`, `mc_control_off_policy(weighted=...)`, `plot_importance_sampling` | `TestOffPolicyPrediction`, `TestOffPolicyControl` | Estimators implemented; Fig. 5.3 scripted |
+| 5.5 | §5.5 | `OneStateIsEnv`, `plot_ordinary_is_unstable`, `mc_off_policy_prediction(weighted=..., first_visit=...)` | `TestOffPolicyPrediction` (incl. infinite-variance weighted case), `TestOneStateIs` | Estimators implemented; Fig. 5.4 scripted |
 | 5.6 | §5.6 | `mc_first_visit_prediction`, `mc_every_visit_prediction` | `TestPrediction` | Correct MC averages; explicit incremental variant not separate |
 | 5.7 | §5.6 | `mc_control_off_policy(weighted=True)` | `TestOffPolicyControl` | Weighted incremental recurrence used |
-| 5.8 | Racetrack | — | — | **Not implemented** in this chapter |
+| 5.8 | Racetrack | `RacetrackEnv` (`rl_envs`), `mc_control_epsilon_greedy`, `mc_exploring_starts` | `tests/test_rl_envs.py::TestRacetrack`, `TestRacetrackControl` | **Implemented** (small illustrative right-turn track) |
 | 5.9 | §5.7 | `mc_control_off_policy` (standard ordinary/weighted IS) | `TestOffPolicyControl` | **Specific variant not implemented** |
 
 ### Commands
@@ -340,17 +365,21 @@ standard greedy-target IS with backward accumulation. Tests: `TestOffPolicyContr
 - Full chapter tests: `python -m pytest chapter_05/tests/ -v`
 - Lint: `ruff check chapter_05/`
 
-### API quick reference (all exist in `solution.py`)
+### API quick reference (all exist in `solution.py` unless noted)
 
 - Environment/helpers: `BlackjackEnv` (`reset`, `step`, `ACTIONS`), `blackjack_stick_on_threshold`
+- Racetrack: `RacetrackEnv` in `rl_envs/racetrack.py` (`ACTIONS`, `RACETRACK_ACTIONS`, exports from `rl_envs/__init__.py`)
 - Prediction: `mc_first_visit_prediction`, `mc_every_visit_prediction`, `mc_off_policy_prediction`
-- Control: `mc_control_epsilon_greedy`, `mc_control_off_policy`
+- Control: `mc_control_epsilon_greedy`, `mc_control_off_policy`, `mc_exploring_starts`
+- Example 5.5: `OneStateIsEnv`, `plot_ordinary_is_unstable`, `_one_state_is_samples`
+- Figure 5.3: `plot_importance_sampling`, `_log_step_list`
 
 ### Test inventory (all exist in `tests/test_solution.py`)
 
 - Classes: `TestBlackjackEnv`, `TestPrediction`, `TestOnPolicyControl`, `TestOffPolicyPrediction`,
-  `TestOffPolicyControl`
+  `TestOffPolicyControl`, `TestExploringStarts`, `TestOneStateIs`, `TestRacetrackControl`
 - Top-level: `test_blackjack_stick_on_threshold`
+- Racetrack environment tests live in `tests/test_rl_envs.py::TestRacetrack`
 
 ---
 

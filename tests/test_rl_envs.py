@@ -341,3 +341,122 @@ def test_four_rooms_default_options_reach_goal():
     env.state = env.state_id((6, 5))  # adjacent to the goal
     result = run_option(env, goal_option, gamma=1.0, max_steps=50)
     assert result.steps > 0
+
+
+class TestRacetrack:
+    def test_reset_returns_start_cell_with_zero_velocity(self):
+        from rl_envs.racetrack import RacetrackEnv
+
+        env = RacetrackEnv(seed=0)
+        row, col, vx, vy = env.reset()
+        assert (row, col) in env.start_cells
+        assert (vx, vy) == (0, 0)
+        assert all(isinstance(v, int) for v in (row, col, vx, vy))
+
+    def test_default_track_geometry(self):
+        from rl_envs.racetrack import RacetrackEnv
+
+        env = RacetrackEnv(seed=0)
+        assert env.finish_cells == [(0, 9), (1, 9), (2, 9)]
+        assert len(env.start_cells) == 5
+        assert env.n_actions == 9
+        # 46 on-track cells x 25 velocities.
+        assert env.n_states() == 46 * 25
+        assert len(env.ACTIONS) == 9
+
+    def test_step_reward_and_continuation(self):
+        from rl_envs.racetrack import RacetrackEnv
+
+        env = RacetrackEnv(seed=42, noise_prob=0.0)
+        row, col, vx, vy = env.reset()
+        reward, obs, done = env.step(7)  # (0, +1)
+        assert reward == -1.0
+        assert done is False
+        assert obs[3] == 1  # vy incremented
+
+    def test_crossing_finish_line_ends_episode(self):
+        from rl_envs.racetrack import RacetrackEnv
+
+        env = RacetrackEnv(seed=0, noise_prob=0.0)
+        env._state = (1, 8, 1, 1)
+        reward, obs, done = env.step(4)  # (0, 0): keep v = (1, 1)
+        # Projected path (0, 9) is the finish line -> episode ends.
+        assert reward == -1.0
+        assert done is True
+        assert env.grid[0, 9] == "F"
+
+    def test_crossing_boundary_teleports_to_random_start(self):
+        from rl_envs.racetrack import RacetrackEnv
+
+        env = RacetrackEnv(seed=7, noise_prob=0.0)
+        env._state = (3, 1, 0, 4)  # column 1 goes straight up into the wall
+        reward, obs, done = env.step(4)  # (0, 0): keep v = (0, 4)
+        assert reward == -1.0
+        assert done is False
+        row, col, vx, vy = obs
+        assert (row, col) in env.start_cells
+        assert (vx, vy) == (0, 0)
+
+    def test_noise_forces_zero_acceleration(self):
+        from rl_envs.racetrack import RacetrackEnv
+
+        env = RacetrackEnv(seed=0, noise_prob=1.0)
+        start = env.reset()
+        for _ in range(5):
+            env.step(8)  # (+1, +1) but noise forces (0, 0)
+        assert env.state == start
+
+    def test_action_tuple_equivalent_to_index(self):
+        from rl_envs.racetrack import RacetrackEnv, ACTIONS
+
+        env1 = RacetrackEnv(seed=0, noise_prob=0.0)
+        env2 = RacetrackEnv(seed=0, noise_prob=0.0)
+        s = env1.reset()
+        env2._state = s
+        env2.reset = lambda: None  # keep state; use directly below
+        env2._state = s
+        r1, o1, d1 = env1.step(0)
+        r2, o2, d2 = env2.step(ACTIONS[0])
+        assert (r1, o1, d1) == (r2, o2, d2)
+
+    def test_render_marks_car(self):
+        from rl_envs.racetrack import RacetrackEnv
+
+        env = RacetrackEnv(seed=0)
+        text = env.render()
+        assert "*" in text
+        assert text.count("\n") == len(env.track) - 1
+
+    def test_invalid_inputs_raise(self):
+        from rl_envs.racetrack import RacetrackEnv
+
+        with pytest.raises(ValueError):
+            RacetrackEnv(noise_prob=1.5)
+        with pytest.raises(ValueError):
+            RacetrackEnv(track=["####", "abc"])  # ragged
+        with pytest.raises(ValueError):
+            RacetrackEnv(track=["####", "...."])  # no S / no F
+        env = RacetrackEnv(seed=0)
+        with pytest.raises(ValueError):
+            env.step(9)
+        with pytest.raises(ValueError):
+            env.step((2, 2))
+
+    def test_max_steps_cap_ends_episode(self):
+        from rl_envs.racetrack import RacetrackEnv
+
+        env = RacetrackEnv(seed=0, noise_prob=1.0, max_steps=5)  # noise=1: can never move
+        start = env.reset()
+        done = False
+        steps = 0
+        while not done:
+            _, _, done = env.step(8)
+            steps += 1
+        assert steps == 5
+        assert env.state == start
+
+    def test_max_steps_cap_validated(self):
+        from rl_envs.racetrack import RacetrackEnv
+
+        with pytest.raises(ValueError):
+            RacetrackEnv(max_steps=0)
