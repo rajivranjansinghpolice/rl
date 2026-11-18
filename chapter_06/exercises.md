@@ -9,26 +9,48 @@
 
 - **Repo chapter:** `chapter_06` — Temporal-Difference Learning.
 - **Implemented in repo:** TD(0) prediction `td0_prediction`, TD(λ) prediction with accumulating
-  traces `td_lambda_prediction`, on-policy TD control `sarsa`, off-policy TD control `q_learning`,
-  incremental (first-visit, sample-average) Monte Carlo prediction `mc_prediction_incremental`,
-  random-walk environment `RandomWalkEnv`, true values `random_walk_true_values`, and comparison
-  harness `run_random_walk_comparison` (Example 6.2 / Exercise 6.1 style).
+  traces `td_lambda_prediction`, on-policy TD control `sarsa` (random walk) and the generic
+  indexed-action control family `sarsa_control` / `q_learning_control` / `expected_sarsa_control`
+  (any env with `ACTIONS`, Q keyed `(state, action_index)`, per-episode step cap), off-policy TD
+  control `q_learning` (random walk), incremental (first-visit, sample-average) Monte Carlo prediction
+  `mc_prediction_incremental`, `double_q_learning` + `maximization_bias_experiment` (Example 6.7 /
+  Figure 6.7), the batch-updating experiment `batch_td_fixed_point` / `batch_mc_values` /
+  `run_batch_updating` (Example 6.3 / Figure 6.2), random-walk environment `RandomWalkEnv`, true values
+  `random_walk_true_values`, comparison harness `run_random_walk_comparison` (Example 6.2 / Exercise 6.1
+  style), `CliffWalkingEnv` (Example 6.6 / Figures 6.4 and 6.6) and `MaximizationBiasMDP`
+  (Example 6.7 / Figure 6.7); the windy gridworld lives in `rl_envs/windy_gridworld.py`
+  (`WindyGridWorld`, standard / king's moves (Ex. 6.9) / stochastic wind (Ex. 6.10) variants).
 - **Book sections covered by the implementation:** §6.1 (TD prediction, TD error, TD(0)), §6.2
-  (advantages of TD; random-walk Example 6.2), §6.4 (Sarsa), §6.5 (Q-learning), and TD(λ) in the
-  backward-view / eligibility-trace form used in `td_lambda_prediction`.
-- **Not implemented in this repo chapter:** windy gridworld with king’s moves or stochastic wind
-  (Exercises 6.9–6.10), explicit afterstates, and Double Expected Sarsa (Exercise 6.12). Those
-  exercises are answered conceptually below with coding pointers only where a close analogue exists.
-- **Key book equations (plausible citations, S&B 2nd ed.):**
+  (advantages of TD; random-walk Example 6.2), §6.3 (optimality of TD(0); batch updating, Example 6.3),
+  §6.4 (Sarsa, windy gridworld, Example 6.5, and king's-moves / stochastic-wind variants, Exercises
+  6.9–6.10), §6.5 (Q-learning; cliff walking, Example 6.6), §6.6 (Expected Sarsa), §6.7 (maximization
+  bias, Double Learning; Example 6.7 / Double Q-learning), §12.1-style TD(λ) in `td_lambda_prediction`.
+- **Figure identities (2nd edition, 2018):** Figure 6.2 is the batch-updating experiment (Example 6.3),
+  **not** the random-walk RMS-error comparison. The random-walk panel in Example 6.2 is unnumbered in
+  the 2nd edition (it was Figures 6.6–6.7 in the 1st edition). Other Chapter 6 figures of the 2nd
+  edition: Figure 6.1 (TD(0) backup diagram, no data), Figure 6.3 (Sarsa applied to the windy
+  gridworld, steps/episode vs episode), Figure 6.4 (cliff walking, Sarsa vs Q-learning, single run,
+  smoothed over 10 successive episodes, sum of rewards per episode), Figure 6.5 (backup diagrams for
+  Q-learning and Expected Sarsa, no data), Figure 6.6 (interim [n=100] and asymptotic [n=100,000]
+  performance of TD control methods on cliff walking vs α, ε-greedy ε=0.1, adapted from van Seijen
+  et al. 2009), Figure 6.7 (comparison of Q-learning and Double Q-learning, Example 6.7). Figures
+  6.3/6.4/6.6/6.7 here are reduced-scale reproductions (fewer episodes/runs than the printed book);
+  they are labeled illustrative demonstrations, not pixel-identical redraws.
+- **Not implemented in this repo chapter:** explicit part-of-speech/afterstates (§6.8), Double Expected
+  Sarsa (Exercise 6.12's specific algorithm), off-policy TD prediction with per-step importance sampling
+  (Exercise 6.7). Those are answered conceptually below with coding pointers where a close analogue exists.
+- **Key book equations (S&B 2nd ed.):**
   - Eq. (6.1) — constant-α Monte Carlo: \(V(S_t) \leftarrow V(S_t) + \alpha [G_t - V(S_t)]\).
   - Eq. (6.2) — TD(0): \(V(S_t) \leftarrow V(S_t) + \alpha [R_{t+1} + \gamma V(S_{t+1}) - V(S_t)]\).
   - Eq. (6.5) — TD error: \(\delta _t = R_{t+1} + \gamma V(S_{t+1}) - V(S_t)\).
   - Eq. (6.6) — MC error as sum of TD errors (fixed `V`): \(G_t - V(S_t) = \sum _{k=t}^{T-1} \gamma ^{k-t} \delta _k\).
   - Eq. (6.7) — Sarsa: \(Q(S_t,A_t) \leftarrow Q(S_t,A_t) + \alpha [R_{t+1} + \gamma Q(S_{t+1},A_{t+1}) - Q(S_t,A_t)]\).
   - Eq. (6.8) — Q-learning: \(Q(S_t,A_t) \leftarrow Q(S_t,A_t) + \alpha [R_{t+1} + \gamma max_a Q(S_{t+1},a) - Q(S_t,A_t)]\).
-  - Eq. (5.3) / §6.7 — per-step importance-sampling ratio \(\rho _{t:t} = \pi (A_t|S_t) / b(A_t|S_t)\).
-- **Plausible PDF/page anchors (for orientation only):** §6.1–6.3 ~pp. 99–107, §6.4–6.5 ~pp. 107–112,
-  §6.7 ~pp. 113–116, exercises ~pp. 117–130 in common printings of the 2nd edition draft.
+  - Eq. (6.9) — Expected Sarsa: target \(R_{t+1} + \gamma \sum_a \pi(a|S_{t+1}) Q(S_{t+1},a)\).
+  - Eq. (6.10) — Double Q-learning: coin-flip update of one estimate using the other's greedy action.
+- **PDF/page anchors (orientation; from the author's 2018 complete draft, March 16, 2018; printings differ):**
+  §6.1–6.2 pp. 124–126, §6.3 pp. 126–128, §6.4 pp. 128–131, §6.5 pp. 131–133, §6.6 pp. 133–134,
+  §6.7 pp. 134–136, §6.8–6.9 pp. 136–139.
 
 ## Sources and Ground Rules
 
@@ -230,44 +252,54 @@
 
 ### Exercise 6.9 — Windy gridworld with king’s moves
 
-- **Book location:** §6.4 (Sarsa) / Example 6.5 (windy gridworld), ~p. 125.
+- **Book location:** §6.4 (Sarsa) / Example 6.5 (windy gridworld) / Figure 6.3; Ex. 6.9 is printed after
+  Example 6.5 in §6.4 (2018 draft pp. 131–132).
 - **Type:** Programming / Theory.
 - **Problem (paraphrase):** Re-solve the windy gridworld using king’s moves (8 directions) instead of 4.
   How much faster can a goal be reached? What changes if a ninth “stay” action is added (still subject
   to wind)?
 - **Solution.** With 8 actions the agent can move diagonally, allowing paths that counter wind more
-  efficiently (e.g. moving down-and-right in an upward-wind column), so the optimal/learned path
-  length is typically **fewer time steps** than with 4 actions. Adding a 9th action (no intended move,
-  but wind still applies) lets the agent effectively trade horizontal progress for controlled vertical
-  displacement in windy columns; in the standard stochastic-free windy gridworld this can sometimes
-  help in specific columns but is often unnecessary because diagonal moves already suffice. A full
-  empirical answer requires running Sarsa (or another TD control method) on the modified environment
-  and comparing episodes-to-goal / steps-per-episode curves to the 4-action baseline.
+  efficiently (e.g. moving down-and-right in an upward-wind column), so the learned/optimal path is
+  typically **fewer time steps** than with 4 actions. Adding a 9th action (no intended move, but wind
+  still applies) lets the agent trade horizontal progress for controlled vertical displacement in windy
+  columns; in the standard deterministic windy gridworld this helps in specific columns but is often
+  unnecessary because diagonal moves already suffice. A full empirical answer requires running Sarsa
+  (or another TD control method) on the modified environment and comparing steps-per-episode curves
+  to the 4-action baseline (see Figure 6.9 companion experiment below, no numbered book figure).
 - **Why this matters:** The action set defines reachable policies; TD control learns from whatever
   transitions the environment provides.
-- **Coding pointer:** **Not implemented in this repo chapter.** There is no windy-gridworld
-  environment here. The closest implemented on-policy TD control algorithm is `sarsa` (and off-policy
-  `q_learning`) in `chapter_06/solution.py`, validated by `TestSarsa` and `TestQLearning` on
-  `RandomWalkEnv`.
+- **Coding pointer.** **Implemented.** `WindyGridWorld(king_moves=True, allow_stay=True)` in
+  `rl_envs/windy_gridworld.py` (9 actions, wind applies after every move, including staying still),
+  solved with `sarsa_control` (alpha=0.5, epsilon=0.1, mirroring Fig. 6.3’s settings).
+  Reproduction: `plot_figure_6_9_king_moves` in `chapter_06/solution.py` (steps/episode, moving
+  average; no numbered book figure, labeled illustrative). Tracked environment tests:
+  `tests/test_rl_envs.py::test_windy_gridworld_king_moves`.
 
 ### Exercise 6.10 — Stochastic wind in the windy gridworld
 
-- **Book location:** §6.4 / Example 6.5, ~p. 125.
+- **Book location:** §6.4 / Example 6.5 / Figure 6.3; Ex. 6.10 is printed after Example 6.5 in §6.4
+  (2018 draft p. 131). Note the book’s statement uses **king’s moves** as in Exercise 6.9.
 - **Type:** Programming / Theory.
-- **Problem (paraphrase):** Re-solve windy gridworld when wind strength in each column varies
-  stochastically (e.g. the mean strength plus `{-1,0,+1}` with equal probability), while the agent
-  still chooses king’s moves as in Exercise 6.9.
+- **Problem (paraphrase):** Re-solve the windy gridworld task with king’s moves, assuming that the
+  effect of the wind, if there is any, is stochastic, sometimes varying by 1 from the mean values
+  given for each column. That is, a third of the time you move exactly according to these values, as
+  in the previous exercise, but one cell above that a third of the time, and one cell below that a
+  third of the time. (Book example: one cell to the right of the goal moving left lands one cell
+  above the goal, two cells above the goal, or on the goal, with equal probability.)
 - **Solution.** Stochastic wind makes transitions random even for a fixed action, so value estimates
-  must average over possible wind outcomes. Sarsa’s expected update
-  \(Q(s,a) \leftarrow Q(s,a) + \alpha [r + \gamma Q(s',a') - Q(s,a)]\) remains valid because it is a sample-based backup;
-  learning will be noisier and typically slower, and optimal paths/step counts may differ (the agent
-  must account for variability rather than a deterministic push). An empirical solution consists of
-  implementing the stochastic-wind transition, running Sarsa with exploration (e.g. ε-greedy) for many
-  episodes, and plotting learning curves/greedy trajectories.
+  must average over possible wind outcomes. Sarsa’s update
+  \(Q(s,a) \leftarrow Q(s,a) + \alpha [r + \gamma Q(s',a') - Q(s,a)]\) remains valid because it is a sample-based
+  backup; learning is noisier and typically slower. An empirical solution consists of implementing the
+  stochastic-wind transition and running Sarsa with exploration (e.g. ε-greedy), then comparing
+  learning curves/trajectories against the deterministic case (see Figure 6.10 companion experiment
+  below, no numbered book figure).
 - **Why this matters:** TD methods handle stochastic dynamics naturally through sampled backups.
-- **Coding pointer:** **Not implemented in this repo chapter.** No windy-gridworld environment with
-  stochastic wind exists in `chapter_06/solution.py`. See `sarsa` / `q_learning` for the TD control
-  updates used in such experiments (`TestSarsa`, `TestQLearning`).
+- **Coding pointer.** **Implemented.** `WindyGridWorld(king_moves=True, allow_stay=True,
+  stochastic_wind=True)` in `rl_envs/windy_gridworld.py`: whenever the column’s mean wind is \(w \ge 1\),
+  the effective wind is drawn uniformly from \(\{w-1, w, w+1\}\) (columns with zero mean wind stay
+  zero-wind), matching the book’s “a third of the time” wording exactly. Solve with `sarsa_control`.
+  Reproduction: `plot_figure_6_10_stochastic_wind` in `chapter_06/solution.py` (labeled illustrative,
+  no numbered book figure).
 
 ### Exercise 6.11 — Why Q-learning is off-policy control
 
@@ -307,27 +339,32 @@
   ε-greedy with respect to `Q_1+Q_2`.
 - **Why this matters:** Double learning reduces maximization bias; the expected (over target-policy
   actions) form reduces target variance compared to sampling `A_{t+1}`.
-- **Coding pointer:** **Not implemented in this repo chapter.** Neither Double Expected Sarsa nor
-  double estimators are present in `chapter_06/solution.py`. Implemented single-estimator baselines
-  are `sarsa` (on-policy, sampled next action) and `q_learning` (off-policy, greedy max target),
-  covered by `TestSarsa` and `TestQLearning`.
+- **Coding pointer.** **Partially implemented.** Plain Double Q-learning (Eq. 6.10) is implemented as
+  `double_q_learning` and evaluated by `maximization_bias_experiment` (Figure 6.7 reproduction,
+  ε=0.1, α=0.1, γ=1, random tie-breaking, reduced runs vs the book’s 10,000; see
+  `plot_figure_6_7_double_q_learning`). Single-estimator baselines: `q_learning` (max target) and
+  `expected_sarsa_control` (Expected Sarsa target, Eq. 6.9). Double Expected Sarsa (the exact
+  algorithm asked for here) is **not** implemented; the update equations above are the answer the
+  exercise asks for. `DoubleSarsa` baselines are covered by `TestQLearning` / `TestControl`.
 
 ---
 
 ## Coding Exercises Mapped to Repository Code
 
-| Exercise(s) | Book section (plausible) | Repo API (`chapter_06/solution.py`) | Test classes (`chapter_06/tests/test_solution.py`) | Notes |
+| Exercise(s) | Book section (2nd ed.) | Repo API (`chapter_06/solution.py`) | Test classes (`chapter_06/tests/test_solution.py`) | Notes |
 |---|---|---|---|---|
-| 6.1, 6.2 | §6.1–§6.2 | `td0_prediction`, `td_lambda_prediction`, `mc_prediction_incremental` | `TestTDPrediction`, `TestTDLambda` | Online TD vs. (constant-α/first-visit MC) behavior |
-| 6.3–6.6 | §6.2–§6.3 (Example 6.2) | `RandomWalkEnv`, `random_walk_true_values`, `td0_prediction`, `mc_prediction_incremental`, `run_random_walk_comparison` | `TestRandomWalkEnv`, `TestTDPrediction`, `TestExercise61` | Random-walk mechanics, true values, TD vs. MC comparison |
-| 6.7 | §6.7 | `q_learning` (off-policy control analogue) | `TestQLearning` | Off-policy importance-sampling TD(0) prediction not implemented |
-| 6.8 | §6.4 | `sarsa` | `TestSarsa` | Action-value TD/Sarsa update |
-| 6.9, 6.10 | §6.4 / Example 6.5 | `sarsa`, `q_learning` (algorithms only) | `TestSarsa`, `TestQLearning` | Windy gridworld environments/experiments not implemented |
-| 6.11 | §6.5 | `q_learning` | `TestQLearning` | Off-policy max-target update (Eq. 6.8) |
-| 6.12 | §6.6–§6.7 | `sarsa`, `q_learning` (related baselines) | `TestSarsa`, `TestQLearning` | Double Expected Sarsa not implemented |
+| 6.1, 6.2 | §6.1–§6.2 (Example 6.2) | `td0_prediction`, `td_lambda_prediction`, `mc_prediction_incremental`, `run_random_walk_comparison` | `TestTDPrediction`, `TestTDLambda`, `TestExercise61` | Online TD vs. (constant-α/first-visit) MC |
+| 6.3–6.6 | §6.2–§6.3 (Example 6.2/6.3, Fig. 6.2) | `RandomWalkEnv`, `random_walk_true_values`, `batch_td_fixed_point`, `batch_mc_values`, `run_batch_updating` | `TestRandomWalkEnv`, `TestTDPrediction`, `TestExercise61`, `TestBatchUpdating` | Random walk; batch TD vs batch MC |
+| 6.7 | §6.5 / §6.7 | `q_learning` (off-policy control analogue) | `TestQLearning` | Importance-sampling TD prediction not implemented |
+| 6.8 | §6.4 | `sarsa`, `sarsa_control` | `TestSarsa`, `TestControl` | Action-value TD/Sarsa update |
+| 6.9, 6.10 | §6.4 / Example 6.5, Ex. 6.9–6.10, Fig. 6.3 | `WindyGridWorld` (`rl_envs`), `sarsa_control`, `plot_figure_6_3_windy_gridworld`, `plot_figure_6_9_king_moves`, `plot_figure_6_10_stochastic_wind` | `tests/test_rl_envs.py::test_windy_gridworld_king_moves`, `TestControl`, `TestWindy` | King's moves (9 actions) and stochastic wind (equal thirds over wind−1/wind/wind+1) |
+| 6.11 | §6.5 | `q_learning`, `q_learning_control` | `TestQLearning`, `TestControl` | Off-policy max-target update (Eq. 6.8) |
+| 6.12 | §6.6–§6.7 (Example 6.7, Figs. 6.6–6.7) | `expected_sarsa_control`, `double_q_learning`, `maximization_bias_experiment`, `CliffWalkingEnv`, `MaximizationBiasMDP` | `TestControl`, `TestCliffWalking`, `TestMaximizationBias` | Expected Sarsa implemented; Double Q-learning implemented; Double Expected Sarsa not |
+| (Fig. 6.4/6.6) | §6.5–§6.6, Example 6.6 | `CliffWalkingEnv`, `sarsa_control`, `q_learning_control`, `expected_sarsa_control`, `plot_figure_6_4_cliff_walking`, `plot_figure_6_6_td_control_performance` | `TestCliffWalking`, `TestControl` | Fig. 6.4 single run smoothed over 10 episodes; Fig. 6.6 reduced runs (illustrative) |
 
 **Commands**
 - Tests: `python -m pytest chapter_06/tests/ -v`
+- Figures: `python chapter_06/figures/generate_figures.py`
 - Lint: `ruff check chapter_06/`
 
 **API notes (signatures, from implementation):** `RandomWalkEnv(seed=None)` with `reset() -> str` and
@@ -337,7 +374,17 @@
 `sarsa(env, n_episodes=5000, alpha=0.1, epsilon=0.1, gamma=1.0, seed=None) -> (policy, q_table)`;
 `q_learning(env, n_episodes=5000, alpha=0.1, epsilon=0.1, gamma=1.0, seed=None) -> (policy, q_table)`;
 `mc_prediction_incremental(env, policy_fn=None, n_episodes=5000, gamma=1.0, seed=None) -> dict`;
-`run_random_walk_comparison(repeats=100, episodes=100, alpha=0.1, seed=0) -> {'td0': [...], 'mc': [...]}`.
+`run_random_walk_comparison(repeats=100, episodes=100, alpha=0.1, seed=0) -> {'td0': [...], 'mc': [...]}`;
+`CliffWalkingEnv()` with `reset() -> (row, col)` and `step(action) -> (reward, obs, done)`;
+`MaximizationBiasMDP(n_b_actions=10, reward_mean=-0.1, reward_std=1.0, seed=None)`,
+`actions_for(state) -> tuple`, `step(action) -> (reward, 'T', True|False)`;
+`sarsa_control(env, n_episodes=1000, alpha=0.5, epsilon=0.1, gamma=1.0, seed=None, max_steps=10000) -> (q_table, steps, returns)`;
+`q_learning_control(...)` and `expected_sarsa_control(...)` with identical signatures;
+`double_q_learning(env, n_episodes=1000, alpha=0.1, epsilon=0.1, gamma=1.0, seed=None, max_steps=10000) -> (q1, q2, first_actions)`;
+`maximization_bias_experiment(n_episodes=300, repeats=100, alpha=0.1, epsilon=0.1, gamma=1.0, seed=0) -> dict`;
+`run_batch_updating(repeats=100, n_walks=100, seed=0) -> {'walks', 'td', 'mc'}`;
+`batch_td_fixed_point(batch, gamma=1.0) -> dict` and `batch_mc_values(batch, gamma=1.0) -> dict`
+(batch = list of episodes, each a list of `(state, reward, next_state, done)`).
 
 ---
 
@@ -348,9 +395,17 @@
   Chapter 6 results and with the actual behavior of `chapter_06/solution.py`.
 - Mappings were checked against `chapter_06/solution.py` and `chapter_06/tests/test_solution.py` so
   that cited APIs, test class names (`TestRandomWalkEnv`, `TestTDPrediction`, `TestTDLambda`,
-  `TestSarsa`, `TestQLearning`, `TestExercise61`), and commands match the repository.
-- Exercises 6.9, 6.10, and 6.12 describe correct book-style results/experiments but note missing
-  environment/algorithm implementations in this chapter (no false implementation claims).
+  `TestSarsa`, `TestQLearning`, `TestExercise61`, `TestBatchUpdating`, `TestCliffWalking`, `TestControl`,
+  `TestMaximizationBias`, `TestWindy`), and commands match the repository.
+- Exercises 6.9, 6.10, and 6.12 are now (partially) backed by implementations: `WindyGridWorld`
+  covers the king's-moves (Ex. 6.9) and stochastic-wind (Ex. 6.10) experiments end to end with
+  `sarsa_control`; plain Double Q-learning (Eq. 6.10) is implemented for Example 6.7 (Figure 6.7).
+  Double Expected Sarsa (Ex. 6.12 strictly) remains unimplemented and is answered by derivation —
+  no false implementation claims.
+- Book-page anchors refer to the author's 2018 complete draft (March 16, 2018); final printings
+  differ slightly. Figures were reproduced at reduced scale (fewer episodes/runs than printed)
+  and are labeled illustrative; identities were taken from the 2nd edition, not the 1st or the
+  2014–2015 draft (whose numbering differs).
 
 ---
 *Exercises document for Chapter 6 — part of the per-chapter exercises-and-solutions series

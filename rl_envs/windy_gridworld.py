@@ -19,7 +19,7 @@ class WindyGridWorld:
         start: (row, col) start state.
         goal: (row, col) goal state.
         wind: Sequence of upward wind strengths per column.
-        king_moves: If True, allow 8 diagonal/king moves (Example 6.6 variant).
+        king_moves: If True, allow 8 diagonal/king moves (Exercise 6.9 variant).
         allow_stay: If True and king_moves, include a no-op action.
         stochastic_wind: If True, wind varies by {-1,0,+1} with equal prob.
         seed: RNG seed for stochastic wind.
@@ -74,7 +74,7 @@ class WindyGridWorld:
     def _clip(self, r: int, c: int) -> tuple[int, int]:
         return (max(0, min(self.height - 1, r)), max(0, min(self.width - 1, c)))
 
-    def step(self, action: int | str) -> tuple[tuple[int, int], float, bool]:
+    def step(self, action: int | str) -> tuple[float, tuple[int, int], bool]:
         if self.state is None:
             raise RuntimeError("call reset() first")
         if isinstance(action, str):
@@ -92,7 +92,7 @@ class WindyGridWorld:
         self.state = (nr, nc)
         done = self.state == self.goal
         reward = 0.0 if done else -1.0
-        return self.state, reward, done
+        return reward, self.state, done
 
     def n_states(self) -> int:
         return self.height * self.width

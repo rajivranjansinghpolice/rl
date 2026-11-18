@@ -53,7 +53,7 @@ def test_windy_gridworld_standard():
     env = WindyGridWorld()
     s = env.reset()
     assert s == (3, 0)
-    s2, r, done = env.step("right")
+    r, s2, done = env.step("right")
     assert r == -1.0 and not done
     assert s2[1] == 1
 
@@ -65,7 +65,7 @@ def test_windy_gridworld_king_moves():
     # 8 king moves + no-op
     assert env.n_actions == 9
     # move diagonally up-right: lands on (2, 1), wind applies afterwards
-    s2, r, done = env.step("up-right")
+    r, s2, done = env.step("up-right")
     assert s2[1] == 1
     assert r == -1.0
 
