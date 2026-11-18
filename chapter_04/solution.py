@@ -1,10 +1,10 @@
-"""Solution implementation for Chapter 4 - Dynamic Programming.
+﻿"""Solution implementation for Chapter 4 - Dynamic Programming.
 
 Reference: Sutton & Barto (2nd Ed), Chapter 4
 
 Implements: Alg 4.1 (iterative policy evaluation), Alg 4.2 (policy improvement),
 Alg 4.3 (policy iteration), Alg 4.4 (value iteration),
-Exercise 4.1 (gambler's problem — Example 4.3).
+Exercise 4.1 (gambler's problem â€” Example 4.3).
 
 Reuses the FiniteMDP dynamics model from chapter_03 (package `chapter_03`).
 """
@@ -252,7 +252,7 @@ def gamblers_problem(
 
     Undiscounted, episodic, finite MDP. States are capital 0..goal; 0 and
     `goal` are dummy terminals, giving them values 0 and 1 respectively
-    (Exercise 4.9 remark). All rewards are 0 — the +1 outcome of reaching the
+    (Exercise 4.9 remark). All rewards are 0 â€” the +1 outcome of reaching the
     goal is represented entirely by the terminal value 1 at `goal`.
     From s in 1..goal-1, actions are integer stakes 1..min(s, goal-s);
     winning a stake transitions to s + stake, losing to s - stake.
@@ -267,6 +267,12 @@ def gamblers_problem(
     Returns:
         (values, policy): values[i] is the probability of winning from capital
         i; policy[i] is the integer stake staked at capital i (0 elsewhere).
+
+    Tie-breaking: among optimal stakes, the SMALLEST stake wins ties. This
+    reproduces the book's Figure 4.3 staircase/pyramid shape with stakes of
+    12, 25, 50 and 25 at capitals 12/13, 25, 50 and 75. The optimal policy
+    is highly non-unique (Exercise 4.9 remarks on this), so do not expect
+    pixel-identity with any printed edition of the book's figure.
     """
     if not 0.0 <= p_h <= 1.0:
         raise ValueError("p_h must be in [0, 1]")
@@ -347,7 +353,7 @@ def plot_gamblers_problem(
         f"S&B (2nd ed.), Example 4.3, Fig. 4.3: Gambler's problem (p_h={p_h})"
     )
 
-    ax2.bar(states[1:goal], policy[1:goal], color="#444444", width=1.0)
+    ax2.bar(states[1:goal], policy[1:goal], color="#444444", width=0.8)
     ax2.set_xlabel("Capital")
     ax2.set_ylabel("Final policy\n(stake)")
     ax2.set_xlim(0, goal)
@@ -359,3 +365,369 @@ def plot_gamblers_problem(
     else:
         plt.close(fig)
     return fig, (ax1, ax2)
+
+
+# ---------------------------------------------------------------------------
+# Jack's car rental (Sutton & Barto, 2nd ed., Example 4.2, Sec. 4.3)
+# ---------------------------------------------------------------------------
+
+_JCR_MAX_CARS = 20
+_JCR_MAX_MOVE = 5
+_JCR_GAMMA = 0.9
+_JCR_RENTAL_REVENUE = 10.0
+_JCR_MOVE_COST_PER_CAR = 2.0
+_JCR_N = _JCR_MAX_CARS + 1
+
+
+def _poisson_pmf(lam: float, max_k: int = _JCR_MAX_CARS) -> np.ndarray:
+    """Exact Poisson pmf for k = 0..max_k (recurrence, stable)."""
+    pmf = np.empty(max_k + 1, dtype=np.float64)
+    pmf[0] = np.exp(-lam)
+    for k in range(1, max_k + 1):
+        pmf[k] = pmf[k - 1] * lam / k
+    return pmf
+
+
+def _capped_buckets(exact: np.ndarray, capped_bucket: int, eps: float = 1e-11) -> list[tuple[int, float]]:
+    """Probability buckets for an unbounded Poisson X capped at ``capped_bucket``.
+
+    Returns list of (value, prob) pairs with value in 0..capped_bucket. The
+    capped bucket accumulates P(X >= capped_bucket); buckets whose mass is
+    below ``eps`` are folded in as well, so probabilities sum to 1 exactly.
+    """
+    out = []
+    for k in range(capped_bucket):
+        p = exact[k]
+        if p >= eps:
+            out.append((k, float(p)))
+    tail = 1.0 - sum(p for _, p in out)
+    out.append((capped_bucket, tail))
+    return out
+
+
+def _location_outcomes(
+    x: int, req_exact: np.ndarray, ret_exact: np.ndarray
+) -> list[tuple[int, int, float]]:
+    """Exact outcome buckets (end_cars, rented, prob) for one location.
+
+    ``x`` is the number of cars on the lot at the start of the day (after the
+    overnight move). Requests are Poisson (``req_exact``); only cars present
+    can be rented. Returns are Poisson (``ret_exact``); cars beyond 20
+    disappear. Probabilities sum to 1 exactly.
+    """
+    outcomes: dict[tuple[int, int], float] = {}
+    for rented, p_req in _capped_buckets(req_exact, x):
+        after = x - rented
+        space = _JCR_MAX_CARS - after
+        for m, p_ret in _capped_buckets(ret_exact, space):
+            end = after + m
+            key = (end, rented)
+            outcomes[key] = outcomes.get(key, 0.0) + p_req * p_ret
+    return [(end, rented, p) for (end, rented), p in outcomes.items()]
+
+
+class JacksCarRentalMDP:
+    """Example 4.2 Jack's car rental (2nd ed., Sec. 4.3) as an MDP.
+
+    State: (i, j), i cars at location 1 and j cars at location 2,
+    0 <= i, j <= _JCR_MAX_CARS (20).
+    Action: integer a in [-5, +5]; a > 0 moves a cars from location 1 to
+    location 2 overnight, a < 0 moves -a cars from location 2 to location 1.
+    A location never supplies more cars than it holds; if fewer cars than
+    requested are present, as many as possible are moved.
+    Dynamics (one day-night cycle): first the overnight move ($2 per car
+    actually moved), then customers arrive and rent (Poisson lambda = 3 at
+    location 1, lambda = 4 at location 2; $10 revenue per car rented), then
+    cars are returned (Poisson lambda = 3 at location 1, lambda = 2 at
+    location 2). Cars beyond 20 at a location disappear (returned to the
+    national company). gamma = 0.9. Continuing task, as in the book.
+
+    Optional Exercise 4.5-style modifications (off by default, matching the
+    base Example 4.2 dynamics):
+
+    * ``free_first_shuttle``: the first car moved from location 1 to
+      location 2 each night rides free; additional cars in that direction
+      and all cars in the opposite direction still cost $2 each.
+    * ``second_parking_fee``: if more than ``parking_threshold`` cars (10 in
+      the exercise) are kept overnight at a location (measured after the
+      overnight move), an additional flat cost of this amount ($4 in the
+      exercise) is incurred per such location, independent of how many cars
+      are kept there. ``None`` disables the fee.
+
+    Policy vectors and the (21, 21) grid views use the same layout:
+    ``policy[s]`` is the net number of cars moved (negative = 2 -> 1).
+    """
+
+    # Class-level cache of the (Poisson dynamics) transition builders.
+    # The transition matrices P and the expected-rentals matrix depend only
+    # on the Poisson lambdas; cost/revenue/move modifications only affect the
+    # per-instance expected-reward vector. Sharing the heavy build keeps the
+    # Exercise 4.5 modifications cheap.
+    _DYNAMICS_CACHE: dict = {}
+
+    def __init__(
+        self,
+        free_first_shuttle: bool = False,
+        second_parking_fee: float | None = None,
+        parking_threshold: int = 10,
+        gamma: float = _JCR_GAMMA,
+        move_cost: float = _JCR_MOVE_COST_PER_CAR,
+        rental_revenue: float = _JCR_RENTAL_REVENUE,
+        lambda_req1: float = 3.0,
+        lambda_req2: float = 4.0,
+        lambda_ret1: float = 3.0,
+        lambda_ret2: float = 2.0,
+    ) -> None:
+        if not 0.0 <= gamma <= 1.0:
+            raise ValueError("gamma must be in [0, 1]")
+        if move_cost < 0.0 or rental_revenue < 0.0:
+            raise ValueError("move_cost and rental_revenue must be non-negative")
+        if parking_threshold < 0:
+            raise ValueError("parking_threshold must be non-negative")
+        self.gamma = float(gamma)
+        self.move_cost = float(move_cost)
+        self.rental_revenue = float(rental_revenue)
+        self.free_first_shuttle = bool(free_first_shuttle)
+        self.second_parking_fee = (
+            None if second_parking_fee is None else float(second_parking_fee)
+        )
+        self.parking_threshold = int(parking_threshold)
+        req = (lambda_req1, lambda_req2)
+        ret = (lambda_ret1, lambda_ret2)
+        key = (tuple(req), tuple(ret))
+        dynamics = JacksCarRentalMDP._DYNAMICS_CACHE.get(key)
+        if dynamics is None:
+            dynamics = self._compute_dynamics(key)
+            JacksCarRentalMDP._DYNAMICS_CACHE[key] = dynamics
+        self.P, rentals = dynamics
+        self.n_states = _JCR_N * _JCR_N
+        self.n_actions = 2 * _JCR_MAX_MOVE + 1
+        # Per-instance expected reward (depends on cost/revenue model only,
+        # not on the Poisson dynamics): r(s,a) = revenue * E[rented] - cost.
+        self.expected_reward = np.empty(
+            (self.n_actions, self.n_states), dtype=np.float64
+        )
+        for s in range(self.n_states):
+            i, j = divmod(s, _JCR_N)
+            for ai, a in enumerate(range(-_JCR_MAX_MOVE, _JCR_MAX_MOVE + 1)):
+                _, _, _, cost = self._move_and_cost(i, j, a)
+                self.expected_reward[ai, s] = self.rental_revenue * rentals[ai, s] - cost
+
+    @staticmethod
+    def _compute_dynamics(
+        key: tuple[tuple[float, float], tuple[float, float]]
+    ) -> tuple[np.ndarray, np.ndarray]:
+        req = (_poisson_pmf(key[0][0]), _poisson_pmf(key[0][1]))
+        ret = (_poisson_pmf(key[1][0]), _poisson_pmf(key[1][1]))
+        loc = {}
+        for x in range(_JCR_N):
+            loc[(1, x)] = _location_outcomes(x, req[0], ret[0])
+            loc[(2, x)] = _location_outcomes(x, req[1], ret[1])
+        n_states = _JCR_N * _JCR_N
+        n_actions = 2 * _JCR_MAX_MOVE + 1
+        transition = np.zeros((n_actions, n_states, n_states), dtype=np.float64)
+        rentals = np.zeros((n_actions, n_states), dtype=np.float64)
+        # A temporary MDP-like object is not needed: moves are lambda-free,
+        # only lambdas were keyed. Reuse the base move rules via a bare
+        # instance of the cost model.
+        cost_mdp = JacksCarRentalMDP.__new__(JacksCarRentalMDP)
+        cost_mdp.gamma = 0.0
+        cost_mdp.move_cost = 0.0
+        cost_mdp.rental_revenue = 0.0
+        cost_mdp.free_first_shuttle = False
+        cost_mdp.second_parking_fee = None
+        cost_mdp.parking_threshold = _JCR_MAX_CARS + 1  # never triggers
+        for s in range(n_states):
+            i, j = divmod(s, _JCR_N)
+            for ai, a in enumerate(range(-_JCR_MAX_MOVE, _JCR_MAX_MOVE + 1)):
+                x1, x2, _, _ = cost_mdp._move_and_cost(i, j, a)
+                joint: dict[int, float] = {}
+                expected_rentals = 0.0
+                for e1, r1, p1 in loc[(1, x1)]:
+                    ns_base = e1 * _JCR_N
+                    for e2, r2, p2 in loc[(2, x2)]:
+                        p = p1 * p2
+                        ns = ns_base + e2
+                        joint[ns] = joint.get(ns, 0.0) + p
+                        expected_rentals += p * (r1 + r2)
+                for ns, p in joint.items():
+                    transition[ai, s, ns] = p
+                rentals[ai, s] = expected_rentals
+        return transition, rentals
+
+    def _move_and_cost(self, i: int, j: int, a: int) -> tuple[int, int, int, float]:
+        """Overnight move outcome: (x1, x2, n_moved, dollar_cost).
+
+        The number of cars moved is limited only by the source location
+        (at most its current stock). As with returns, cars arriving beyond
+        20 at the destination disappear (returned to the national company).
+        """
+        if a > 0:
+            moved = min(a, i)
+            signed = moved
+        elif a < 0:
+            moved = min(-a, j)
+            signed = -moved
+        else:
+            moved = 0
+            signed = 0
+        x1 = min(_JCR_MAX_CARS, max(0, i - signed))
+        x2 = min(_JCR_MAX_CARS, max(0, j + signed))
+        cost = self.move_cost * moved
+        if self.free_first_shuttle and a > 0 and moved >= 1:
+            cost -= self.move_cost  # first car 1 -> 2 shuttled for free
+        if self.second_parking_fee is not None:
+            for held in (x1, x2):
+                if held > self.parking_threshold:
+                    cost += self.second_parking_fee
+        return x1, x2, moved, cost
+
+    def q_values(self, values: np.ndarray) -> np.ndarray:
+        """Action-value table q(a, s) (shape (n_actions, n_states))."""
+        values = np.asarray(values, dtype=np.float64).reshape(self.n_states)
+        return self.expected_reward + self.gamma * np.einsum(
+            "asn,n->as", self.P, values
+        )
+
+    def policy_evaluation(self, policy: np.ndarray) -> np.ndarray:
+        """Solve v_pi exactly: v = r_pi + gamma P_pi v (441 x 441 solve)."""
+        policy = np.asarray(policy, dtype=np.int64).reshape(self.n_states)
+        if policy.min() < -_JCR_MAX_MOVE or policy.max() > _JCR_MAX_MOVE:
+            raise ValueError(f"policy entries must lie in [{-_JCR_MAX_MOVE}, {_JCR_MAX_MOVE}]")
+        idx = self.policy_indices(policy)
+        p_pi = self.P[idx, np.arange(self.n_states)]
+        r_pi = self.expected_reward[idx, np.arange(self.n_states)]
+        return np.linalg.solve(np.eye(self.n_states) - self.gamma * p_pi, r_pi)
+
+    @staticmethod
+    def policy_indices(policy: np.ndarray) -> np.ndarray:
+        """Map net-move policy values to action indices into P/expected_reward."""
+        return np.asarray(policy, dtype=np.int64).reshape(-1) + _JCR_MAX_MOVE
+
+    def policy_iteration(self, max_rounds: int = 100):
+        """Policy iteration from the zero-move policy pi_0.
+
+        Returns (values, policy_grid, history): ``values`` is the 441-vector
+        of the final value function, ``policy_grid`` the (21, 21) int array
+        of optimal net car moves, and ``history`` the list of
+        ``(policy_grid, value_grid)`` snapshots after each evaluation round
+        (pi_0 ... pi_N), matching the layout of book Figure 4.2.
+        """
+        policy = np.zeros(self.n_states, dtype=np.int64)
+        history = []
+        for _ in range(max_rounds):
+            v = self.policy_evaluation(policy)
+            history.append(
+                (
+                    policy.reshape(_JCR_N, _JCR_N).copy(),
+                    v.reshape(_JCR_N, _JCR_N).copy(),
+                )
+            )
+            q = self.q_values(v)
+            new_policy = np.argmax(q, axis=0).astype(np.int64) - _JCR_MAX_MOVE
+            if np.array_equal(new_policy, policy):
+                return v, policy.reshape(_JCR_N, _JCR_N), history
+            policy = new_policy
+        v = self.policy_evaluation(policy)
+        history.append(
+            (
+                policy.reshape(_JCR_N, _JCR_N).copy(),
+                v.reshape(_JCR_N, _JCR_N).copy(),
+            )
+        )
+        return v, policy.reshape(_JCR_N, _JCR_N), history
+
+
+def plot_jacks_car_rental(
+    save_path: str | None = None,
+    show: bool = False,
+    free_first_shuttle: bool = False,
+    second_parking_fee: float | None = None,
+):
+    """Policy sequence and value function (Example 4.2, Sec. 4.3, Fig. 4.2).
+
+    Sutton & Barto (2nd ed.), Example 4.2: the policy improvement steps of
+    Jack's car rental solved by policy iteration, starting from the
+    zero-move policy. Top row: policy grids pi_0 ... pi_N (-5 = five cars
+    2 -> 1, +5 = five cars 1 -> 2). Bottom row: the value function of the
+    final policy as a heatmap and as a 3D surface.
+
+    Figure identity note: in the 2nd (2018) edition this is Figure 4.2
+    ("Jack's car rental"); the in-progress 2nd-edition draft and the 1st
+    edition number it differently. This reproduction is an illustrative
+    demonstration of Example 4.2, not a pixel-identical redraw of any
+    edition's print figure.
+
+    Args:
+        save_path: if set, save the figure to this path.
+        show: if True, call plt.show().
+        free_first_shuttle: pass-through to JacksCarRentalMDP (Ex 4.5 mod).
+        second_parking_fee: pass-through to JacksCarRentalMDP (Ex 4.5 mod);
+            None disables the fee.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    mdp = JacksCarRentalMDP(
+        free_first_shuttle=free_first_shuttle,
+        second_parking_fee=second_parking_fee,
+    )
+    v, policy, history = mdp.policy_iteration()
+
+    n = len(history)
+    ncols = max(3, n + 1)
+    fig = plt.figure(figsize=(4.2 * ncols, 8.6))
+
+    for idx, (pi_grid, v_grid) in enumerate(history):
+        ax = fig.add_subplot(2, ncols, idx + 1)
+        im = ax.imshow(
+            pi_grid,
+            origin="lower",
+            cmap="RdBu",
+            vmin=-_JCR_MAX_MOVE,
+            vmax=_JCR_MAX_MOVE,
+        )
+        ax.set_title(rf"$\pi_{idx}$ (moves)")
+        ax.set_xlabel("j (cars at loc 2)")
+        if idx == 0:
+            ax.set_ylabel("i (cars at loc 1)")
+        else:
+            ax.set_yticks([])
+    # Hide unused first-row slots.
+    for k in range(n, ncols):
+        ax = fig.add_subplot(2, ncols, k + 1)
+        ax.axis("off")
+    # Value heatmap panel.
+    ax_val = fig.add_subplot(2, ncols, ncols + 1)
+    im2 = ax_val.imshow(v.reshape(_JCR_N, _JCR_N), origin="lower", cmap="viridis")
+    ax_val.set_title("v* heatmap")
+    ax_val.set_xlabel("j (cars at loc 2)")
+    ax_val.set_ylabel("i (cars at loc 1)")
+    fig.colorbar(im2, ax=ax_val, shrink=0.8)
+    # Value surface panel.
+    ax_surf = fig.add_subplot(2, ncols, ncols + 2, projection="3d")
+    xs = np.arange(_JCR_N)
+    ys = np.arange(_JCR_N)
+    xs, ys = np.meshgrid(xs, ys, indexing="ij")
+    ax_surf.plot_surface(xs, ys, v.reshape(_JCR_N, _JCR_N), cmap="viridis", alpha=0.95)
+    ax_surf.set_xlabel("i (loc 1)")
+    ax_surf.set_ylabel("j (loc 2)")
+    ax_surf.set_zlabel("v*")
+    ax_surf.set_title("v* surface")
+    fig.suptitle(
+        "S&B (2nd ed.), Example 4.2 / Fig. 4.2: Jack's car rental "
+        "(policy improvement; illustrative demonstration)"
+    )
+    fig.tight_layout(rect=(0, 0, 1, 0.96))
+    fig.subplots_adjust(hspace=0.45)
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+    return fig, history
+
+

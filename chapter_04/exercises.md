@@ -133,16 +133,22 @@
   parking incurs extra cost when more than 10 cars are kept overnight at a location). Verify by
   replicating the original problem first.
 - **Solution (experiment/design).** (1) **Validate:** encode the original Example 4.2 dynamics/rewards
-  (Poisson rentals/returns, move cost $2, rental revenue $3, up to 20 cars/location, up to 5 moves)
-  as an MDP and run `policy_iteration`/`value_iteration` to reproduce the known optimal policy.
-  (2) **Modify rewards/dynamics:** make the first car moved from location 1→2 free (reduce move cost
-  by $2 when that move count applies) and add a $4 overnight parking cost at any location holding more
-  than 10 cars. (3) **Solve:** rerun policy iteration/value iteration and compare policies/values.
+  (Poisson rentals λ₁=3/λ₂=4, Poisson returns λ₁=3/λ₂=2, move cost $2 per car moved, rental revenue $10,
+  up to 20 cars per location, up to 5 cars moved per night) as an MDP and run policy iteration to
+  reproduce the known optimal policy. (2) **Modify rewards/dynamics:** make the first car moved from
+  location 1→2 free (reduce move cost by $2 when that move applies) and add a $4 overnight parking cost
+  at any location holding more than 10 cars. (3) **Solve:** rerun policy iteration and compare policies/values.
   If computation is slow, reduce state/action ranges (e.g. halve max cars) as the book suggests.
-- **Coding pointer:** the repo provides the DP solvers `policy_iteration` and `value_iteration` in
-  `chapter_04/solution.py` (usable on a `FiniteMDP`/custom dynamics model) with `TestPolicyIteration`
-  and `TestValueIteration`. A full Jack's-car-rental MDP instance is **not** implemented as a named
-  fixture in this repo’s tests.
+- **Coding pointer:** implemented as `JacksCarRentalMDP` + `policy_iteration` in `chapter_04/solution.py`:
+  - base Example 4.2: `JacksCarRentalMDP()` — exactly reproduces the book's policy improvement
+    sequence from the zero-move policy (converges in ~5 rounds; v*(0,0) ≈ 421.4);
+  - Exercise 4.5 modifications: `JacksCarRentalMDP(free_first_shuttle=True, second_parking_fee=4.0)`
+    (the `second_parking_fee` is charged per location holding more than `parking_threshold`=10 cars
+    after the overnight move, independently of the number of extra cars);
+  - both reproduce `figures/fig_4_2_jacks_car_rental.png` (policy sequence π₀…π₄ + value surface; illustrative demonstration — in the 2nd (2018) edition the Jack's car rental figure is Figure 4.2, numbering differs across editions);
+  - transitions are exact (Poisson tails folded in; probabilities sum to 1 to machine precision);
+    evaluation solves the 441×441 Bellman system directly.
+  - tests: `TestJacksCarRental` in `chapter_04/tests/test_solution.py` (`python -m pytest chapter_04/tests/test_solution.py::TestJacksCarRental -v`).
 - **Why this works / takeaway:** DP applies unchanged once the modified dynamics and reward model are
   specified.
 
@@ -201,7 +207,7 @@
   stake that preserves a better chance of eventually reaching 100. More generally, optimal stakes
   reflect the Bellman optimality trade-off between immediate goal reach and the value of the losing
   successor state; this produces the non-monotone/triangular-looking policy seen in Figure 4.3 (and
-  reproduced by `gamblers_problem(p_h=0.4)`).
+  reproduced by `gamblers_problem(p_h=0.4)`, with smallest-stake tie-breaking (the optimal policy is non-unique per Exercise 4.9)).
 - **Why this works / takeaway:** maximizing success probability can favor bold, state-dependent bets
   when the underlying wager is unfavorable.
 
@@ -248,7 +254,7 @@
 | 4.2 | Computation (added-state values) — no dedicated repo test | — | — | — |
 | 4.3 | Math (q-evaluation equations) — no dedicated repo test | `policy_evaluation` (state-value analog) | `TestPolicyEvaluation` (related) | `python -m pytest chapter_04/tests/test_solution.py::TestPolicyEvaluation -v` |
 | 4.4 | Theory (termination/tie handling) — no dedicated repo test | `policy_iteration` (implements improvement loop) | `TestPolicyIteration` (related) | `python -m pytest chapter_04/tests/test_solution.py::TestPolicyIteration -v` |
-| 4.5 | Programming (Jack's car rental) — **not implemented as a named instance in repo** | `policy_iteration`, `value_iteration` | `TestPolicyIteration`, `TestValueIteration` (solvers only) | `python -m pytest chapter_04/tests/test_solution.py::TestPolicyIteration chapter_04/tests/test_solution.py::TestValueIteration -v` |
+| 4.5 | Programming (Jack's car rental + modifications) — implemented | `JacksCarRentalMDP` (+ `policy_iteration`) | `TestJacksCarRental` | `python -m pytest chapter_04/tests/test_solution.py::TestJacksCarRental -v` |
 | 4.6 | Math/Algorithm (policy iteration for `q_*`) — no dedicated repo test | — | — | — |
 | 4.7 | Theory (ε-soft improvement) — no dedicated repo test | `policy_improvement` (greedy improvement, not ε-soft) | `TestPolicyImprovement` (related, not ε-soft) | `python -m pytest chapter_04/tests/test_solution.py::TestPolicyImprovement -v` |
 | 4.8 | Theory (gambler's policy shape) | `gamblers_problem`, `value_iteration` | `TestGamblersProblem`, `TestValueIteration` | `python -m pytest chapter_04/tests/test_solution.py::TestGamblersProblem -v` |
@@ -258,7 +264,7 @@
 - Full chapter command: `python -m pytest chapter_04/tests/ -v`
 - Lint: `ruff check chapter_04/`
 - No standalone `exercise_*.py` file exists for this chapter. Theory/derivation exercises are
-  answered in this document; only 4.8–4.9 are directly exercised by the gambler’s-problem tests.
+  answered in this document; 4.5 and 4.8–4.9 are directly exercised by the repo tests.
 
 ---
 
@@ -269,8 +275,15 @@
 - Ex. 4.4, 4.6, 4.7, 4.10 are standard DP derivations rewritten from the book’s definitions.
 - Public solution material (`Habanoz`, `Vojtamolda`, `AntonioSerrano`) was used only as a
   cross-check. Discrepancies (if any) are resolved by the derivations above.
-- Programming exercise 4.5 (Jack’s car rental modifications) is not implemented as a named repo
-  instance; 4.9 is directly supported by `gamblers_problem`.
+- Programming exercise 4.5 (Jack's car rental modifications) is implemented in
+  `chapter_04/solution.py` as `JacksCarRentalMDP` (`free_first_shuttle`, `second_parking_fee`);
+  4.9 is directly supported by `gamblers_problem`.
+- Figure identities: in the 2nd (2018) edition, Figure 4.2 is the Jack's car rental figure and
+  Figure 4.3 is the gambler's problem figure. The local in-progress draft and older editions
+  number these differently; the repository figures (`fig_4_2_jacks_car_rental.png`,
+  `fig_4_3_gamblers_problem.png`) are illustrative demonstrations of Example 4.2/4.3, not
+  pixel-identical redraws. The gambler's optimal policy is non-unique; ties are broken toward
+  the smallest stake, which reproduces the book's staircase/pyramid shape.
 
 ---
 
