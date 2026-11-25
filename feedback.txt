@@ -1,0 +1,68 @@
+My feedback: 
+General :
+- All chapters' markdown files should use standard MAths NOtations formatting just like in exercises.md of Chapter 5. 
+- Wherever solution, coding exercies are not implemented, it should be identified and should be taken up as task to be completed.
+- All exercises' answer should be followed by easy to understand explanation of the answer for the students.
+- Reuse code snippets if same environment/agent isreused in multiple examples, exercises or chapters. 
+- 
+
+chapter 1 - ok, 
+
+chapter 2- ok, 
+
+chapter 3  - solutions for gridworld should be included. 
+
+chapter 4: 
+ - Full Jack Car Rental problem MDP  as per book should be included in solutions.py of this chapterter .
+ - Fig 4.2 should be reproduced.  
+ - Fig 4.3 does not match the one in book. there too many spikes in policy vs capital chart. Review this again. 
+
+chapter 5: 
+ - policy and value chart for blackjack problem as per figure 5.2 not implmented. same should be done.
+ - implment the coding solution for figure 5.2,5.3,5.4
+ - implement the racettrack problem in exercise no 5.8 and 5.9 in exercies.md and solutions.py.
+
+chapter 6:
+ - coding solution for example 6.2 and code to reproduce the chart in example6.2 BOX for random walk should be implemented.
+ - coding solution for example 6.5 and code to reproduce the chart in Fig 6.3 for windy_gridworld should be implemented.
+ - coding solution for example 6.6 and code to reproduce the chart in Fig 6.4 for windy_gridworld should be implemented.
+ -  code to reproduce the chart in Fig 6.6 for windy_gridworld should be implemented.
+ - code to reproduce the chart in Fig 6.7 for windy_gridworld should be implemented.
+
+chapter 7:
+ - coding solution for example 7.1 and code to reproduce the chart in Fig 7.2 for windy_gridworld should be implemented.
+
+chapter 8:
+ - coding solution for example 8.1 Dyna MAze and code to reproduce the chart in Fig 8.3 for dynaq agents in dyna maze should be implemented.
+ -  code to reproduce the chart in Fig 8.5 for  should be implemented.
+ -  code to reproduce the chart in Fig 8.6 for  should be implemented.
+ - coding solution for example 8.4 for prioritized sweeping and comparison with DynaQ should be implemented.
+ - coding solution for example 8.5 for rod manuevering and solution using prioritized sweeping should be implemented.
+ -  code to reproduce the chart in Fig 8.8 for  should be implemented.
+ -  code to reproduce the chart in Fig 8.9 for  should be implemented.
+- coding solution for example 8.6 should be implmeneted.
+
+Chapter 9:
+ - code to reproduce the chart in Fig 9.1 for  should be implemented.
+ - coding solution for example 9.1 and code to reproduce the chart in Fig 9.2 should be implemented.
+ - code to reproduce the chart in Fig 9.5 for  should be implemented.
+ - code to reproduce the chart in Fig 9.10 for  should be implemented.
+
+chapter 10:
+ - exercises.md for this chapter is missing. rectify.
+ - coding solution for example 10.1 Mountain car and code to reproduce the chart in Fig 10.1 and 10.2, 10.3, 10.4  should be implemented.
+ - coding solution for example 10.2 Access control queueing and code to reproduce the chart in Fig 10.5 should be implemented.
+
+chapter 11:
+ -  code to reproduce the chart in Fig 11.2 and 11.6, 11.7, 10.4  should be implemented.
+
+chapter 12:
+ - this chapter repo contain figure of 16.1. it seems like an error.
+ - actual exercises in chapter 12 of ebook are missing in the repo. derived exercise s from some other chapter are mentioned. This is  aserious error. review and rectify.
+ - code to reproduce the chart in Fig 12.3, 12.6,12.8,12.10 and 12.11, 12.14 should be implemented.
+
+chapter 13:
+ - coding solution for example 13.1 and code to reproduce the chart in Fig 13.1 and 13.2 should be implemented.
+
+chapter 14,15,16 and 17: ok
+
