@@ -26,7 +26,7 @@ API reproduces an algorithm when it only illustrates part of it.
 | Ch 10 figs 10.1–10.5 | Reduced-scale reproductions, incl. n-step semi-gradient Sarsa | `chapter_10/figure_experiments.py`, `chapter_10/figures/generate_figures.py` |
 | Ch 11 figs 11.2/11.6/11.7 | Expected-update Baird-star reproductions (TDC, emphatic TD) | `chapter_11/figure_experiments.py`, `chapter_11/figures/generate_figures.py` |
 | Ch 12 figs 12.3/12.6/12.8/12.10/12.11/12.14 | Reduced-scale reproductions | `chapter_12/figure_experiments.py`, `chapter_12/figures/generate_figures.py` |
-| All chapters | Student-friendly explanation after every exercise answer | `chapter_XX/exercises.md`, `**Explanation (student-friendly).**` markers |
+| All chapters | Canonical five-part exercise answers (hook, numbered equation + glossary, reasoning chain, intuition check, prediction self-check) | `chapter_XX/exercises.md`, `**Hook.**` → `**Check your understanding.**` markers; house style in `STUDENT_ANSWER_TEMPLATE.md` |
 
 ---
 
@@ -120,6 +120,10 @@ Documented per chapter in `chapter_XX/README.md`. Summary:
   tests. A fresh checkout from tracked files only passes the same suite.
 - `python chapter_XX/figures/generate_figures.py` — regenerate a chapter's PNGs.
   Every generator uses absolute paths and is independent of the working directory.
+  All ten generators were rerun after the readability refactor: only
+  `fig_6_10_stochastic_wind.png` and `fig_8_4_policies.png` differ from the
+  committed versions, and both change again on a second identical run — they
+  are unseeded illustrative plots, not regressions.
 - `python -m ruff check .` — clean under the tracked `ruff.toml` (real defects:
   undefined names, unused imports/variables, import order, whitespace). The
   stricter untracked `pyproject.toml` profile is not used for the public repo.

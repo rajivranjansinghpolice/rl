@@ -60,7 +60,10 @@ implemented during the book-alignment work. Exercise writeups in
 `chapter_XX/exercises.md` follow the house style in
 [`STUDENT_ANSWER_TEMPLATE.md`](STUDENT_ANSWER_TEMPLATE.md):
 a conversational hook, a numbered formal equation with a symbol glossary, a
-reasoning chain, an intuition check, and a prediction-style self-check.
+reasoning chain, an intuition check, and a prediction-style self-check. The
+same guide's code standard governs `chapter_XX/solution.py`: one readable
+function per algorithm, comments that explain why loops exist, and named
+constants instead of magic numbers.
 
 ## Chapter renumbering provenance
 
