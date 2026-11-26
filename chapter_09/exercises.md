@@ -146,7 +146,7 @@ Fourier-analysis idea, applied to value functions.
 - **Coding pointer.** `fourier_features(x, order)` and `WavelengthTask` implement
   this; `run_wavelength_prediction` fits and returns the weights;
   `plot_figure_9_wavelength()` draws the per-order fit (orders 0–5) stored at
-  `chapter_09/figures/fig_9_wavelength_fourier.png`. Unit test
+  `chapter_09/figures/example_9_1_wavelength_fourier.png`. Unit test
   `test_higher_order_fits_wave_better` verifies orders 5 fit strictly better than
   order 0 in RMS error.
 

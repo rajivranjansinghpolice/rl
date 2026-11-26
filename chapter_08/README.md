@@ -36,14 +36,17 @@ Regenerate with:
 python chapter_08/figures/generate_figures.py
 ```
 
-Numbered book figures: `fig_8_3_dyna_q.png`, `fig_8_4_policies.png`,
-`fig_8_5_blocking_maze.png`, `fig_8_6_shortcut_maze.png`,
-`fig_8_7_backup_diagrams.png`, `fig_8_8_update_efficiency.png`,
-`fig_8_9_trajectory_sampling.png`, `fig_8_10_heuristic_search.png`.
+Verified numbered book figures: `fig_8_3_dyna_q.png`,
+`fig_8_4_policies.png`, `fig_8_7_backup_diagrams.png`,
+`fig_8_8_update_efficiency.png`, `fig_8_9_trajectory_sampling.png`,
+`fig_8_10_heuristic_search.png`.
 
-The book prints **no numbered figure** for Examples 8.4–8.6; their outputs are
-named `example_8_4_scaling.png`, `example_8_5_rod.png` and
-`example_8_6_rtdp_racetrack.png`.
+The book's Figs. 8.5/8.6 (blocking/shortcut mazes) are **not** reproduced:
+our small reconstructed maze reverses the phase-1 ordering, so those plots are
+honestly named `example_8_2_blocking_maze.png` and
+`example_8_3_shortcut_maze.png`. Likewise, the book prints no numbered figure
+for Examples 8.4–8.6; their outputs are `example_8_4_scaling.png`,
+`example_8_5_rod.png` and `example_8_6_rtdp_racetrack.png`.
 
 All plots are reduced-scale reproductions or **illustrative demonstrations**,
 not pixel-identical copies. In particular:
@@ -53,10 +56,11 @@ not pixel-identical copies. In particular:
 - The trajectory-sampling reward model is not printed; we use `r(s,a) ~ U[0,1]`
   with action-independent termination, which reproduces the book's qualitative
   pattern (on-policy faster initially, relatively slower in the long run).
-- Our κ (1e-4) and maze scale differ from the book's tuning; in our blocking
-  maze plain Dyna-Q sometimes re-learns a new route after the change, whereas
-  the book's Dyna-Q stays stuck. The curves show the qualitative mechanism
-  (bonus-driven recovery), not the book's exact ordering in both phases.
+- Our κ (1e-4) and maze scale differ from the book's tuning. On this small
+  maze the bonus *slows* initial learning (planning on never-tried pairs
+  dilutes goal-reward propagation), so Dyna-Q+ is worse in phase 1 — the
+  opposite of the book. These plots are demonstrations only, never cited as
+  Fig. 8.5/8.6.
 - Example 8.6 uses a small illustrative racetrack (707 reachable states) with
   `noise_prob=0`, versus the book's 9,115-state track.
 

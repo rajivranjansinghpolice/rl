@@ -38,7 +38,7 @@ basis, tile coding, and RMS error measurement.
 - **Episodic semi-gradient control** — this is Chapter 10 and is implemented there.
 
 ## Figures
-- `figures/fig_9_wavelength_fourier.png` — Fourier-basis fit of cos(2*pi*x) for
+- `figures/example_9_1_wavelength_fourier.png` — Fourier-basis fit of cos(2*pi*x) for
   orders 0–5 (illustrative demonstration of Sections 9.2/9.4.5; not a claimed
   numbered book figure — see the book-identity note in `exercises.md`).
 

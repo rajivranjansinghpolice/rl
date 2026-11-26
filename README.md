@@ -40,11 +40,13 @@ important deviations are:
 
 - `chapter_08/`: the blocking/shortcut mazes and rod obstacles are
   reconstructions; κ and the trajectory-sampling reward model are not printed
-  in the book; Example 8.6 uses a small racetrack (707 states) instead of the
+  in the book. The blocking/shortcut plots reverse the book's phase-1 ordering
+  on our small maze, so they are named `example_8_2_*`/`example_8_3_*`, **not**
+  Fig. 8.5/8.6. Example 8.6 uses a small racetrack (707 states) instead of the
   book's 9,115-state track.
-- `chapter_12/`: random-walk figures use 5 repetitions instead of 100; the
-  Cart/Pole and Puddle World panels of Fig. 12.14 are labelled illustrative
-  stand-ins.
+- `chapter_12/`: random-walk figures use 5 repetitions instead of 100; Fig. 12.14
+  reproduces only two of four panels — the Cart/Pole and Puddle World panels
+  are empty with an explicit notice (no fabricated data).
 - `chapter_03/`–`chapter_16/`: several experiments use fewer runs/episodes
   than the printed book; see each chapter `README.md` for its exact settings.
 

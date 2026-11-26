@@ -152,7 +152,7 @@ Sarsa learns that priority ordering by trying it and collecting the premium.
 
 - **Coding pointer.** `AccessControlQueue.step`, `run_access_control`,
   `DifferentialSarsaAgent`; run to see the moving-average reward improve from ~3
-  toward ~4.5. Figure: `figures/fig_10_access_control.png`.
+  toward ~4.5. Figure: `figures/example_10_1_access_control.png`.
 
 ---
 
@@ -180,7 +180,7 @@ explore the valley first.
 
 - **Coding pointer.** `run_mountain_car` uses `epsilon=0.1` exploration for this
   reason; unit test `test_returns_episode_lengths` uses `epsilon=0.5` to keep
-  learning active in short runs. See also `fig_10_mountain_car.png`.
+  learning active in short runs. See also `example_10_2_mountain_car.png`.
 
 ---
 

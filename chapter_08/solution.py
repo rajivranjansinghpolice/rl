@@ -1137,16 +1137,20 @@ def plot_changing_maze(layout: str, change_step: int, steps_cap: int,
                        runs: int = 20, n_episodes: int = 3000,
                        seed: int = 0,
                        agents: tuple[str, ...] = ("dyna_q", "dyna_q_plus")):
-    """Changing-maze experiment (Sec. 8.3, Example 8.2 blocking / Fig. 8.5,
-    Example 8.3 shortcut / Fig. 8.6).
+    """Changing-maze demonstration (Sec. 8.3, Examples 8.2/8.3).
 
+    **Illustrative reconstruction, not a reproduction of Figs. 8.5/8.6.**
     Both the regular Dyna-Q agent and the Dyna-Q+ agent (exploration bonus
     kappa = 1e-4) act on the same maze; after `change_step` real time steps
     the barrier layout changes while the agents' Q-tables and models persist
     (the model is stale). Curves are cumulative reward averaged over `runs`
-    repetitions (the same change thresholds, steps caps and layout as the
-    book: 1000/3000 for blocking, 3000/6000 for shortcut). Book y-axis upper
-    limits (~150 blocking, ~400 shortcut) are reproduced only approximately.
+    repetitions.
+
+    The book's exact maze coordinates and kappa are not printed, and on this
+    small reconstructed maze the bonus *slows* initial learning (planning on
+    never-tried pairs dilutes goal-reward propagation), so the phase-1 ordering
+    is the opposite of the book's. The plots are therefore named
+    ``example_8_2_*`` / ``example_8_3_*`` and must not be cited as Fig. 8.5/8.6.
     """
     import matplotlib
 
@@ -1177,11 +1181,9 @@ def plot_changing_maze(layout: str, change_step: int, steps_cap: int,
                label=f"layout changes at t={change_step}")
     ax.set_xlabel("Time steps")
     ax.set_ylabel("Cumulative reward")
-    if layout == "blocking":
-        ex, figno = "Example 8.2", "Fig. 8.5"
-    else:
-        ex, figno = "Example 8.3", "Fig. 8.6"
-    ax.set_title(f"S&B (2nd ed.), Sec. 8.3, {ex} / {figno}: {layout} maze")
+    ex = "Example 8.2" if layout == "blocking" else "Example 8.3"
+    ax.set_title(f"S&B (2nd ed.), Sec. 8.3, {ex}: {layout} maze\n"
+                 "illustrative reconstruction — not a book-figure reproduction")
     ax.legend()
     fig.tight_layout()
     if save_path is not None:
@@ -1779,25 +1781,40 @@ def plot_example_8_4_scaling(
                                       max_steps=max_steps,
                                       budget_updates=budget_updates)
     fig, ax = plt.subplots(figsize=(8, 5.2))
+    colors = {"dyna_q": "tab:blue", "prioritized_sweeping": "tab:orange"}
     for agent, marker in (("dyna_q", "o"), ("prioritized_sweeping", "s")):
         xs, means, stds = [], [], []
+        censored = []
         for k in scale_levels:
             n_states, runs = results[(agent, k)]
             solved = [u for u in runs if u is not None]
-            if not solved:
-                continue
-            xs.append(n_states)
-            means.append(np.mean(solved))
-            stds.append(np.std(solved) if len(solved) > 1 else 0.0)
-        ax.errorbar(xs, means, yerr=stds, marker=marker, capsize=5,
-                    label={"dyna_q": "Dyna-Q (n=5)",
-                           "prioritized_sweeping": "Prioritized sweeping (n=5)"}[agent])
+            if solved:
+                xs.append(n_states)
+                means.append(np.mean(solved))
+                stds.append(np.std(solved) if len(solved) > 1 else 0.0)
+            n_unsolved = len(runs) - len(solved)
+            if n_unsolved:
+                # Show censored runs explicitly instead of silently dropping
+                # them: the downward triangle marks the computation budget.
+                censored.append((n_states, n_unsolved))
+        if xs:
+            ax.errorbar(xs, means, yerr=stds, marker=marker, capsize=5,
+                        color=colors[agent],
+                        label={"dyna_q": "Dyna-Q (n=5)",
+                               "prioritized_sweeping": "Prioritized sweeping (n=5)"}[agent])
+        for n_states, n_unsolved in censored:
+            ax.scatter([n_states], [budget_updates], marker="v", s=55,
+                       color=colors[agent], zorder=5)
+            ax.annotate(f"{n_unsolved} run(s) ≥ budget", (n_states, budget_updates),
+                        textcoords="offset points", xytext=(0, -16),
+                        ha="center", fontsize=7, color=colors[agent])
     ax.set_xscale("log")
     ax.set_yscale("log")
+    ax.set_ylim(bottom=10, top=budget_updates * 5)
     ax.set_xlabel("Gridworld size (#states)")
     ax.set_ylabel("Updates until optimal solution")
     ax.set_title("S&B (2nd ed.), Sec. 8.4, Example 8.4: prioritized sweeping on\n"
-                 "mazes (Peng & Williams 1993; reduced scale; unsolved runs omitted)")
+                 "mazes (Peng & Williams 1993; reduced scale; ▼ = censored at budget)")
     ax.legend()
     fig.tight_layout()
     if save_path is not None:

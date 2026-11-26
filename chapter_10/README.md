@@ -36,9 +36,9 @@ semi-gradient Sarsa on the continuing Access-Control Queuing problem.
   the same justification as Chapter 9.
 
 ## Figures
-- `figures/fig_10_mountain_car.png` — Mountain Car learning curve
+- `figures/example_10_2_mountain_car.png` — Mountain Car learning curve
   (illustrative; Sec. 10.1).
-- `figures/fig_10_access_control.png` — average reward per step vs time on
+- `figures/example_10_1_access_control.png` — average reward per step vs time on
   access-control queuing (illustrative; Sec. 10.2/10.3, Example 10.2).
 
 ## Implementation Notes

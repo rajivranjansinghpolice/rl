@@ -48,9 +48,9 @@ def main() -> None:
         ("fig_8_3_dyna_q.png", lambda path: plot_figure_8_3_dyna_maze(
             save_path=path, runs=10, n_episodes=30)),
         ("fig_8_4_policies.png", lambda path: plot_figure_8_4_policies(save_path=path)),
-        ("fig_8_5_blocking_maze.png", lambda path: plot_changing_maze(
+        ("example_8_2_blocking_maze.png", lambda path: plot_changing_maze(
             "blocking", 1000, 4000, save_path=path, runs=5)),
-        ("fig_8_6_shortcut_maze.png", lambda path: plot_changing_maze(
+        ("example_8_3_shortcut_maze.png", lambda path: plot_changing_maze(
             "shortcut", 3000, 6000, save_path=path, runs=5)),
         ("fig_8_7_backup_diagrams.png", lambda path: plot_figure_8_7_backup_diagrams(
             save_path=path)),

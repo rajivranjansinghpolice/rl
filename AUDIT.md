@@ -21,7 +21,7 @@ API reproduces an algorithm when it only illustrates part of it.
 | Ch 8 §8.4 ex 8.5 | Rod maneuvering | `chapter_08/rod.py`: `RodWorld`, `prioritized_sweeping_known_model`, `value_iteration_known_model`, `shortest_path` |
 | Ch 8 §8.6 | Trajectory sampling | `trajectory_sampling_experiment` |
 | Ch 8 §8.7 ex 8.6 | RTDP vs value iteration on a racetrack | `chapter_08/rtdp.py` using the shared `rl_envs.racetrack` |
-| Ch 8 figures | Fig. 8.3–8.10 + Examples 8.4–8.6 | `chapter_08/figures/generate_figures.py` |
+| Ch 8 figures | Verified Fig. 8.3/8.4/8.7–8.10; blocking & shortcut as `example_8_2_*`/`example_8_3_*` (not Fig. 8.5/8.6); Examples 8.4–8.6 | `chapter_08/figures/generate_figures.py` |
 | Ch 12 figs 12.3/12.6/12.8/12.10/12.11/12.14 | Reduced-scale reproductions | `chapter_12/figure_experiments.py`, `chapter_12/figures/generate_figures.py` |
 | All chapters | Student-friendly explanation after every exercise answer | `chapter_XX/exercises.md`, `**Explanation (student-friendly).**` markers |
 
@@ -92,11 +92,14 @@ Documented per chapter in `chapter_XX/README.md`. Summary:
 
 - Ch 8: maze/rod obstacle coordinates are not printed in the book, so layouts
   are illustrative reconstructions; κ and the trajectory-sampling reward model
-  are not printed and were chosen to reproduce the qualitative pattern.
+  are not printed. On the small reconstructed blocking maze Dyna-Q+ is *worse*
+  in phase 1 (the opposite of the book), so those outputs are named
+  `example_8_2_*`/`example_8_3_*` and are never cited as Fig. 8.5/8.6.
   Example 8.6 uses a small racetrack (707 states) rather than the book's 9,115.
 - Ch 12: reduced-scale random-walk and Mountain Car experiments (5 repetitions
-  vs 100); Fig. 12.14's Cart/Pole and Puddle World panels are illustrative
-  stand-ins, clearly labelled in the figure.
+  vs 100). Fig. 12.14 reproduces only two of the book's four panels; the
+  Cart/Pole and Puddle World panels are empty with an explicit notice. Earlier
+  formula-generated stand-ins were removed — no fabricated data is plotted.
 - Ch 3/4/5/6/7/9/10/11/13: reduced episode/run counts; figures are labeled
   illustrative where exact book settings are unavailable.
 

@@ -273,14 +273,16 @@
 
 **Verification commands:**
 - `python -m pytest chapter_12/tests/ -v`
-- `python -m pytest chapter_12/tests/ -v`
-- `ruff check chapter_12/ chapter_12/`
+- `python -m pytest -q` (full suite, from the repository root)
+- `ruff check chapter_12/` (if Ruff is installed)
 
 ---
 
 ## Pointer from Chapter 10
 
-`chapter_12/README.md` links here: `../chapter_12/exercises.md` (single Book Chapter 12 exercises document; see Scope and Chapter Mapping above, including the §12.6 vs §12.10 numbering note).
+Watkins's Q(λ) material from the former `chapter_10/` was merged into this
+chapter. `chapter_10/README.md` points here for the book Chapter 12 exercises
+that cover that material.
 
 ---
 
@@ -292,4 +294,4 @@
 
 ---
 
-*Exercises document for Chapter 8 (book Chapter 12) — part of the per-chapter exercises-and-solutions series (`chapter_XX/exercises.md` and hosted docs).*
+*Exercises document for Chapter 12 — part of the per-chapter exercises-and-solutions series (`chapter_XX/exercises.md`).*

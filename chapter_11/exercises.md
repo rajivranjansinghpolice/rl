@@ -110,7 +110,7 @@ amplifier on the components that the slice cannot see.
 - **Coding pointer.** Run `python -m pytest chapter_11/tests/ -v`
   (`TestExpectedUpdateMatrix`, `TestBehaviorStationary`), or call
   `behavior_stationary()` and `baird_features()` directly. Figure:
-  `figures/fig_11_divergence.png` (||w|| on log scale grows from 1 to ~10^6).
+  `figures/example_11_1_divergence.png` (||w|| on log scale grows from 1 to ~10^6).
 
 ---
 
@@ -182,7 +182,7 @@ diverges. The curved direction is exactly the difference between "a correct
 objective" and "a diverging update."
 
 - **Coding pointer.** `mspbe` computes the value; `mspbe_gradient_descent`
-  performs the descent; figure `figures/fig_11_mspbe.png` shows the monotone
+  performs the descent; figure `figures/example_11_2_mspbe.png` shows the monotone
   (conditioning-limited) decrease, and `TestMSPBE` checks non-negativity and
   descent. The conditioning caveat is documented in the figure title/README.
 

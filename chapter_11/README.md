@@ -40,9 +40,9 @@ and gradient-corrected objectives (MSPBE) on an exactly-enumerable counterexampl
   justification.
 
 ## Figures
-- `figures/fig_11_divergence.png` — semi-gradient off-policy TD, ||w|| on log scale,
+- `figures/example_11_1_divergence.png` — semi-gradient off-policy TD, ||w|| on log scale,
   diverging (illustrative demonstration).
-- `figures/fig_11_mspbe.png` — MSPBE gradient descent: monotone (conditioning-limited)
+- `figures/example_11_2_mspbe.png` — MSPBE gradient descent: monotone (conditioning-limited)
   decrease of MSPBE and ||w|| (illustrative demonstration).
 
 ## Implementation Notes

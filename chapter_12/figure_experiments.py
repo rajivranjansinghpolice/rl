@@ -20,8 +20,6 @@ four tasks are not all available here, so the extra panels are illustrative.
 
 from __future__ import annotations
 
-from collections import defaultdict
-
 import numpy as np
 
 from chapter_07.solution import _sample_walks

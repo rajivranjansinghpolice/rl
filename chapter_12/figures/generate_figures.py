@@ -117,25 +117,21 @@ def _plot_lambda_summary(path_prefix, walk_curves, car_curves):
     axes[0, 1].set_xlabel("Episode")
     axes[0, 1].legend(fontsize=7)
 
-    # Two extra panels are illustrative stand-ins: the book's CartPole and
-    # Puddle World tasks are not reproduced in this repository.
-    axes[1, 0].plot(LAMBDAS,
-                    [0.5 + 0.4 * (1 - lam) for lam in LAMBDAS], "s-",
-                    color="tab:orange")
-    axes[1, 0].set_title("Failures on a simple control task (illustrative)")
-    axes[1, 0].set_xlabel("$\\lambda$")
-    axes[1, 0].set_ylabel("failures / 100k steps")
-
-    axes[1, 1].plot(LAMBDAS,
-                    [0.3 + 0.5 * lam ** 2 for lam in LAMBDAS], "^-",
-                    color="tab:purple")
-    axes[1, 1].set_title("Cost on a simple grid task (illustrative)")
-    axes[1, 1].set_xlabel("$\\lambda$")
-    axes[1, 1].set_ylabel("cost per episode")
+    # The book's Cart/Pole and Puddle World experiments are NOT reproduced
+    # here. Earlier versions of this script drew formula-generated stand-ins
+    # for those panels; that was fabricated data and has been removed.
+    for ax, task in ((axes[1, 0], "Cart/Pole control"),
+                     (axes[1, 1], "Puddle World")):
+        ax.set_axis_off()
+        ax.text(0.5, 0.5,
+                f"{task}\n\nnot reproduced in this repository\n"
+                "(no data plotted)",
+                ha="center", va="center", transform=ax.transAxes,
+                fontsize=10, color="0.35")
 
     fig.suptitle("S&B (2nd ed.), Fig. 12.14: effect of $\\lambda$ on performance\n"
-                 "(only the random-walk and mountain-car panels are data-driven here)",
-                 fontsize=11)
+                 "(partial reproduction: only the random-walk and "
+                 "mountain-car panels contain data)", fontsize=11)
     fig.tight_layout(rect=(0, 0, 1, 0.92))
     path = path_prefix + "fig_12_14_lambda_effects.png"
     fig.savefig(path, dpi=150, bbox_inches="tight")
