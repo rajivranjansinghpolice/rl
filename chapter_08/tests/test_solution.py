@@ -54,6 +54,11 @@ class TestMakeGridworld:
         assert env.n_actions == 4
         assert env.terminal_states == {"1,3"}
 
+    def test_start_state_is_honoured(self) -> None:
+        env = make_gridworld(rows=5, cols=5, start="4,0", goal="0,4")
+        assert env.reset() == "4,0"
+        assert env.reset("1,1") == "1,1"
+
     def test_invalid_goal_raises(self) -> None:
         with pytest.raises(ValueError):
             make_gridworld(goal="9,9")

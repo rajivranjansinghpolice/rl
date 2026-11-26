@@ -115,7 +115,7 @@ Documented per chapter in `chapter_XX/README.md`. Summary:
 
 ## Verification
 
-- `python -m pytest -q` — run from the repository root: **677 passed**, including
+- `python -m pytest -q` — run from the repository root: **678 passed**, including
   all chapter-local test suites (now tracked in Git) and the shared `rl_envs`
   tests. A fresh checkout from tracked files only passes the same suite.
 - `python chapter_XX/figures/generate_figures.py` — regenerate a chapter's PNGs.

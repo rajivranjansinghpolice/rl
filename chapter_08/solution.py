@@ -125,7 +125,7 @@ def make_gridworld(
             transitions[(state, action)] = [
                 (p, r, ns) for (r, ns), p in probs.items() if p > 0.0
             ]
-    return FiniteMDP(
+    mdp = FiniteMDP(
         states,
         list(ACTIONS),
         transitions,
@@ -133,6 +133,16 @@ def make_gridworld(
         terminal_states=[goal],
         seed=seed,
     )
+    # Honour the caller's start state. FiniteMDP.reset() samples uniformly when
+    # no state is given; the book's gridworld tasks always start at `start`.
+    mdp.start_state = start
+    _base_reset = mdp.reset
+
+    def reset(state=None):
+        return _base_reset(mdp.start_state if state is None else state)
+
+    mdp.reset = reset
+    return mdp
 
 
 class TabularModel:
@@ -811,7 +821,8 @@ class ChangingGridworld:
         return self._env.done
 
     def reset(self, start_state: str | None = None) -> str:
-        state = self._env.reset(start_state) if start_state is not None else self._env.reset()
+        state = self._env.reset(start_state if start_state is not None
+                                else self.start_state)
         self._current_state = state
         return state
 
