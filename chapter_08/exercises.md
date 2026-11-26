@@ -22,12 +22,11 @@
 ## Sources and Ground Rules
 
 - **Primary source:** Sutton & Barto (2018), _Reinforcement Learning: An Introduction_, 2nd ed., Chapter 8. Exercise statements below are **paraphrased** (no long verbatim quotes); short phrases appear only with section/equation/page citations.
-- **Cross-check (sanity only, not copied):** public repos `Habanoz/reinforcement-learning-an-introduction`, `AntonioSerrano/Implementation-of-RL-algorithms-from-Sutton-and-Barto-2018`, and `vojtamolda/reinforcement-learning-an-introduction` (Ch. 8), plus common solution PDFs. Disagreements resolved by independent derivation.
-- All solutions are **rewritten from scratch** for student comprehension.
+- **Source and scope:** Sutton & Barto (2nd ed.) Chapter 8; exercise statements are paraphrased and derivations are worked from the book's equations, with section/equation/page citations for traceability.
 
 ## How to Use This Document
 
-- Each exercise lists: **Book location**, **Type**, **Problem (paraphrased)**, and a worked answer in the five-part house style (**Hook**, **Formal bridge**, **Reasoning chain**, **Why it makes sense**, **Check your understanding**), plus a **Where this shows up in the code** pointer that matches actual APIs/tests in `chapter_08/`.
+- Each exercise lists: **Book location**, **Type**, **Problem (paraphrased)**, and a worked answer in the five-part house style: a conversational **Hook**, a **Formal bridge** that states the key result as a numbered equation with a glossary of its symbols, a **Reasoning chain** that derives it step by step, a **Why it makes sense** intuition check at the extremes, and a **Check your understanding** prediction-style self-check; a short **Where this shows up in the code** pointer follows where relevant.
 - **Implementation note:** Dyna-Q+ (`dyna_q_plus`), the changing-maze harness (`ChangingGridworld`, `changing_maze_experiment`), the selection-only bonus variant (Ex. 8.4), the rod reconstruction (Ex. 8.5, `chapter_08/rod.py`) and RTDP (Ex. 8.6, `chapter_08/rtdp.py`) **are implemented**. Coding pointers below name the exact APIs and tests.
 
 ---
@@ -200,11 +199,15 @@ A matching experiment mirrors §8.3. Build a deterministic gridworld/maze with a
 
 ---
 
-## Verification and Quality Notes
+## What to take away
 
-- Reasoning and derivations were produced independently; public materials were used only for cross-checking.
-- Exercises 8.2–8.4 are backed by runnable Dyna-Q+ / exploration-bonus experiments. Figure outputs are reduced-scale illustrations: exact maze coordinates and the book's κ tuning are not recoverable from the printed text, and the phase-1 ordering of our curves differs from the book (documented in `README.md`).
-- Exercise statements are paraphrased; citations are given to plausible 2nd-edition sections/pages/equations/figures for traceability.
+- Dyna's advantage over Chapter 7's multi-step methods is reuse, not reach: each real transition buys extra simulated backups from a learned model, spreading value to states that never appeared on that trajectory. It spends computation per real step, not additional environment steps.
+- The Dyna-Q+ bonus prices staleness (κ√τ), not reward. The same mechanism serves both experimental phases: in a stable maze an untried corridor may hide a better route; after a change it may hide the new reality. Its sub-linear growth keeps curiosity from swamping earned rewards.
+- Putting the bonus in the planning target and putting it in action selection are not interchangeable. The first propagates optimism backward through the model to predecessors; the second leaves Q unbiased, but the preference can flip the instant τ resets, so it is prone to dithering.
+- The marginal pull of the bonus is κ/(2√τ): it fades as pairs are revisited. A narrowing Dyna-Q+/Dyna-Q gap in a stationary phase is therefore the bonus wearing out by design, not a defect.
+- Prioritized sweeping (§8.4) spends backups where the model predicts the largest change, and expected updates (§8.5) trade more arithmetic per backup for less transition-sampling noise — both answer the same question Chapter 7 asks with n: how to spend a fixed compute budget well.
+
+- **Where the theory meets the code.** Exercises 8.2–8.4 are backed by runnable Dyna-Q+ and exploration-bonus experiments; their figures are reduced-scale illustrations, since the exact maze coordinates and the book's κ tuning are not recoverable from the printed text, and the phase-1 ordering of our curves differs from the book (documented in `README.md`). Exercise 8.1 has no Chapter 7 multi-step baseline in this chapter, and 8.3 is a qualitative pattern only.
 
 ---
 

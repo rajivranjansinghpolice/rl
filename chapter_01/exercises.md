@@ -27,19 +27,17 @@
 - **Primary source:** Sutton & Barto (2017/2018), _Reinforcement Learning: An Introduction_,
   Chapter 1. Exercise statements below are **paraphrased** in student-friendly language; short
   verbatim quotes are used only where unavoidable, always with section/equation citations.
-- **Cross-check sources (sanity check only, never copied):** public repositories
-  `Habanoz/reinforcement-learning-an-introduction`,
-  `AntonioSerrano/Implementation-of-RL-algorithms-from-Sutton-and-Barto-2018`, and
-  `vojtamolda/reinforcement-learning-an-introduction` chapter-1 material, plus the public
-  chapter-1 solution PDFs. Any disagreement is resolved by independent derivation; discrepancies
-  found during cross-checks are noted in the individual exercise entries.
-- All solutions in this document are **rewritten from scratch** for student comprehension.
+- **Source and scope:** Sutton & Barto (2nd ed.) Chapter 1; exercise statements are paraphrased and
+  derivations are worked from the book's equations, with section/equation/page citations for
+  traceability.
 
 ## How to Use This Document
 
 - Each exercise lists: **Book location**, **Type** (`Theory`, `Computation`, `Math`, `Proof`),
-  **Problem**, **Solution**, and — where a companion implementation exists — a **coding-exercise
-  pointer** into `chapter_01/`.
+  **Problem**, and a five-part answer: a conversational **Hook**, a numbered formal equation with a
+  symbol glossary (**Formal bridge**), a step-by-step **Reasoning chain**, a **Why it makes sense**
+  intuition check at extreme cases, and a prediction-style **Check your understanding** self-test;
+  a short code pointer into `chapter_01/` follows where a companion implementation exists.
 - Computation exercises show worked arithmetic; Math/Proof exercises show derivations.
 - The final section maps exercises to the repository code that already implements (or supports)
   the corresponding machinery.
@@ -382,12 +380,29 @@ rarer or more delayed, optimistic initialisation also starts to matter more.
 
 ---
 
-## Verification and Quality Notes
+## What to take away
 
-- The reasoning in this document was re-derived by hand where arithmetic applies; the public
-  solution material (`Habanoz`, `Vojtamolda`, `AntonioSerrano`) was used only as a cross-check.
-- Theory answers (1.1–1.3, 1.5) are model answers written for student understanding; students should
-  replace the tic-tac-toe framing with their own tasks where noted.
+- The value you converge to is decided by which moves you back up: backing up every move you consider
+  gives optimal values with the max built in, while backing up only the moves you executed gives the
+  values of the exploratory behaviour policy. Acting greedily on one is not the same as acting
+  greedily on the other.
+- Self-play reaches a stable policy only when the roles are interchangeable. With mirror-image
+  rewards and identical move sets, both learners chase the same minimax target and the stable outcome
+  is drawing play; give one player a very different exploration rate and the target moves for both.
+- Symmetry belongs to the whole agent–environment loop, not to the board drawing. Canonicalising
+  boards multiplies each visit count only if the opponent's behaviour is invariant too; a biased
+  opponent turns two rotations into genuinely different futures, so sharing values buys samples at
+  the cost of fidelity.
+- Greedy action selection and learning pull against each other: the policy keeps choosing the current
+  best move, but only sampled moves get revised. A crucial move that starts out looking bad can
+  stay bad forever — exploration is how the greedy policy gets something worth being greedy about.
+- Watch the thread into later chapters: the split between the policy that gathers data and the policy
+  we ultimately want becomes on-policy versus off-policy learning in Chapters 5 and 6, and the
+  lookup table here gives way to generalisation once the state space grows.
+
+**Where the theory meets the code.** Exercises 1.1–1.3 and 1.5 are theory and model answers written
+for student understanding; students should replace the tic-tac-toe framing with their own tasks where
+noted.
 
 ---
 

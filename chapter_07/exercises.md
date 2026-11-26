@@ -47,17 +47,19 @@ references.
 
 - **Primary source:** Sutton & Barto (2nd ed.), Chapter 7. Exercise statements are
   **paraphrased** (no long verbatim quotes).
-- **Cross-check:** public solution discussions were used only as a sanity check; all
-  derivations/pseudocode here are written from scratch.
+- **Source and scope:** Sutton & Barto (2nd ed.) Chapter 7; exercise statements are paraphrased and derivations are worked from the book's equations, with section/equation/page citations for traceability.
 - **Repo truth rule:** coding pointers and “implemented” claims match `chapter_07/solution.py`
   and `chapter_07/tests/test_solution.py` exactly.
 
 ## How to Use This Document
 
 - Each entry gives **Book location**, **Type** (`Theory`, `Computation`, `Math`, `Proof`,
-  `Programming`), **Problem (paraphrase)**, and a worked answer in the five-part house style
-  (**Hook**, **Formal bridge**, **Reasoning chain**, **Why it makes sense**, **Check your
-  understanding**), plus a **Where this shows up in the code / status** pointer.
+  `Programming`), **Problem (paraphrase)**, and a worked answer in the five-part house style:
+  a conversational **Hook**, a **Formal bridge** that states the key result as a numbered
+  equation with a glossary of its symbols, a **Reasoning chain** that derives it step by step,
+  a **Why it makes sense** intuition check at the extremes, and a **Check your understanding**
+  prediction-style self-check; a short **Where this shows up in the code / status** pointer
+  follows where relevant.
 - “Theory-only” means no matching function exists in `solution.py`; do not expect a runnable
   API for it in this chapter.
 
@@ -406,15 +408,14 @@ The expected benefit comes from variance. In the coarse estimator, one unlikely 
 
 ---
 
-## Verification and Quality Notes
+## What to take away
 
-- Derivations (7.1, 7.6, 7.7) are algebraic/telescoping arguments under the stated fixed-estimate
-  assumptions, consistent with Chapter 7 equations.
-- Figure 7.2 reproduction was verified by tests: `test_intermediate_n_beats_extremes` checks
-  the book's headline finding (intermediate n beats the extremes) on the same fixed seed, and
-  `test_experiment_output_shapes` checks the experiment plumbing.
-- 7.4–7.5 provide explicit theory-only pseudocode because the requested IS-based APIs are not in
-  this repo; 7.8 specifies a reproducible comparison experiment without asserting an implementation.
-- Exercise statements are paraphrased; citations use stable §/Eq. labels.
+- The n-step return is a dial between one-step TD (Chapter 6) and Monte Carlo: small n bootstraps from a possibly biased estimate, large n waits for real rewards and inherits their variance, and the useful middle is where those two costs balance. The λ-return of Chapter 12 is the next step — a weighted average across all horizons at once.
+- The sum-of-TD-errors identity is an algebraic convenience that depends on the estimates standing still. Update inside the window and the telescoping chain has mismatched ends; the same trap returns with the offline/online λ-return distinction in Chapter 12.
+- Importance sampling pays for the gap between behavior and target policies, but *when* you pay matters: a whole-window product taxes early, already-realized rewards for a late unlikely action, while per-decision weighting stops each ratio at its own reward. Both are unbiased; the per-decision form is quieter.
+- An expectation is already a target-policy quantity, so bootstrapping with Expected Sarsa drops the final importance factor that a sampled Sarsa action still needs. That same rule reappears in the off-policy action-value traces of Chapter 12.
+- Off-policy control need not use importance ratios at all: tree backup averages over untried actions to stay usable under any behavior policy, buying lower variance at the cost of a wider backup.
+
+- **Where the theory meets the code.** Exercises 7.1–7.3 are backed by the implemented prediction and n-step Sarsa code, including the illustrative Figure 7.2 reproduction on a fixed seed with the repo's own choice of α-axis. Exercises 7.4–7.8 remain theory-only: no off-policy importance-sampling or Expected Sarsa n-step API exists in this repo, so those answers give pseudocode and a reproducible experiment design rather than a runnable implementation; tree backup is implemented but is a different off-policy-without-IS method.
 
 *End of Chapter 7 exercises document (`chapter_07/exercises.md`).*

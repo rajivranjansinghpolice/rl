@@ -54,6 +54,9 @@
 
 ## Sources and Ground Rules
 
+- **Source and scope:** Sutton & Barto (2nd ed.) Chapter 6; exercise statements are paraphrased and
+  derivations are worked from the book's equations, with section/equation/page citations for
+  traceability.
 - Exercise statements below are **paraphrased** in student-friendly language (no long verbatim
   quotes), with plausible section/equation citations.
 - Solutions are derived from the Chapter 6 definitions and the repository implementation; claims
@@ -64,8 +67,11 @@
 
 ## How to Use This Document
 
-- Each entry includes **Book location**, **Type**, **Problem (paraphrase)**, **Solution**, and a
-  **Coding pointer** (or an explicit note when not implemented).
+- Each answer has five parts: a conversational **Hook**, a numbered formal equation with a symbol
+  glossary (**Formal bridge**), a **Reasoning chain**, a **Why it makes sense** intuition check, and a
+  prediction-style **Check your understanding** self-test, followed by a **Coding pointer** (or an
+  explicit note when the algorithm is not implemented).
+- Each entry includes **Book location**, **Type** and **Problem (paraphrase)**.
 - Types used: `Theory`, `Computation`, `Math`, `Proof`, `Programming`.
 - Run all Chapter 6 tests: `python -m pytest chapter_06/tests/ -v`.
 
@@ -740,24 +746,36 @@ plus single-estimator baselines `q_learning` and `expected_sarsa_control`; tests
 
 ---
 
-## Verification and Quality Notes
+## What to take away
 
-- Derivations (TD/MC identity and correction, off-policy TD(0) with ρ, action-value identity,
-  Sarsa/Q-learning/Double Expected Sarsa updates) were written to be consistent with standard S&B
-  Chapter 6 results and with the actual behavior of `chapter_06/solution.py`.
-- Mappings were checked against `chapter_06/solution.py` and `chapter_06/tests/test_solution.py` so
-  that cited APIs, test class names (`TestRandomWalkEnv`, `TestTDPrediction`, `TestTDLambda`,
-  `TestSarsa`, `TestQLearning`, `TestExercise61`, `TestBatchUpdating`, `TestCliffWalking`, `TestControl`,
-  `TestMaximizationBias`, `TestWindy`), and commands match the repository.
-- Exercises 6.9, 6.10, and 6.12 are now (partially) backed by implementations: `WindyGridWorld`
-  covers the king's-moves (Ex. 6.9) and stochastic-wind (Ex. 6.10) experiments end to end with
-  `sarsa_control`; plain Double Q-learning (Eq. 6.10) is implemented for Example 6.7 (Figure 6.7).
-  Double Expected Sarsa (Ex. 6.12 strictly) remains unimplemented and is answered by derivation —
-  no false implementation claims.
-- Book-page anchors refer to the author's 2018 complete draft (March 16, 2018); final printings
-  differ slightly. Figures were reproduced at reduced scale (fewer episodes/runs than printed)
-  and are labeled illustrative; identities were taken from the 2nd edition, not the 1st or the
-  2014–2015 draft (whose numbering differs).
+- TD and Monte Carlo share the same update shape and differ in the target: MC waits for the complete
+  return \(G_t\), while TD steps toward \(R_{t+1}+\gamma V(S_{t+1})\). The Monte Carlo error telescopes
+  into a discounted sum of TD errors only when \(V\) is held fixed; once the estimate changes during
+  the episode the identity needs a correction term.
+- That one-step target is both TD's advantage and its vulnerability. It can learn before an episode
+  ends and often beats MC on the random-walk task, but a large \(\alpha\) makes TD's RMS error fall and
+  then rise as the estimate chases noisy successor values — the step size is a decision about how much
+  to trust the bootstrap.
+- The successor target is what separates the control algorithms: Sarsa backs up the action actually
+  taken next, Q-learning backs up \(\max_a Q(S_{t+1},a)\), and Expected Sarsa averages over the policy.
+  Maximization bias comes from using a noisy max both to choose and to evaluate an action; Double
+  Q-learning breaks that coupling by letting one estimate pick the action and the other score it.
+- Off-policy is not a licence to ignore the behaviour policy. When the data come from \(b\) but the
+  target is \(\pi\), the importance ratio \(\rho\) has to enter the update; omitting it changes the
+  fixed point even with abundant data. The same distinction already appeared in Chapter 5's weighted
+  and ordinary estimators.
+- The TD error is the seed of eligibility traces and of later value-function approximation: a one-step
+  signal can be credited to earlier states or to features. Cliff walking is the practical picture of
+  the on-policy/off-policy trade-off — Sarsa's caution versus Q-learning's optimality in the presence
+  of a dangerous route.
+
+**Where the theory meets the code.** Exercises 6.9 and 6.10 are backed end to end by `WindyGridWorld`
+with `sarsa_control` (king's moves and stochastic wind); plain Double Q-learning (Eq. 6.10) is
+implemented for Example 6.7 / Figure 6.7, but Double Expected Sarsa as strictly asked in Exercise 6.12
+remains unimplemented and is answered by derivation. Book-page anchors refer to the author's 2018
+complete draft (March 16, 2018), so final printings differ slightly; figures here are reduced-scale
+illustrative reproductions with fewer episodes/runs than the printed book, and their identities were
+taken from the 2nd edition rather than the 1st or the 2014–2015 draft, whose numbering differs.
 
 ---
 *Exercises document for Chapter 6 — part of the per-chapter exercises-and-solutions series

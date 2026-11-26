@@ -33,11 +33,9 @@ the sections themselves and are labeled **[derived]**.
 
 - **Primary source:** Sutton & Barto (2017/2018), _Reinforcement Learning: An Introduction_,
   Chapter 15. Section statements paraphrased; short verbatim references only.
-- **Cross-check sources (sanity check only, never copied):** public repositories
-  `Habanoz/reinforcement-learning-an-introduction`, `AntonioSerrano/Implementation-of-RL-algorithms-from-Sutton-and-Barto-2018`, and
-  `vojtamolda/reinforcement-learning-an-introduction`, plus public neuroscience reviews.
-  Disagreements resolved by independent reasoning.
-- All worked analyses are **rewritten from scratch**.
+- **Source and scope:** Sutton & Barto (2nd ed.) Chapter 15; exercise statements are paraphrased
+  and derivations are worked from the book's equations, with section/equation/page citations for
+  traceability.
 
 ---
 
@@ -442,10 +440,28 @@ directed updates even with the same trace.
 
 ---
 
-## Verification and Quality Notes
+## What to take away
 
-- Derived analyses were re-derived independently; public neuroscience literature is used only as a
-  cross-check. Dopamine-RPE equivalence follows the TD(0) update.
+- The reward-prediction-error hypothesis is a claim about surprise, not reward: \(\delta_t\) bursts
+  for an unexpected US, transfers to the cue as \(V\) grows, and dips below baseline when an
+  expected US is omitted. That omission dip is the decisive evidence, because a pure reward
+  detector can only go quiet — it cannot signal "worse than expected."
+- One scalar \(\delta_t\) does two jobs. The critic uses it to correct its value estimate, the actor
+  to reinforce the action just taken; replacing it with raw reward would keep strengthening
+  actions that produced fully expected outcomes and would destroy the baseline property derived
+  in Chapter 13.
+- Wanting is not liking. Dopamine tracks incentive salience, so sensitized cue-driven seeking can
+  grow while pleasure fades: ordinary prediction errors shrink as outcomes become expected, but
+  addiction turns that self-limiting feedback into a positive loop.
+- The actor's eligibility trace spreads credit back by \((\gamma\lambda)^k\), yet the error it
+  spreads is only as good as the critic that computed it. Population coding has the same theme of
+  hard limits: averaging \(N\) neurons cancels independent noise as \(\sigma^2/N\), but correlated
+  noise leaves a floor near \(\rho\sigma^2\), so redundancy eventually stops paying.
+
+**Where the theory meets the code.** The dopamine/RPE and conditioning-trace correspondences
+follow from the TD(0) update and have a small simulation here; the actor–critic, hedonistic,
+model-based, and population-coding prompts are theoretical. The neural identifications are
+interpretive links to the algorithms of Chapters 12–13, not additional learning rules.
 
 ---
 

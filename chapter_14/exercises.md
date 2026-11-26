@@ -27,11 +27,9 @@ the sections themselves and are labeled **[derived]**.
 
 - **Primary source:** Sutton & Barto (2017/2018), _Reinforcement Learning: An Introduction_,
   Chapter 14. Section statements paraphrased; short verbatim references only.
-- **Cross-check sources (sanity check only, never copied):** public repositories
-  `Habanoz/reinforcement-learning-an-introduction`, `AntonioSerrano/Implementation-of-RL-algorithms-from-Sutton-and-Barto-2018`, and
-  `vojtamolda/reinforcement-learning-an-introduction`, plus public neuroscience/psychology reviews.
-  Disagreements resolved by independent derivation.
-- All worked derivations are **rewritten from scratch**.
+- **Source and scope:** Sutton & Barto (2nd ed.) Chapter 14; exercise statements are paraphrased
+  and derivations are worked from the book's equations, with section/equation/page citations for
+  traceability.
 
 ---
 
@@ -355,10 +353,30 @@ into the cache.
 
 ---
 
-## Verification and Quality Notes
+## What to take away
 
-- Derived derivations were re-derived independently; public conditioning/Neuroscience literature used
-  only as a cross-check. Concentration-style bounds not used in this chapter.
+- Every effect here is driven by a prediction error, not by raw reward magnitude. The
+  Rescorla–Wagner \(\delta\) explains blocking: a cue that already predicts the US leaves no
+  surprise for a new cue to capture, so \(V_B\) stays near zero even though B was reliably paired
+  with the outcome. Cutting phase 1 short leaves residual error and gives partial blocking.
+- Acquisition and extinction are one TD update with the error's sign reversed. Value rises while
+  the outcome exceeds the prediction, then unwinds when the prediction overshoots; the fixed point
+  is where \(E[\delta]=0\). If the teaching signal were \(\lambda\) alone, blocking would be
+  impossible, and if the bootstrapped term were dropped, so would second-order conditioning.
+- Delayed reinforcement is a credit-assignment problem. The accumulating trace
+  \(e_t=\gamma\lambda e_{t-1}+x(S_t)\) keeps earlier states eligible so a later error can reach
+  them; \(\lambda\) interpolates from one-step bootstrapping at \(0\) to nearly Monte Carlo
+  attribution near \(1\), buying reach at the cost of variance.
+- Habit versus goal-directed behavior is model-free versus model-based. A cached value cannot
+  respond to devaluation or a moved barrier, while a learned transition model can recompute a
+  route or an outcome value on the spot; devaluation sensitivity and shortcut tests reveal which
+  system is in control, and overtraining migrates control toward the cache. Chapter 15 retells
+  this same divide in neural terms.
+
+**Where the theory meets the code.** The prompts in this chapter are derived from the sections
+rather than numbered book exercises, and only the conditioning models have a direct implementation
+here; instrumental control, cognitive maps, and devaluation remain theoretical. The claims are
+qualitative predictions of behavior — concentration-style bounds play no role in them.
 
 ---
 

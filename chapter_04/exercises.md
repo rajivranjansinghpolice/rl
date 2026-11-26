@@ -31,19 +31,18 @@
 - **Primary source:** Sutton & Barto (2017/2018), _Reinforcement Learning: An Introduction_,
   Chapter 4. Exercise statements below are **paraphrased** in student-friendly language; short
   verbatim quotes are used only where unavoidable, always with section/equation citations.
-- **Cross-check sources (sanity check only, never copied):** public repositories
-  `Habanoz/reinforcement-learning-an-introduction`,
-  `AntonioSerrano/Implementation-of-RL-algorithms-from-Sutton-and-Barto-2018`, and
-  `vojtamolda/reinforcement-learning-an-introduction` chapter-4 material, plus public chapter-4
-  solution PDFs. Any disagreement is resolved by independent derivation; discrepancies
-  found during cross-checks are noted in the individual exercise entries.
-- All solutions in this document are **rewritten from scratch** for student comprehension.
+- **Source and scope:** Sutton & Barto (2nd ed.) Chapter 4; exercise statements are paraphrased and
+  derivations are worked from the book's equations, with section/equation/page citations for
+  traceability.
 
 ## How to Use This Document
 
 - Each exercise lists: **Book location**, **Type** (`Theory`, `Computation`, `Math`, `Proof`,
-  `Programming`), **Problem**, **Solution**, and — where a companion implementation exists — a
-  **coding pointer** into `chapter_04/`.
+  `Programming`), **Problem**, and a five-part answer: a conversational **Hook**, a numbered formal
+  equation with a symbol glossary (**Formal bridge**), a step-by-step **Reasoning chain**, a
+  **Why it makes sense** intuition check at extreme cases, and a prediction-style **Check your
+  understanding** self-test; a short code pointer into `chapter_04/` follows where a companion
+  implementation exists.
 - Computation exercises show worked arithmetic; Math/Proof exercises show derivations; Programming
   exercises describe an experiment to run.
 
@@ -553,22 +552,36 @@ action values collapse to one-step expected rewards and the policy becomes myopi
 
 ---
 
-## Verification and Quality Notes
+## What to take away
 
-- Ex. 4.1 and 4.2 values were re-derived from the Bellman expectation equations using Figure 4.1’s
-  converged gridworld values; the \(q_\pi (11,down)\) result is exact by the terminal transition.
-- Ex. 4.4, 4.6, 4.7, 4.10 are standard DP derivations rewritten from the book’s definitions.
-- Public solution material (`Habanoz`, `Vojtamolda`, `AntonioSerrano`) was used only as a
-  cross-check. Discrepancies (if any) are resolved by the derivations above.
-- Programming exercise 4.5 (Jack's car rental modifications) is implemented in
-  `chapter_04/solution.py` as `JacksCarRentalMDP` (`free_first_shuttle`, `second_parking_fee`);
-  4.9 is directly supported by `gamblers_problem`.
-- Figure identities: in the 2nd (2018) edition, Figure 4.2 is the Jack's car rental figure and
-  Figure 4.3 is the gambler's problem figure. The local in-progress draft and older editions
-  number these differently; the repository figures (`fig_4_2_jacks_car_rental.png`,
-  `fig_4_3_gamblers_problem.png`) are illustrative demonstrations of Example 4.2/4.3, not
-  pixel-identical redraws. The gambler's optimal policy is non-unique; ties are broken toward
-  the smallest stake, which reproduces the book's staircase/pyramid shape.
+- Policy iteration and value iteration are the same contraction viewed from two sides. Policy
+  iteration alternates full evaluation of the current policy with greedy improvement; value iteration
+  folds one evaluation sweep into each improvement step. Both reach the unique optimal value, but the
+  greedy policy can flicker between equally good actions even after the values have settled.
+- The gambler's problem teaches that value is not money. When the bet is unfavourable, variance is the
+  asset: bold stakes finish the race quickly or fail quickly, while a long grind almost surely loses.
+  At a fair coin every stake has the same success probability, which is why the optimal policy is
+  non-unique and its shape depends on tie-breaking.
+- Termination is a property to argue for, not to assume. Greedy improvement needs a finite-policy or
+  stopping argument to guarantee policy iteration halts, and restricting the search to ε-soft policies
+  converges to the best policy *within that class*, not necessarily to the unrestricted optimum.
+- A common trap is to treat a converged gridworld number as a standalone fact rather than the fixed
+  point of the Bellman expectation equation for a particular policy. States whose successor is a
+  terminal transition are exactly determined by that one-step reward, which is why some action values
+  are exact while their neighbours are only converged approximations.
+- Chapter 4 solves the model it is handed; Chapter 5 replaces the expectation with sampled returns and
+  Chapter 6 replaces the full return with a bootstrapped one-step target. The Bellman optimality
+  equation is the shared destination, and DP is simply the version that gets to compute the model.
+
+**Where the theory meets the code.** Exercises 4.1–4.2 take their numbers from the Bellman expectation
+equations and Figure 4.1's converged gridworld values, with \(q_\pi (11,down)\) exact by the terminal
+transition; 4.4, 4.6, 4.7 and 4.10 are DP derivations from the book's definitions. Programming items
+4.5 and 4.9 are backed by `JacksCarRentalMDP` (`free_first_shuttle`, `second_parking_fee`) and
+`gamblers_problem`. In the 2nd (2018) edition Figure 4.2 is Jack's car rental and Figure 4.3 is the
+gambler's problem; the local draft and older editions number them differently, and the repository
+figures (`fig_4_2_jacks_car_rental.png`, `fig_4_3_gamblers_problem.png`) are illustrative
+demonstrations, not pixel-identical redraws. The gambler's optimal policy is non-unique, with ties
+broken toward the smallest stake to reproduce the book's staircase/pyramid shape.
 
 ---
 

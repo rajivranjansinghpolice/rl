@@ -18,12 +18,12 @@
 ## Sources and Ground Rules
 
 - **Primary source:** Sutton & Barto (2018, 2nd ed.), Chapter 12. Exercise statements below are **paraphrased** (no long verbatim quotes); equations/section numbers are cited as plausible 2nd-ed. references.
-- **Cross-check (sanity only, never copied):** public repos `Habanoz/reinforcement-learning-an-introduction`, `AntonioSerrano/Implementation-of-RL-algorithms-from-Sutton-and-Barto-2018`, `vojtamolda/reinforcement-learning-an-introduction` and public Ch.12 solution notes. Disagreements resolved by independent derivation.
+- **Source and scope:** Sutton & Barto (2nd ed.) Chapter 12; exercise statements are paraphrased and derivations are worked from the book's equations, with section/equation/page citations for traceability.
 - **Repo-grounded mapping:** "Coding pointer" entries only reference functions/tests that exist in `chapter_12`; items without a direct implementation are marked **theory-only / not implemented in this repo**.
 
 ## How to Use This Document
 
-- Each exercise lists **Book location**, **Type**, **Paraphrased problem**, and a worked answer in the five-part house style (**Hook**, **Formal bridge**, **Reasoning chain**, **Why it makes sense**, **Check your understanding**), plus a **Where this shows up in the code** pointer (or theory-only note).
+- Each exercise lists **Book location**, **Type**, **Paraphrased problem**, and a worked answer in the five-part house style: a conversational **Hook**, a **Formal bridge** that states the key result as a numbered equation with a glossary of its symbols, a **Reasoning chain** that derives it step by step, a **Why it makes sense** intuition check at the extremes, and a **Check your understanding** prediction-style self-check; a short **Where this shows up in the code** pointer (or theory-only note) follows where relevant.
 - Verify mapped code with:
   - `python -m pytest chapter_12/tests/ -v`
   - `python -m pytest chapter_12/tests/ -v`
@@ -636,11 +636,15 @@ that cover that material.
 
 ---
 
-## Verification and Quality Notes
+## What to take away
 
-- Derivations (esp. Ex. 12.1, 12.3, 12.5 and the truncation identities) were re-derived independently; public solutions were used only for sanity-checking.
-- Citations (§/Eq./page) are plausible for Sutton & Barto 2nd ed. and should be treated as reader aids; resolve any numbering ambiguity against the primary text.
-- Exercise-to-code mappings were checked against actual symbols/tests: `td_lambda_prediction`, `sarsa_lambda_replacing`, `sarsa_lambda_clearing`, `true_online_td_lambda` in `chapter_12/solution.py` and `watkins_q_lambda`, `watkins_lambda_return` in `chapter_12/solution.py`. Ex. 12.15 (Rigid Tree Backup) has **no** implementation in this repo and is not mapped to Watkins’s Q(λ).
+- λ is one dial spanning every n-step return of Chapter 7: λ=0 is one-step TD, λ=1 is Monte Carlo, and τ₁/₂ = −ln2/lnλ translates the abstract mixing weight into "how many steps ago still matters half as much."
+- The forward and backward views are the same sum reordered. Reindexing the λ-return's weighted sum of TD errors turns it into a decaying eligibility trace; off-policy methods add ρ to that decay, which is exactly where the variance enters and where Chapter 11's deadly triad becomes a danger.
+- Every telescoping identity here (value = TD error + γλ times the next error) is exact only while the value function stands still. Online updates give the chain mismatched ends, and that gap is what motivates true-online and Dutch traces.
+- Truncation is not a new family of targets: stop the geometric mixture at h and pile the leftover weight onto the h-step return, so the weights still sum to one. Dropping that leftover mass instead would bias the target downward.
+- Importance ratios must stop at the step where the reward was realized — the per-decision logic of Chapter 7 — and an expectation under the target policy needs no final ρ at all. Tree backup pushes this further by averaging over untried actions and removing ratios entirely.
+
+- **Where the theory meets the code.** On-policy traces are implemented (`td_lambda_prediction`, `sarsa_lambda_replacing`, `sarsa_lambda_clearing`, `true_online_td_lambda`), as are Watkins's Q(λ) and its forward-view return (`watkins_q_lambda`, `watkins_lambda_return`), but these are not the §12.9 off-policy IS/Expected-Sarsa recursions; off-policy Dutch/replacing traces, Expected Sarsa(λ), and Rigid Tree Backup (Ex. 12.15) are not implemented and must not be mapped onto Watkins's Q(λ). Derivations such as 12.1, 12.3, 12.5 and the truncation identities are theory-only. Section/equation/page citations are plausible reader aids for the 2nd edition; resolve any numbering ambiguity against the primary text.
 
 ---
 

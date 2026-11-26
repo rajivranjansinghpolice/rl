@@ -37,6 +37,9 @@
 
 ## Sources and Ground Rules
 
+- **Source and scope:** Sutton & Barto (2nd ed.) Chapter 5; exercise statements are paraphrased and
+  derivations are worked from the book's equations, with section/equation/page citations for
+  traceability.
 - Exercise statements are **paraphrased** from Sutton & Barto (2nd ed., Ch. 5). No long verbatim
   quotes are included. Section/equation numbers are given so answers can be checked against the book.
 - Solutions/derivations below are written for this repository (student-friendly, self-contained).
@@ -44,6 +47,9 @@
 
 ## How to Use This Document
 
+- Each answer has five parts: a conversational **Hook**, a numbered formal equation with a symbol
+  glossary (**Formal bridge**), a **Reasoning chain**, a **Why it makes sense** intuition check, and a
+  prediction-style **Check your understanding** self-test, with a short code pointer where relevant.
 - Labels: **Theory**, **Computation/intuition**, **Math/Derivation**, **Programming/experiment**.
 - “Coding pointer” lists only APIs/tests that actually exist in `chapter_05/solution.py` and
   `chapter_05/tests/test_solution.py`.
@@ -606,12 +612,29 @@ using standard greedy-target importance sampling with backward accumulation; tes
 
 ---
 
-## Verification Notes
+## What to take away
 
-- Derivations (Eqs. 5.1–5.6, incremental forms, Ex. 5.5 variance argument) are stated in standard
-  Ch. 5 form and aligned with the implemented estimators where available.
-- Items marked **Not implemented** are theory-only or programming tasks not present in this repo’s
-  chapter 5 code; they are called out explicitly to avoid claiming nonexistent APIs/tests.
+- Monte Carlo methods learn only from complete returns, so episodes have to terminate or be truncated.
+  First-visit and every-visit prediction count repeated visits differently, but both target the same
+  \(v_\pi(s)\); the choice changes the sample set and its correlations, not the answer being estimated.
+- The off-policy correction is a product of importance ratios along the *whole* trajectory, not a
+  per-step reweighting. A mismatch between the target and behaviour policies is therefore amplified
+  multiplicatively, which is why ordinary importance sampling can have infinite variance in the
+  one-state example while the self-normalised weighted form stays finite.
+- Weighted importance sampling buys low variance with a small-sample bias: its denominator is random,
+  so early error can rise before it falls. It is consistent in the limit, but a single early window is
+  a poor way to judge it — the shape of the curve is the point of Exercises 5.4 and 5.5.
+- The incremental recurrences are not new algorithms. The sample-average update is a running mean
+  rearranged, and the weighted form uses \(W_n/C_n\) as its effective step size; reading the algebra
+  this way makes the connection to Chapter 2's step-size discussion immediate.
+- Chapter 5 is the first method here that needs no model, unlike Chapter 4's DP. Chapter 6 keeps the
+  sampling but swaps the full return for a one-step bootstrapped target, cutting both the wait for
+  termination and, often, the variance that off-policy MC pays for.
+
+**Where the theory meets the code.** Entries marked **Not implemented** are theory-only or programming
+tasks not present in this repository's Chapter 5 code; they are called out explicitly rather than
+claiming nonexistent APIs or tests. The derivations are aligned with the implemented estimators where
+those exist.
 
 ---
 

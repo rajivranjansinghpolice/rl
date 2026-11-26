@@ -36,19 +36,18 @@
 - **Primary source:** Sutton & Barto (2017/2018), _Reinforcement Learning: An Introduction_,
   Chapter 2. Exercise statements below are **paraphrased** in student-friendly language; short
   verbatim quotes are used only where unavoidable, always with section/equation citations.
-- **Cross-check sources (sanity check only, never copied):** public repositories
-  `Habanoz/reinforcement-learning-an-introduction`,
-  `AntonioSerrano/Implementation-of-RL-algorithms-from-Sutton-and-Barto-2018`, and
-  `vojtamolda/reinforcement-learning-an-introduction` chapter-2 material, plus the public
-  chapter-2 solution PDFs. Any disagreement is resolved by independent derivation; discrepancies
-  found during cross-checks are noted in the individual exercise entries.
-- All solutions in this document are **rewritten from scratch** for student comprehension.
+- **Source and scope:** Sutton & Barto (2nd ed.) Chapter 2; exercise statements are paraphrased and
+  derivations are worked from the book's equations, with section/equation/page citations for
+  traceability.
 
 ## How to Use This Document
 
 - Each exercise lists: **Book location**, **Type** (`Theory`, `Computation`, `Math`, `Proof`,
-  `Programming`), **Problem**, **Solution**, and — where a companion implementation exists — a
-  **coding-exercise pointer** into `chapter_02/`.
+  `Programming`), **Problem**, and a five-part answer: a conversational **Hook**, a numbered formal
+  equation with a symbol glossary (**Formal bridge**), a step-by-step **Reasoning chain**, a
+  **Why it makes sense** intuition check at extreme cases, and a prediction-style **Check your
+  understanding** self-test; a short code pointer into `chapter_02/` follows where a companion
+  implementation exists.
 - Computation exercises show worked arithmetic; Math/Proof exercises show derivations; Programming
   exercises describe an experiment to run.
 - The final section maps exercises to the repository code that already implements (or supports) the
@@ -1084,14 +1083,30 @@ selection.
 
 ---
 
-## Verification and Quality Notes
+## What to take away
 
-- The worked arithmetic in this document (e.g., Ex. 2.1: `P(greedy) = 0.75`) was re-derived by hand;
-  the public solution material (`Habanoz`, `Vojtamolda`, `AntonioSerrano`) was used only as a cross-check.
-- Programming-exercise answers (2.5, 2.9) describe experiments to run; the underlying code paths are
-  mapped to the repository simulations.
-- Derived exploration answers were re-derived from first principles; public solution material used
-  only as a cross-check.
+- A non-greedy action is one-way evidence: it proves the ε branch fired, because the greedy branch is
+  deterministic given the estimates. A greedy-looking move proves nothing, since the random branch can
+  land on the best arm too — that is why some steps in an action log can be classified as definitely
+  exploratory but never as definitely greedy.
+- The step size decides what the past means. Sample averages give every reward weight \(1/n\), which
+  is ideal for a stationary target but makes the estimator drag ancient data along when values drift;
+  a constant \(\alpha\) leaks old weights geometrically and follows the drift, at the price of keeping
+  a decaying fingerprint of the initial guess.
+- Optimism and UCB both make uncertain actions look attractive, but they spend that uncertainty
+  differently. An optimistic start is a one-time budget that decays and can never reopen exploration;
+  the UCB bonus shrinks only as an action's own count grows, so a neglected arm is rescued again and
+  again. Neither adapts to drift without modifying the mechanism itself.
+- The logarithm in UCB is forced by the need for a summable failure budget: \(\delta_t\propto 1/t^2\)
+  yields \(\ln t\), not \(t\). That is what makes suboptimal pulls grow only as \(O(\log t)\) while every
+  arm is still tried infinitely often — its selection frequency tends to zero without ever being zero.
+- Bandits strip away state, so a count per arm is enough. The bridge to Chapter 3 and beyond is that
+  once states enter, evidence has to be shared: linear optimism-in-the-face-of-uncertainty replaces the
+  per-arm count with a covariance-based confidence radius, the same idea wearing a different notation.
+
+**Where the theory meets the code.** Programming answers 2.5 and 2.9 describe experiments to run
+rather than finished runs; the corresponding code paths are mapped to the repository simulations.
+The derived exploration entries are worked from first principles.
 
 ---
 

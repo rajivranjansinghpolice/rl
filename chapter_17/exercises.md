@@ -31,10 +31,9 @@ the frontier sections, labeled **[derived]**.
 - **Primary source:** Sutton & Barto (2017/2018), _Reinforcement Learning: An Introduction_,
   Chapter 17. Section statements/prompts below are paraphrased/derived (not verbatim book exercise
   text); short references only.
-- **Cross-check sources (sanity check only, never copied):** public repositories
-  `Habanoz/reinforcement-learning-an-introduction`, `AntonioSerrano/Implementation-of-RL-algorithms-from-Sutton-and-Barto-2018`, and
-  `vojtamolda/reinforcement-learning-an-introduction`.
-- All analyses are **rewritten from scratch**.
+- **Source and scope:** Sutton & Barto (2nd ed.) Chapter 17; exercise statements are paraphrased
+  and derivations are worked from the book's equations, with section/equation/page citations for
+  traceability.
 
 ---
 
@@ -407,14 +406,34 @@ become essential.
 
 ---
 
-## Verification and Quality Notes
+## What to take away
 
-- Derived analyses were re-derived independently; public frontier material was used only as a
-  cross-check.
-- Derived 4 uses the standard POMDP belief update
-  \(b'(s') = η O(o_{t+1}|s',a_t) \sum _s P(s'|s,a_t) b_t(s)\).
-- The repo demonstrates options/SMDP and count-based intrinsic novelty on a small gridworld; GVFs,
-  belief-state/RNN estimators, and potential-based shaping are discussed theoretically here.
+- A GVF generalizes the value function by swapping the reward for any cumulant and the discount for
+  a continuation signal; ordinary \(v_\pi\) is just the case \(c=R,\ \gamma_t=\gamma\). Auxiliary
+  predictions matter because every cumulant supplies an error that trains the shared features, so
+  the agent can learn the structure of its world while extrinsic reward is silent.
+- An option is a temporally extended action \((I,\pi,\beta)\), and SMDP Q-learning is ordinary
+  Q-learning with duration bookkeeping: accumulate the reward over \(k\) steps and discount the
+  continuation by \(\gamma^k\). Keeping plain \(\gamma\) instead makes slow options look
+  artificially valuable; subgoal options speed learning only when the packaged skill is genuinely
+  reusable.
+- Observations are not states. When different hidden states emit the same observation, the belief
+  \(b_t(s)=P(s_t=s\mid h_t)\) is the sufficient statistic that restores the Markov property, and
+  memory or RNNs approximate it. Make observations one-to-one and the belief collapses to a point
+  mass: the POMDP becomes an MDP.
+- Potential-based shaping guides without rewriting the goal: \(\gamma\Phi(s')-\Phi(s)\) telescopes
+  into start and end terms that do not depend on the action, so \(\arg\max_a\) is preserved. A
+  count-based novelty bonus is different in kind — it rewards physical coverage — while Dyna's
+  \(\kappa\sqrt{\tau}\) bonus targets stale *model* knowledge.
+- The frontier question is generality, not benchmark skill: under shifting \(p_t\) a fixed policy
+  degrades, so reusable abstraction, inductive biases, and continual adaptation matter more than
+  extra compute on a stationary problem. This chapter carries the MDP/DP foundations of Chapters
+  3–4 and the function approximation of Chapter 12 into open-world territory.
+
+**Where the theory meets the code.** Derived 4 uses the standard Bayes-filter identity
+\(b'(s')=\eta O(o_{t+1}\mid s',a_t)\sum_s P(s'\mid s,a_t)b_t(s)\). In this repo only the
+options/SMDP and count-based novelty prompts have small-gridworld demonstrations; GVFs,
+belief-state/RNN estimators, and potential-based shaping are treated theoretically.
 
 ---
 

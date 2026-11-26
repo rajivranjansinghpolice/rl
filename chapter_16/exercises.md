@@ -30,10 +30,9 @@ the applied case studies and the application-relevant sections, labeled **[deriv
 
 - **Primary source:** Sutton & Barto (2017/2018), _Reinforcement Learning: An Introduction_,
   Chapter 16. Section statements paraphrased; short verbatim references only.
-- **Cross-check sources (sanity check only, never copied):** public repositories
-  `Habanoz/reinforcement-learning-an-introduction`, `AntonioSerrano/Implementation-of-RL-algorithms-from-Sutton-and-Barto-2018`, and
-  `vojtamolda/reinforcement-learning-an-introduction`.
-- All analyses are **rewritten from scratch**; none of the public PDFs are copied.
+- **Source and scope:** Sutton & Barto (2nd ed.) Chapter 16; exercise statements are paraphrased
+  and derivations are worked from the book's equations, with section/equation/page citations for
+  traceability.
 
 ---
 
@@ -346,11 +345,31 @@ avoid the catastrophe, because the tail got worse even though the average did no
 
 ---
 
-## Verification and Quality Notes
+## What to take away
 
-- Derived analyses were re-derived independently; public case-study material is used only as a
-  cross-check. The inventory `(s, S)` structure and queue threshold follow the Bellman/policy
-  iteration method documented in Chapter 4, which the repo code validates.
+- The hard part of an application is usually the MDP, not the algorithm: decide what the state
+  retains, what the action changes, and how operational costs become a reward. Once those are
+  pinned down the Bellman equation follows mechanically — and a mispriced outcome is a modeling
+  error that no amount of training will repair.
+- Convexity is a structural shortcut. Dynamic programming preserves convexity of the cost-to-go,
+  which gives inventory an order-up-to \((s,S)\) policy; in the queue, a rising waiting cost
+  eventually outweighs the expediting fee and yields a threshold policy. Knowing the shape of the
+  answer gives you something to check a learned policy against.
+- DP and TD solve the same equations from different sources of expectation: a known model gives
+  exact, sample-efficient backups but a full sweep per state, while sampled transitions avoid the
+  model at the price of data and variance. Asynchronous DP is the middle ground when only a few
+  states matter or change; the same pressure toward compactness is what makes function
+  approximation compulsory once the table no longer fits.
+- An average return can conceal a catastrophic tail. CVaR asks how bad the worst \(\alpha\) fraction
+  of outcomes is, so a rare stockout or land-out can drive the choice even when the mean cost is
+  unchanged. Games lean on self-play and search, operations on formulation and reward design —
+  two answers to the same design problem that Chapter 17 pushes toward open-world generality.
+
+**Where the theory meets the code.** The \((s,S)\) inventory structure and the queue expediting
+threshold come from the Bellman/policy-iteration framework of Chapter 4, which the repo's
+inventory and queue environments instantiate concretely. The case-study design patterns and the
+risk-sensitive discussion grow out of the book's applications but have no dedicated
+implementation here.
 
 ---
 

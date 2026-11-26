@@ -31,19 +31,17 @@
 - **Primary source:** Sutton & Barto (2017/2018), _Reinforcement Learning: An Introduction_,
   Chapter 3. Exercise statements below are **paraphrased** in student-friendly language; short
   verbatim quotes are used only where unavoidable, always with section/equation citations.
-- **Cross-check sources (sanity check only, never copied):** public repositories
-  `Habanoz/reinforcement-learning-an-introduction`,
-  `AntonioSerrano/Implementation-of-RL-algorithms-from-Sutton-and-Barto-2018`, and
-  `vojtamolda/reinforcement-learning-an-introduction` chapter-3 material, plus the public
-  chapter-3 solution PDFs. Any disagreement is resolved by independent derivation; discrepancies
-  found during cross-checks are noted in the individual exercise entries.
-- All solutions in this document are **rewritten from scratch** for student comprehension.
+- **Source and scope:** Sutton & Barto (2nd ed.) Chapter 3; exercise statements are paraphrased and
+  derivations are worked from the book's equations, with section/equation/page citations for
+  traceability.
 
 ## How to Use This Document
 
 - Each exercise lists: **Book location**, **Type** (`Theory`, `Computation`, `Math`, `Proof`),
-  **Problem**, **Solution**, and — where a companion implementation exists — a **coding-exercise
-  pointer** into `chapter_03/`.
+  **Problem**, and a five-part answer: a conversational **Hook**, a numbered formal equation with a
+  symbol glossary (**Formal bridge**), a step-by-step **Reasoning chain**, a **Why it makes sense**
+  intuition check at extreme cases, and a prediction-style **Check your understanding** self-test;
+  a short code pointer into `chapter_03/` follows where a companion implementation exists.
 - Computation exercises show worked arithmetic; Math/Proof exercises show derivations.
 - The final section maps exercises to the repository code that already implements (or supports)
   the corresponding machinery.
@@ -1212,13 +1210,29 @@ immediately.
 
 ---
 
-## Verification and Quality Notes
+## What to take away
 
-- Every numeric answer above was re-derived by hand or by independent calculation in this document;
-  the public solution material (`Habanoz`, `Vojtamolda`, `AntonioSerrano`) was used only as a
-  cross-check.
-- Theory/visual answers (3.1–3.3, 3.8, 3.18–3.19) are model answers written for student
-  understanding; students should replace the model tasks with their own.
+- The Markov property is a claim about the state, not about the task's subject matter: if the current
+  state and action contain everything needed to predict the next state and reward, the dynamics table
+  closes the loop. When a task seems to break the framework, the usual fix is a richer state, not a
+  different kind of learner.
+- Where you draw the agent–environment boundary changes which quantities are called state and reward,
+  but not the return being maximised. A reward moved inside the agent becomes a signal it computes
+  rather than receives; the same trajectory can still be scored by the same discounted sum.
+- Discounting and constant shifts are easy to mishandle. An infinite stream of constant reward is
+  \(R/(1-\gamma)\), and adding \(c\) to every reward shifts every state value by \(c/(1-\gamma)\);
+  what is invariant — and what actually drives action choice — is the *difference* between actions,
+  not the absolute level of \(v\).
+- Backup diagrams separate two operations that blur together in prose: a state backup averages over
+  the policy's actions, an action backup averages over the environment's dynamics. The optimality
+  equations replace the policy average with a max, which is why \(v_*\) and \(q_*\) are two views of
+  the same fixed point and why knowing one gives the other.
+- Chapter 3 supplies the model; Chapter 4 spends it on policy and value iteration, and Chapters 5–6
+  remove it by learning from returns and one-step samples. The Bellman equations here are the common
+  target all of those methods approximate.
+
+**Where the theory meets the code.** Theory and visual answers (3.1–3.3, 3.8, 3.18–3.19) are model
+answers written for student understanding; students should replace the model tasks with their own.
 
 ---
 

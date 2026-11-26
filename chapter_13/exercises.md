@@ -32,18 +32,18 @@
 - **Primary source:** Sutton & Barto (2017/2018), _Reinforcement Learning: An Introduction_,
   Chapter 13. Exercise statements below are **paraphrased** in student-friendly language; short
   verbatim quotes are used only where unavoidable, always with section/equation citations.
-- **Cross-check sources (sanity check only, never copied):** public repositories
-  `Habanoz/reinforcement-learning-an-introduction`, `AntonioSerrano/Implementation-of-RL-algorithms-from-Sutton-and-Barto-2018`, and
-  `vojtamolda/reinforcement-learning-an-introduction` chapter-13 material, plus the public
-  chapter-13 solution PDFs. Any disagreement is resolved by independent derivation; discrepancies
-  found during cross-checks are noted in the individual exercise entries.
-- All solutions in this document are **rewritten from scratch** for student comprehension.
+- **Source and scope:** Sutton & Barto (2nd ed.) Chapter 13; exercise statements are paraphrased
+  and derivations are worked from the book's equations, with section/equation/page citations for
+  traceability.
 
 ## How to Use This Document
 
 - Each exercise lists: **Book location**, **Type** (`Theory`, `Computation`, `Math`, `Proof`,
-  `Programming`), **Problem**, **Solution**, and — where a companion implementation exists — a
-  **coding pointer** into `chapter_13/`.
+  `Programming`), **Problem**, and an answer in five parts — a conversational **Hook**, a
+  **Formal bridge** with a numbered equation and symbol glossary, a **Reasoning chain**, a
+  **Why it makes sense** intuition check, and a **Check your understanding** prediction-style
+  self-check — plus a short **coding pointer** into `chapter_13/` where a companion implementation
+  exists.
 - Computation exercises show worked arithmetic; Math/Proof exercises show derivations; Programming
   exercises describe an experiment to run.
 - The final section maps exercises to the repository code that already implements (or supports) the
@@ -259,7 +259,7 @@ unit becomes more confident for the same input direction.
 
 | Book exercise(s) | Book section | Repo code | Repo tests | Pytest command |
 |---|---|---|---|---|
-| 13.1 | §13.1 (Example 13.1, short corridor) | `ShortCorridorEnv`, `ShortCorridorREINFORCE`, `run_short_corridor_reinforce`, `run_short_corridor_value_ascent`, `short_corridor_value` (closed form), `short_corridor_value_gradient` (analytic dV1/dp), `short_corridor_optimal_p` | `TestShortCorridor` (transitions, sigmoid policy, closed-form p*/v*, curve max, MC cross-check, REINFORCE validity), `TestValueAscent` (gradient sign, convergence to p*) | `python -m pytest chapter_13/tests/ -v` |
+| 13.1 | §13.1 (Example 13.1, short corridor) | `ShortCorridorEnv`, `ShortCorridorREINFORCE`, `run_short_corridor_reinforce`, `run_short_corridor_value_ascent`, `short_corridor_value` (closed form), `short_corridor_value_gradient` (analytic dV1/dp), `short_corridor_optimal_p` | `TestShortCorridor` (transitions, sigmoid policy, closed-form p*/v*, curve max, Monte Carlo agreement check, REINFORCE validity), `TestValueAscent` (gradient sign, convergence to p*) | `python -m pytest chapter_13/tests/ -v` |
 | 13.2 | §13.3 (Eq. 13.7, softmax eligibility) | `chapter_13/solution.py` uses the softmax score form \(onehot(a) - \pi (\cdot |s)\) in tabular updates (supporting usage, not an implementation of the Eq. 13.7 proof) | `TestPolicyGradientTheorem` (numeric policy-gradient-theorem check, not the Eq. 13.7 derivation) | `python -m pytest chapter_13/tests/ -v` |
 | 13.3 | §13.3 / §13.5 (Bernoulli-logistic unit) | *(no direct implementation in this repo; repo policies are tabular softmax / Gaussian, not a sigmoid Bernoulli-logistic unit)* | *(none)* | — |
 
@@ -276,14 +276,29 @@ unit becomes more confident for the same input direction.
 
 ---
 
-## Verification and Quality Notes
+## What to take away
 
-- The worked arithmetic in this document (e.g., Ex. 13.1: \(p* = 2 - \sqrt 2 \approx 0.586\), \(V(p*) \approx -11.66\))
-  was re-derived by hand; the public solution material (`Habanoz`, `Vojtamolda`, `AntonioSerrano`)
-  was used only as a cross-check.
-- The short-corridor MDP in Ex. 13.1 is reconstructed from the book's description (Example 13.1,
-  PDF pages 284–285); the derived optimal probability \(p* \approx 0.586\) matches the book's reported
-  "about 0.59" and optimal value "about −11.6".
+- The policy gradient theorem replaces the unknown state distribution with the one the policy
+  actually visits, so an expectation under the current policy is enough. That is why REINFORCE
+  learns from on-policy samples, and why changing \(\theta\) changes which data is relevant.
+- The log-derivative trick is the central move: differentiating \(\ln\pi\) turns the gradient of
+  an unknown distribution into an observable score times the return. For the softmax of Ex. 13.2
+  the score is the chosen feature minus the policy's average feature, so the gradient is centered
+  and has zero mean — which is exactly why a state-only baseline can be subtracted freely.
+- REINFORCE multiplies the score by the full return and pays for it with high variance; the
+  actor–critic form swaps in a TD error and lowers variance by bootstrapping from the critic's
+  estimate. Scaling every reward therefore leaves the optimal \(p\) in Ex. 13.1 unchanged: the
+  maximizing condition depends on the numerator of \(dV_1/dp\), not on reward magnitude.
+- Watch the trap in the short corridor: one feature vector shared by all three states forces a
+  single stochastic policy, so no deterministic rule can solve it and the optimum is the interior
+  \(p^*=2-\sqrt 2\approx 0.586\), not a boundary. This chapter turns Chapter 12's value
+  approximation into policy approximation, and its actor–critic form leads straight to the
+  prediction-error story of Chapters 14–15.
+
+**Where the theory meets the code.** The short-corridor MDP in Ex. 13.1 is reconstructed from the
+book's Example 13.1; the resulting \(p^*\approx 0.586\) and \(V(p^*)\approx -11.6\) match the values
+the book reports ("about 0.59" and "about −11.6"), which makes them a useful anchor when checking
+the algebra.
 
 ---
 
