@@ -33,7 +33,9 @@ Every displayed equation gets:
 - an in-words **symbol glossary** listing each symbol and its meaning,
 - a stable number of the form `\tag{X.Y.n}` — chapter `X`, exercise `Y`,
   equation `n` within that answer. Numbering is **per exercise**, so adding a
-  new exercise never renumbers an existing equation.
+  new exercise never renumbers an existing equation. Derived (non-book-numbered)
+  exercises use `\tag{X.Dn.n}` — chapter `X`, derived exercise `n`, equation
+  `n` within that answer.
 
 Use an inline equation when the whole expression fits in a sentence; use a
 display equation when the answer's logic turns on its shape.

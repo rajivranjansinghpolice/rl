@@ -147,11 +147,7 @@ The important contrast is that the gap widens again only later, when the shortcu
 
 - **Book location:** §8.3, Exercise 8.4 (programming), blocking/shortcut context (2nd ed., ~p. 166).
 - **Type:** Programming / Theory.
-- **Problem (paraphrased):** The exploration bonus in Dyna-Q+ modifies the values used in *updates* (planning targets). Is that modification necessary? Consider an alternative: keep all Q-learning/planning updates unchanged (use only the recorded/model reward), but when choosing actions behave greedily with respect to
-  \[
-  Q(S_t,a) + \kappa \sqrt{\tau(S_t,a)},
-  \]
-  (i.e., add the bonus only for action selection). Design and carry out a gridworld experiment (in the spirit of the blocking/shortcut tasks) to test and illustrate the strengths and weaknesses of this selection-only bonus.
+- **Problem (paraphrased):** The exploration bonus in Dyna-Q+ modifies the values used in *updates* (planning targets). Is that modification necessary? Consider an alternative: keep all Q-learning/planning updates unchanged (use only the recorded/model reward), but when choosing actions behave greedily with respect to \(Q(S_t,a) + \kappa \sqrt{\tau(S_t,a)}\) (i.e., add the bonus only for action selection). Design and carry out a gridworld experiment (in the spirit of the blocking/shortcut tasks) to test and illustrate the strengths and weaknesses of this selection-only bonus.
 
 **Hook.** Optimism can be injected where learning happens or where deciding happens. Those two choices feel similar but lead to different value estimates and different exploration dynamics.
 

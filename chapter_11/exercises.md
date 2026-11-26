@@ -65,7 +65,7 @@ w\leftarrow(I-\alpha H)w,
 \tag{11.1.1}
 \]
 
-which is stable when the real parts of the eigenvalues of \(H\) are positive; here \(\mu\) is the state distribution induced by the behavior policy and importance sampling, \(\phi(s)\) the feature vector, \(P^\pi\) the target-policy transition matrix, \(\gamma\) the discount, and \(\alpha\) the step size.
+where \(H\) is the expected semi-gradient update matrix, \(\mu\) is the state distribution induced by the behavior policy and importance sampling, \(\phi(s)\) the feature vector, \(P^\pi\) the target-policy transition matrix, \(\gamma\) the discount, and \(\alpha\) the step size. The map is stable when the real parts of the eigenvalues of \(H\) are positive.
 
 **Reasoning chain.** The three ingredients are (i) **function approximation** — the value is a parametric \(\hat v_w\), not a table; (ii) **bootstrapping** — targets computed from the current \(\hat v_w\), as in TD; and (iii) **off-policy training** — data collected under a behavior distribution different from the target's. Remove any one and the update in (11.1.1) becomes well-behaved:
 

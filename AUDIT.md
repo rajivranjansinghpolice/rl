@@ -15,7 +15,7 @@ API reproduces an algorithm when it only illustrates part of it.
 
 | Chapter | Item | API / evidence |
 |---|---|---|
-| Ch 8 §8.3 | Dyna-Q+ exploration bonus `r + κ√τ` | `dyna_q_plus` (bonus on modelled/stale pairs; untried pairs use the zero-reward self-loop default model without a bonus) |
+| Ch 8 §8.3 | Dyna-Q+ exploration bonus \(r + \kappa\sqrt{\tau}\) | `dyna_q_plus` (bonus on modelled/stale pairs; untried pairs use the zero-reward self-loop default model without a bonus) |
 | Ch 8 §8.3 | Blocking / shortcut maze experiments | `ChangingGridworld`, `changing_maze_experiment` |
 | Ch 8 ex 8.4 | Bonus in action selection only | `agent="selection_bonus"` in `changing_maze_experiment` |
 | Ch 8 §8.4 ex 8.5 | Rod maneuvering | `chapter_08/rod.py`: `RodWorld`, `prioritized_sweeping_known_model`, `value_iteration_known_model`, `shortest_path` |
@@ -94,7 +94,7 @@ API reproduces an algorithm when it only illustrates part of it.
 Documented per chapter in `chapter_XX/README.md`. Summary:
 
 - Ch 8: maze/rod obstacle coordinates are not printed in the book, so layouts
-  are illustrative reconstructions; κ and the trajectory-sampling reward model
+  are illustrative reconstructions; \(\kappa\) and the trajectory-sampling reward model
   are not printed. On the small reconstructed blocking maze Dyna-Q+ is *worse*
   in phase 1 (the opposite of the book), so those outputs are named
   `example_8_2_*`/`example_8_3_*` and are never cited as Fig. 8.5/8.6.

@@ -23,7 +23,7 @@ problem (Example 4.3).
 - [x] Exercise 4.5 (Programming) — Jack's car rental with modifications (free first 1→2 shuttle, parking fee for >10 cars overnight) ✅
 
 ## Book Reference
-- Section 4.1: Iterative policy evaluation (converges as \(Δ \le \theta\))
+- Section 4.1: Iterative policy evaluation (converges as \(\Delta \le \theta\))
 - Section 4.2: Policy improvement theorem — greedy policy is as good as or better
 - Section 4.3: Policy iteration (Jack's car rental is Example 4.2)
 - Section 4.4: Value iteration (Section 4.4 box, Eq. 4.10)
@@ -33,9 +33,9 @@ problem (Example 4.3).
     2nd-edition draft (and the 1st edition) number them differently;
     this chapter reproduces both as illustrative demonstrations.
   - Jack's car rental is solved exactly (linear solve per policy-iteration
-    round over the 441-state / 11-action MDP; Poisson rentals λ1=3, λ2=4,
-    Poisson returns λ1=3, λ2=2, $10/rental, $2/car moved, γ=0.9). Converges
-    in ~5 rounds from the zero-move policy; v*(0,0) ≈ 421.
+    round over the 441-state / 11-action MDP; Poisson rentals \(\lambda_1=3,\lambda_2=4\),
+    Poisson returns \(\lambda_1=3,\lambda_2=2\), $10/rental, $2/car moved, \(\gamma=0.9\)). Converges
+    in ~5 rounds from the zero-move policy; \(v_*(0,0) \approx 421\).
   - The gambler's problem optimal policy is highly non-unique; ties are
     broken toward the SMALLEST stake, reproducing the book's Figure 4.3
     staircase (spikes at capitals 25/50/75). Do not expect pixel-identity
