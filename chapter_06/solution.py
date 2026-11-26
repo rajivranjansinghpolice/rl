@@ -28,7 +28,6 @@ from typing import Callable
 
 import numpy as np
 
-
 from rl_envs.random_walk import RandomWalkEnv, random_walk_true_values
 
 
@@ -455,7 +454,7 @@ class MaximizationBiasMDP:
     in A. Actions from A: 'left' and 'right'.
 
     - 'right': terminal state, reward 0 (the safe action).
-    - 'left': state B, reward 0. B has 
+    - 'left': state B, reward 0. B has
 _b_actions possible actions, all of
       which take the agent to the terminal state with a reward drawn from
       a normal distribution with mean -0.1 and variance 1 (N(-0.1, 1)).
@@ -506,7 +505,7 @@ _b_actions possible actions, all of
         if self.state == "B":
             b_actions = self.B_ACTIONS
             try:
-                idx = b_actions.index(action) if isinstance(action, int) else int(action)
+                b_actions.index(action) if isinstance(action, int) else int(action)
             except (ValueError, TypeError):
                 raise ValueError(f"invalid action {action}") from None
             reward = float(self.rng.normal(self.reward_mean, self.reward_std))
@@ -710,7 +709,7 @@ def maximization_bias_experiment(
     right; left -> B with reward 0; B -> terminal with rewards ~ N(-0.1, 1)),
     deterministic safe action 'right' with value 0, gamma = 1. Initial action
     values 0, random tie-breaking, epsilon-greedy behavior with epsilon (book
-    - 0.1), alpha (book - 0.1). The book averaged over 10,000 runs; 
+    - 0.1), alpha (book - 0.1). The book averaged over 10,000 runs;
 epeats
     defaults to a reduced value - increase it for publication-quality curves.
 
@@ -847,7 +846,7 @@ def run_batch_updating(repeats: int = 100, n_walks: int = 100, seed: int = 0) ->
     For each repeat: sample n_walks random-walk episodes up front. After walk
     k (k = 1..n_walks), solve the batch problem exactly on the first k walks
     and record the RMS error against the true values. The book averaged over
-    100 repetitions of the whole experiment; 
+    100 repetitions of the whole experiment;
 epeats defaults to that.
 
     Returns dict with 'walks' (1..n_walks), 'td', 'mc': mean RMS errors.
@@ -921,6 +920,7 @@ def plot_figure_6_3_windy_gridworld(save_path=None, show=False, n_episodes=8000,
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+
     from rl_envs.windy_gridworld import WindyGridWorld
 
     env = WindyGridWorld()
@@ -1007,7 +1007,7 @@ def plot_figure_6_6_td_control_performance(
 
     Cliff walking; Sarsa, Q-learning, Expected Sarsa. 'Interim' performance
     = average return over the first interim_window episodes; 'asymptotic'
-    = average return over the last symptotic_window of 
+    = average return over the last symptotic_window of
 _episodes
     episodes. All runs use epsilon-greedy behavior with epsilon (book 0.1).
 
@@ -1076,7 +1076,7 @@ def plot_figure_6_7_double_q_learning(save_path=None, show=False, n_episodes=300
     """Q-learning vs Double Q-learning (Example 6.7, Figure 6.7).
 
     Percentage of runs taking the 'left' (suboptimal) action from state A
-    per episode. The book used 10,000 runs; we use 
+    per episode. The book used 10,000 runs; we use
 epeats (default 100,
     increase for smoother curves). Curves are smoothed over
     smooth_window episodes for display.
@@ -1127,6 +1127,7 @@ def plot_figure_6_9_king_moves(save_path=None, show=False, n_episodes=2000, alph
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+
     from rl_envs.windy_gridworld import WindyGridWorld
 
     fig, ax = plt.subplots(figsize=(7.5, 4.5))
@@ -1171,6 +1172,7 @@ def plot_figure_6_10_stochastic_wind(save_path=None, show=False, n_episodes=3000
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+
     from rl_envs.windy_gridworld import WindyGridWorld
 
     fig, ax = plt.subplots(figsize=(7.5, 4.5))

@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import numpy as np
 
-
 # ============================================================================
 # Algorithm 15.1 / 15.2 core: TD(0) prediction over a trial, CSC layout
 # Book Section 15.6, Figure 15.5

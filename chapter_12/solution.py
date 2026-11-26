@@ -506,7 +506,7 @@ def plot_td_lambda_random_walk(
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    from rl_envs.random_walk import RandomWalkEnv, random_walk_true_values, random_walk_true_values
+    from rl_envs.random_walk import RandomWalkEnv, random_walk_true_values
 
     true_values = random_walk_true_values()
     episodes_axis = np.arange(1, n_episodes + 1)

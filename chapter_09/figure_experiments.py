@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from chapter_09.solution import fourier_features, linear_value
+from chapter_09.solution import fourier_features
 
 
 def sample_episodes(
@@ -182,8 +182,6 @@ def figure_9_2_data(n_states: int = 100, episodes: int = 12,
     best_n = min(curves, key=lambda k: curves[k].min())
     best_alpha = alphas[int(curves[best_n].argmin())]
     w = np.zeros(10, dtype=np.float64)
-    x_grid = np.arange(1, n_states + 1) / (n_states + 1)
-    eval_feat = features(x_grid)
     for path, _reward in walks[0]:
         states = np.asarray(path) / (n_states + 1)
         feat = features(states)

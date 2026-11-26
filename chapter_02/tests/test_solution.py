@@ -32,7 +32,6 @@ from chapter_02.solution import (
     run_optimistic_greedy_bandit,
     run_ucb_bandit,
     select_epsilon_greedy,
-    select_softmax,
     select_ucb,
     simulate_nonstationary,
     simulate_optimistic_initial_values,

@@ -115,7 +115,11 @@ Documented per chapter in `chapter_XX/README.md`. Summary:
 
 ## Verification
 
-- `python -m pytest -q` — run from the repository root (all chapters and shared
-  `rl_envs` tests).
+- `python -m pytest -q` — run from the repository root: **677 passed**, including
+  all chapter-local test suites (now tracked in Git) and the shared `rl_envs`
+  tests. A fresh checkout from tracked files only passes the same suite.
 - `python chapter_XX/figures/generate_figures.py` — regenerate a chapter's PNGs.
-- Ruff is not available in this environment; style is kept PEP 8-compatible.
+  Every generator uses absolute paths and is independent of the working directory.
+- `python -m ruff check .` — clean under the tracked `ruff.toml` (real defects:
+  undefined names, unused imports/variables, import order, whitespace). The
+  stricter untracked `pyproject.toml` profile is not used for the public repo.

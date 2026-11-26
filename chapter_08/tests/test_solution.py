@@ -516,8 +516,8 @@ class TestScalingCriterion:
         from chapter_08.solution import (
             _bfs_path_len,
             _greedy_path_len,
-            _vi_qstar,
             _scaled_dyna_maze,
+            _vi_qstar,
         )
 
         rows, cols, start, goal, walls = _scaled_dyna_maze(1)

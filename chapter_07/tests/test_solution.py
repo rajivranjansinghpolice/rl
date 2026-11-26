@@ -13,7 +13,6 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from rl_envs.random_walk import RandomWalkEnv
 from chapter_07.solution import (
     n_step_sarsa,
     n_step_td_prediction,
@@ -21,6 +20,7 @@ from chapter_07.solution import (
     sarsa_lambda,
     tree_backup,
 )
+from rl_envs.random_walk import RandomWalkEnv
 
 
 class TestNStepSarsa:

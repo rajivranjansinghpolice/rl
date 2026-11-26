@@ -21,7 +21,6 @@ from typing import Sequence
 
 import numpy as np
 
-
 # ============================================================================
 # Algorithm 14.1: Rescorla-Wagner model
 # Book Section 14.2.2, Eqs. 14.1-14.3
@@ -422,13 +421,13 @@ def run_blocking_experiment(
         raise ValueError("trial counts must be non-negative")
     if replicates < 1:
         raise ValueError("replicates must be positive")
-    rng = np.random.default_rng(seed)
     record: dict[str, list[float]] = {
         "blocking_delta_b": [],
         "blocking_final_b": [],
         "control_delta_b": [],
         "control_final_b": [],
     }
+    rng = np.random.default_rng(seed)
 
     for _ in range(replicates):
         blocking = RescorlaWagnerModel(2, alpha=alpha, lambda_us=lambda_us)
@@ -497,8 +496,6 @@ def plot_conditioning_and_blocking(
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-
-    rng = np.random.default_rng(seed)
 
     # Acquisition (RW), Sec. 14.2.2
     model = RescorlaWagnerModel(n_stimuli=1, alpha=0.1, lambda_us=1.0)

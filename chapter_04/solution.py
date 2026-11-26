@@ -682,7 +682,7 @@ def plot_jacks_car_rental(
 
     for idx, (pi_grid, v_grid) in enumerate(history):
         ax = fig.add_subplot(2, ncols, idx + 1)
-        im = ax.imshow(
+        ax.imshow(
             pi_grid,
             origin="lower",
             cmap="RdBu",

@@ -12,29 +12,28 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from rl_envs.windy_gridworld import WindyGridWorld
-
 from chapter_06.solution import (
     CliffWalkingEnv,
     MaximizationBiasMDP,
     RandomWalkEnv,
+    _walk_transitions,
     batch_mc_values,
     batch_td_fixed_point,
     double_q_learning,
     expected_sarsa_control,
     maximization_bias_experiment,
-    q_learning_control,
-    run_batch_updating,
-    sarsa_control,
-    _walk_transitions,
     mc_prediction_incremental,
     q_learning,
+    q_learning_control,
     random_walk_true_values,
+    run_batch_updating,
     run_random_walk_comparison,
     sarsa,
-    td_lambda_prediction,
+    sarsa_control,
     td0_prediction,
+    td_lambda_prediction,
 )
+from rl_envs.windy_gridworld import WindyGridWorld
 
 
 class TestRandomWalkEnv:

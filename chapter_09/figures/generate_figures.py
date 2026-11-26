@@ -19,6 +19,8 @@ matplotlib.use("Agg")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)))))
 
+import matplotlib.pyplot as plt  # noqa: E402
+
 from chapter_09.figure_experiments import (  # noqa: E402
     figure_9_1_data,
     figure_9_2_data,
@@ -26,8 +28,6 @@ from chapter_09.figure_experiments import (  # noqa: E402
     figure_9_10_data,
 )
 from chapter_09.solution import plot_figure_9_wavelength  # noqa: E402
-
-import matplotlib.pyplot as plt  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 

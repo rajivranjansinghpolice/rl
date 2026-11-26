@@ -5,13 +5,15 @@ Book Reference: Sutton & Barto (2nd Ed.), Section 1.3, Figure 1.2
 """
 
 from __future__ import annotations
-import sys
+
 import os
+import sys
+
 import numpy as np
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from exercise_1_1 import GridWorld, RandomAgent, GreedyAgent, run_episode, run_multiple_episodes
+from exercise_1_1 import GreedyAgent, GridWorld, RandomAgent, run_episode, run_multiple_episodes
 
 
 class TestGridWorldInit:
@@ -257,7 +259,6 @@ class TestRunEpisode:
         trajectory = run_episode(env, agent, max_steps=100)
         assert len(trajectory) > 0
         # Episode should end at either A+ or D, or at max_steps
-        last_state = trajectory[-1][0]
         # With 100 steps, check that the episode completed (reached terminal)
         assert env.is_terminal or len(trajectory) < 100
 

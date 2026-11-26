@@ -92,7 +92,7 @@ Plot-generating helpers (e.g. `plot_*` / `figure_*` functions) are provided in t
 Requires Python 3. Install dependencies from the repository root:
 
 ```bash
-pip install numpy pytest ruff
+pip install numpy pytest ruff matplotlib
 ```
 
 To reproduce experiment/example demonstration plots, also install `matplotlib`:
@@ -111,10 +111,10 @@ Per-chapter tests:
 python -m pytest chapter_XX/tests/ -v
 ```
 
-Per-chapter lint:
+Per-chapter lint (uses the tracked `ruff.toml`):
 
 ```bash
-ruff check chapter_XX/
+python -m ruff check chapter_XX/
 ```
 
 Examples:
@@ -122,5 +122,5 @@ Examples:
 ```bash
 python -m pytest chapter_02/tests/ -v
 python -m pytest chapter_04/tests/ -v
-ruff check chapter_02/
+python -m ruff check chapter_02/
 ```

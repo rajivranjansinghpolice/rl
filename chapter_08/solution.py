@@ -6,7 +6,7 @@ Implements: the Tabular Dyna-Q box (Sec. 8.2, Example 8.1, Dyna maze) as `dyna_q
 Dyna-Q+ with the exploration bonus (Sec. 8.3, Examples 8.2 and 8.3) as `dyna_q_plus`,
 Prioritized sweeping (Sec. 8.4, Moore & Atkeson 1993) as `prioritized_sweeping`,
 expected vs sample updates / Dyna-Q with expected updates (Sec. 8.5) as
-`expected_dyna_q`, Expectation vs sample Dyna (Sec. 8.5 sample-vs-expected analysis is 
+`expected_dyna_q`, Expectation vs sample Dyna (Sec. 8.5 sample-vs-expected analysis is
 `compare_sample_vs_expected_dyna`), and the TabularModel world model of
 Sec. 8.1 (distribution model with per-outcome counts).
 """
@@ -1309,7 +1309,6 @@ def _backup_panel(ax, row: str, kind: str, label: str):
     else:
         circle(*root)  # circle = state node
 
-    n_children = {"expected": 2, "sample": 1}[kind]
     if is_action_root:
         child_rows = [7.0]  # action root: single next state
     elif row[1] == "*":

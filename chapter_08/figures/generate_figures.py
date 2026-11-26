@@ -30,14 +30,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
 from chapter_08.rod import plot_example_8_5_rod
 from chapter_08.rtdp import plot_example_8_6_rtdp
 from chapter_08.solution import (
+    plot_changing_maze,
     plot_example_8_4_scaling,
-    plot_figure_8_10_heuristic_search,
     plot_figure_8_3_dyna_maze,
     plot_figure_8_4_policies,
     plot_figure_8_7_backup_diagrams,
     plot_figure_8_8_update_efficiency,
     plot_figure_8_9_trajectory_sampling,
-    plot_changing_maze,
+    plot_figure_8_10_heuristic_search,
 )
 
 HERE = os.path.dirname(os.path.abspath(__file__))

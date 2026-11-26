@@ -23,7 +23,6 @@ from chapter_03.solution import (
     compute_returns_to_go,
     example_3_5_gridworld,
     example_3_5_gridworld_random_policy_values,
-    plot_example_3_5_gridworld,
     recycling_robot,
     solve_bellman_expectation,
     verify_bellman,

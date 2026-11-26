@@ -17,13 +17,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
 
 from chapter_06.solution import (
     plot_example_6_2_random_walk,
-    plot_figure_6_10_stochastic_wind,
     plot_figure_6_2_batch_updating,
     plot_figure_6_3_windy_gridworld,
     plot_figure_6_4_cliff_walking,
     plot_figure_6_6_td_control_performance,
     plot_figure_6_7_double_q_learning,
     plot_figure_6_9_king_moves,
+    plot_figure_6_10_stochastic_wind,
 )
 
 HERE = os.path.dirname(os.path.abspath(__file__))

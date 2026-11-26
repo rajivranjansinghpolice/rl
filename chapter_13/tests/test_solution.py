@@ -12,17 +12,16 @@ import numpy as np
 import pytest
 
 from chapter_13.solution import (
+    LEFT,
+    RIGHT,
     ActorCriticAgent,
     ActorCriticAlgorithm,
     ContinuingActorCritic,
     GaussianPolicy,
-    LEFT,
     PolicyEnvironment,
     PolicyGradientAlgorithm,
     PolicyGradientWithBaseline,
-    RIGHT,
     ShortCorridorEnv,
-    ShortCorridorREINFORCE,
     check_policy_gradient_theorem,
     main,
     run_policy_gradient_simulation,

@@ -46,7 +46,8 @@ from rl_envs.pip_race import (
     train_td_gammon,
 )
 from rl_envs.racetrack import ACTIONS as RACETRACK_ACTIONS
-from rl_envs.racetrack import MAX_VELOCITY, N_ACTIONS as RACETRACK_N_ACTIONS, RacetrackEnv
+from rl_envs.racetrack import MAX_VELOCITY, RacetrackEnv
+from rl_envs.racetrack import N_ACTIONS as RACETRACK_N_ACTIONS
 from rl_envs.random_walk import RandomWalkEnv, random_walk_true_values
 from rl_envs.tictactoe import (
     GreedyPlayer,

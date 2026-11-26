@@ -19,14 +19,14 @@ matplotlib.use("Agg")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)))))
 
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
+
 from chapter_11.figure_experiments import run_expected  # noqa: E402
 from chapter_11.solution import (  # noqa: E402
     plot_figure_11_divergence,
     plot_figure_11_mspbe,
 )
-
-import matplotlib.pyplot as plt  # noqa: E402
-import numpy as np  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 INIT = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 10.0])

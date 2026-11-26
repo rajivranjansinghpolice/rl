@@ -18,6 +18,8 @@ matplotlib.use("Agg")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)))))
 
+import matplotlib.pyplot as plt  # noqa: E402
+
 from chapter_10.figure_experiments import (  # noqa: E402
     figure_10_1_data,
     figure_10_2_data,
@@ -29,8 +31,6 @@ from chapter_10.solution import (  # noqa: E402
     plot_figure_10_access_control,
     plot_figure_10_mountain_car,
 )
-
-import matplotlib.pyplot as plt  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 

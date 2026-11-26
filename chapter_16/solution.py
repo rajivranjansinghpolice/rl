@@ -28,6 +28,7 @@ import numpy as np
 
 from rl_envs.pip_race import (
     N_FEATURES,
+    WHITE,
     PipRaceEnv,
     TDGammonAgent,
     evaluate_match,
@@ -35,7 +36,6 @@ from rl_envs.pip_race import (
     pip_race_features,
     semi_gradient_td_lambda_update,
 )
-
 
 # ============================================================================
 # Algorithm 16.1: Inventory management with Sarsa

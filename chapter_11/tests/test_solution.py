@@ -5,9 +5,9 @@ import numpy as np
 import pytest
 
 from chapter_11.solution import (
-    BEHAVIOR,
     ACTION_A,
     ACTION_B,
+    BEHAVIOR,
     N_OUTER,
     N_STATES,
     SemiGradientOffPolicyAgent,

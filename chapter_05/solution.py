@@ -20,7 +20,7 @@ from typing import Callable
 
 import numpy as np
 
-from rl_envs.blackjack import BlackjackEnv, ACTIONS
+from rl_envs.blackjack import ACTIONS, BlackjackEnv
 
 
 def _validate_policy_fn(policy_fn: Callable) -> None:

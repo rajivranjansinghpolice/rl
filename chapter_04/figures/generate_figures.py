@@ -4,8 +4,9 @@ Usage:
     python chapter_04/figures/generate_figures.py
 """
 import os
-import matplotlib
 import sys
+
+import matplotlib
 
 matplotlib.use("Agg")
 
@@ -14,9 +15,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
 
 from chapter_04.solution import plot_gamblers_problem, plot_jacks_car_rental
 
+HERE = os.path.dirname(os.path.abspath(__file__))
+
 if __name__ == "__main__":
-    plot_gamblers_problem(save_path="chapter_04/figures/fig_4_3_gamblers_problem.png")
-    plot_jacks_car_rental(save_path="chapter_04/figures/fig_4_2_jacks_car_rental.png")
+    plot_gamblers_problem(save_path=os.path.join(HERE, "fig_4_3_gamblers_problem.png"))
+    plot_jacks_car_rental(save_path=os.path.join(HERE, "fig_4_2_jacks_car_rental.png"))
     print(
         "Figures generated: fig_4_2_jacks_car_rental.png, "
         "fig_4_3_gamblers_problem.png"

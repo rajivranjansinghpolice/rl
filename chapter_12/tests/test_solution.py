@@ -16,8 +16,12 @@ from chapter_06.solution import (
     RandomWalkEnv,
     q_learning,
     random_walk_true_values,
-    sarsa as sarsa_one_step,
     td0_prediction,
+)
+from chapter_06.solution import (
+    sarsa as sarsa_one_step,
+)
+from chapter_06.solution import (
     td_lambda_prediction as td_lambda_accumulating_ch06,
 )
 from chapter_12.solution import (
