@@ -30,6 +30,29 @@ Each `chapter_XX/` directory is a self-contained Python package with its own tes
 
 > **Note:** All book chapters 1–17 are now scaffolded as `chapter_XX/` directories matching the book's chapter numbering.
 
+## Known gaps and reproducibility notes
+
+Every plot that claims a book figure number was checked against the local
+2nd-edition PDF. Where the book does not print enough detail (cell coordinates,
+reward models, step sizes, random seeds) a figure is labelled an
+** illustrative demonstration**, not a pixel-level reproduction. The most
+important deviations are:
+
+- `chapter_08/`: the blocking/shortcut mazes and rod obstacles are
+  reconstructions; κ and the trajectory-sampling reward model are not printed
+  in the book; Example 8.6 uses a small racetrack (707 states) instead of the
+  book's 9,115-state track.
+- `chapter_12/`: random-walk figures use 5 repetitions instead of 100; the
+  Cart/Pole and Puddle World panels of Fig. 12.14 are labelled illustrative
+  stand-ins.
+- `chapter_03/`–`chapter_16/`: several experiments use fewer runs/episodes
+  than the printed book; see each chapter `README.md` for its exact settings.
+
+`AUDIT.md` is the complete inventory of items that are **not implemented** or
+**theory-only**, with a justification for each; it also lists what was
+implemented during the book-alignment work. Exercise writeups in
+`chapter_XX/exercises.md` each end with a student-friendly explanation.
+
 ## Chapter renumbering provenance
 
 To make `chapter_XX/` map to *Sutton & Barto (2nd ed.)* Chapter XX, the repository's historical section-based numbering was reconciled with the book:

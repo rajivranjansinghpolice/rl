@@ -60,7 +60,7 @@ values for states that lead to termination.
   Car loop in `run_mountain_car` passes `None` when `done`. Unit tests assert the
   exact one-step arithmetic on a terminal transition (`TestEpisodicSemiGradientSarsa`).
 
-**Student-friendly explanation.** A terminal state is "the finish line with no
+**Explanation (student-friendly).** A terminal state is "the finish line with no
 given credit to keep." When you are one step from the finish, the best you can
 say about the future is 0, so the entire target collapses to the last reward.
 That is why episodes, unlike continuing tasks, do not need a bootstrap discount.
@@ -85,7 +85,7 @@ active feature's intended step \(\alpha' \delta\), we need the per-feature step
 \(\alpha = \alpha'/8\), i.e. \(\alpha' = 8\alpha\). Equivalently the code updates
 each active weight by \((\alpha/8)\delta\).
 
-**Student-friendly explanation.** Tile coding spreads one observation over 8
+**Explanation (student-friendly).** Tile coding spreads one observation over 8
 features, like 8 witnesses each recording a fraction of the same event. If you
 charged full price at each witness, the total would be 8×; divide by 8 so the
 whole system hears the event exactly once.
@@ -118,7 +118,7 @@ The differential Sarsa update
 tracks both \(q\) and the average reward \(\bar R\) by stochastic approximation of
 the differential Bellman equation.
 
-**Student-friendly explanation.** In an endless game, "maximize the total
+**Explanation (student-friendly).** In an endless game, "maximize the total
 reward" is infinite with no meaning; the fair question is "maximize reward *per
 step*, forever." Differential Sarsa does this by living entirely on the average:
 each step is judged against the running average, not against a discounted future.
@@ -146,7 +146,7 @@ per step (versus a naive "serve anyone" policy around 4.2). Differential Sarsa
 discovers this without being told, because the differential target rewards
 contributors above the running r-bar.
 
-**Student-friendly explanation.** Like a bouncer at a two-line club: letting in
+**Explanation (student-friendly).** Like a bouncer at a two-line club: letting in
 the high-value customer whenever possible earns more per minute. Differential
 Sarsa learns that priority ordering by trying it and collecting the premium.
 
@@ -173,7 +173,7 @@ forward at the right moment; that requires (a) initial exploration (epsilon > 0)
 (b) optimistic initialization, so the greedy policy is nudged into unexplored
 regions. Hence the learning curve begins at the 200-step cap and must climb down.
 
-**Student-friendly explanation.** The car cannot win by flooring it uphill; it must
+**Explanation (student-friendly).** The car cannot win by flooring it uphill; it must
 rock back and forth to build momentum. A brain that has only ever tried "go
 forward" never discovers this, which is why everyone (humans and algorithms) must
 explore the valley first.

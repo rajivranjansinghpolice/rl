@@ -81,7 +81,7 @@ def make_gridworld(
 
     With ``walls`` given ('r,c' strings), those cells are removed from the
     state set and act as impassable barriers (the agent stays in place when
-    attempting to enter one), matching the Dyna maze of Figure 8.2.
+    attempting to enter one), matching the Dyna maze of Figure 8.3.
     """
     if not 0.0 <= slip < 1.0:
         raise ValueError("slip must be in [0, 1)")
@@ -152,6 +152,9 @@ class TabularModel:
     def __init__(self) -> None:
         self._outcome_counts: dict = {}
         self._visited: dict = {}
+        # Incremental predecessor index (book Sec. 8.4): scanning every known
+        # pair on each pop is the main cost of prioritized sweeping.
+        self._predecessors: dict = {}
 
     def observe(self, state, action, reward: float, next_state) -> None:
         """Record one observed transition (model-learning step, book Sec 8.2 (e))."""
@@ -160,6 +163,7 @@ class TabularModel:
         outcome = (float(reward), next_state)
         outcomes[outcome] = outcomes.get(outcome, 0) + 1
         self._visited.setdefault(state, set()).add(action)
+        self._predecessors.setdefault(next_state, set()).add(key)
 
     def is_known(self, state, action) -> bool:
         """Return True if (state, action) has been observed at least once."""
@@ -218,11 +222,7 @@ class TabularModel:
 
     def predecessors(self, next_state) -> list:
         """Return all known (state, action) pairs with any outcome into `next_state`."""
-        result = []
-        for (state, action), outcomes in self._outcome_counts.items():
-            if any(ns == next_state for (_, ns) in outcomes):
-                result.append((state, action))
-        return sorted(result, key=repr)
+        return sorted(self._predecessors.get(next_state, ()), key=repr)
 
 
 def expected_q_target(
@@ -277,6 +277,8 @@ def _dyna_loop(
     q_table = _init_q(env)
     model = TabularModel()
     last_tried: dict = {}
+    visited_states: list = []
+    visited_set: set = set()
     time_steps = 0
     stats = {"episode_steps": [], "episode_rewards": [], "planning_updates": 0}
     for _loop_episode in range(n_episodes):
@@ -292,6 +294,9 @@ def _dyna_loop(
                                alpha, gamma, actions, terminal_states)
             # (e) model-learning
             model.observe(state, action, reward, next_state)
+            if state not in visited_set:
+                visited_set.add(state)
+                visited_states.append(state)
             last_tried[(state, action)] = time_steps
             time_steps += 1
             # (f) planning: n iterations of one-step tabular Q-planning
@@ -304,26 +309,28 @@ def _dyna_loop(
                     untried = False
                 else:
                     # Sec. 8.3 / Dyna-Q+: also consider never-tried pairs with the
-                    # default model (zero reward, self-loop); bonus kappa*sqrt(tau).
-                    candidates = []
-                    is_untried = []
-                    for s in model.visited_states():
-                        for a in actions:
-                            known = model.is_known(s, a)
-                            candidates.append((s, a))
-                            is_untried.append(not known)
-                    idx = int(rng.integers(0, len(candidates)))
-                    ps, pa = candidates[idx]
-                    untried = is_untried[idx]
+                    # default model (zero reward, self-loop); stale modelled
+                    # pairs get the kappa*sqrt(tau) bonus.
+                    # Sampling a uniform visited state and a uniform action is
+                    # equivalent to sampling uniformly from all (s, a) pairs,
+                    # without materialising the (potentially large) pair list.
+                    ps = visited_states[int(rng.integers(len(visited_states)))]
+                    pa = actions[int(rng.integers(len(actions)))]
+                    untried = not model.is_known(ps, pa)
                 if untried:
                     sim_reward, sim_next = 0.0, ps
                 elif planner == "sample":
                     sim_reward, sim_next = model.sample(ps, pa, rng)
                 else:  # "expected": book eq. (8.1), direct assignment
                     sim_reward, sim_next = None, None
+                # Never-tried pairs use the default (zero-reward, self-loop)
+                # model with *no* bonus: the bonus in the book is defined for
+                # transitions whose model exists but has gone stale. Giving a
+                # large sqrt(tau) bonus to unmodelled self-loops makes every
+                # frontier action look better than reaching the goal.
                 bonus = (
                     kappa * (time_steps - last_tried.get((ps, pa), 0)) ** 0.5
-                    if kappa is not None
+                    if (kappa is not None and not untried)
                     else 0.0
                 )
                 if planner == "sample" or untried:
@@ -401,19 +408,19 @@ def dyna_q_plus(
     seed: int | None = None,
     max_steps: int = 1000,
     start_state: str | None = None,
-    kappa: float = 1e-3,
+    kappa: float = 1e-4,
     step_callback=None,
 ) -> tuple[dict, TabularModel, dict]:
     """Dyna-Q+ (Sec. 8.3, exploration bonus; Examples 8.2 and 8.3).
 
     Identical to tabular Dyna-Q, except that planning updates use a
-    "bonus reward" for simulated transitions that have not been tried in a
-    long time: if the modeled reward is r and the pair has not been tried
-    in tau real time steps, the simulated transition produces
-    r + kappa * sqrt(tau). Never-tried (state, action) pairs in visited
-    states are also considered in the planning step, with the default model
-    (zero reward, self-loop), as described in the footnote to the book's
-    Sec. 8.3 text.
+    "bonus reward" for simulated transitions whose model has gone stale: if
+    the modeled reward is r and the pair has not been tried in tau real time
+    steps, the simulated transition produces r + kappa * sqrt(tau).
+    Never-tried (state, action) pairs in visited states are also considered
+    in the planning step, with the default model (zero reward, self-loop),
+    as described in the footnote to the book's Sec. 8.3 text; those pairs
+    receive no bonus because their model does not yet exist.
 
     Args:
         env: The finite MDP to interact with.
@@ -732,6 +739,24 @@ def compare_sample_vs_expected_dyna(
 # Sec. 8.3: changing environments (Examples 8.2 blocking, Example 8.3 shortcut)
 # ---------------------------------------------------------------------------
 
+def _epsilon_greedy_action_with_bonus(q_table, state, actions, epsilon, rng,
+                                      kappa, time_steps, last_tried):
+    """Exercise 8.4: bonus used only in action selection, never in updates.
+
+    The executed action maximises Q(s, a) + kappa * sqrt(tau(s, a)); Q itself
+    stays an unbiased estimate of the return under the modelled rewards.
+    """
+    if rng.random() < epsilon:
+        return actions[int(rng.integers(len(actions)))]
+    bonuses = np.array([
+        kappa * np.sqrt(max(0, time_steps - last_tried.get((state, a), 0)))
+        for a in actions
+    ], dtype=np.float64)
+    values = np.array([q_table[(state, a)] for a in actions], dtype=np.float64) + bonuses
+    best = np.flatnonzero(values == values.max())
+    return actions[int(rng.choice(best))]
+
+
 class ChangingGridworld:
     """Gridworld whose active barrier layout changes mid-experiment.
 
@@ -837,15 +862,16 @@ def changing_maze_experiment(
     alpha: float = 0.1,
     epsilon: float = 0.1,
     gamma: float = 0.95,
-    kappa: float = 1e-3,
+    kappa: float = 1e-4,
     seed: int = 0,
     max_steps: int = 300,
     steps_cap: int | None = None,
 ) -> tuple[list[float], list[int]]:
-    """Run one Sec. 8.3 changing-maze experiment (Figures 8.4/8.5).
+    """Run one Sec. 8.3 changing-maze experiment (Figures 8.5/8.6).
 
-    `layout` is 'blocking' (Fig. 8.4) or 'shortcut' (Fig. 8.5); `agent` is
-    'dyna_q' or 'dyna_q_plus'. Episodes are run through a ChangingGridworld so
+    `layout` is 'blocking' (Fig. 8.5) or 'shortcut' (Fig. 8.6); `agent` is
+    'dyna_q', 'dyna_q_plus' or 'selection_bonus' (Ex. 8.4: bonus at action
+    selection only, with unchanged updates). Episodes use ChangingGridworld so
     that the barrier swap happens after `change_step` real time steps while the
     agent's Q-table and model persist. Cumulative reward is recorded after every
     time step.
@@ -854,8 +880,9 @@ def changing_maze_experiment(
     """
     if layout not in ("blocking", "shortcut"):
         raise ValueError("layout must be 'blocking' or 'shortcut'")
-    if agent not in ("dyna_q", "dyna_q_plus"):
-        raise ValueError("agent must be 'dyna_q' or 'dyna_q_plus'")
+    if agent not in ("dyna_q", "dyna_q_plus", "selection_bonus"):
+        raise ValueError(
+            "agent must be 'dyna_q', 'dyna_q_plus' or 'selection_bonus'")
     start, goal, barrier, blocking_alt, shortcut_base, shortcut_alt = changing_maze_layouts()
     if layout == "blocking":
         base_walls, alt_walls = barrier, blocking_alt
@@ -873,6 +900,8 @@ def changing_maze_experiment(
     actions = list(env.actions)
     terminal_states = set(env.terminal_states)
     last_tried: dict = {}
+    visited_states: list = []
+    visited_set: set = set()
     time_steps = 0
     cumulative_reward = [0.0]
     episode_rewards = []
@@ -887,11 +916,20 @@ def changing_maze_experiment(
         while not done and steps < max_steps:
             if steps_cap is not None and time_steps >= steps_cap:
                 break
-            action = _epsilon_greedy_action(q_table, state, actions, epsilon, rng)
+            if agent == "selection_bonus":
+                action = _epsilon_greedy_action_with_bonus(
+                    q_table, state, actions, epsilon, rng, kappa,
+                    time_steps, last_tried)
+            else:
+                action = _epsilon_greedy_action(
+                    q_table, state, actions, epsilon, rng)
             reward, next_state, done = env.step(action)
             _q_learning_update(q_table, state, action, reward, next_state,
                                alpha, gamma, actions, terminal_states)
             model.observe(state, action, reward, next_state)
+            if state not in visited_set:
+                visited_set.add(state)
+                visited_states.append(state)
             last_tried[(state, action)] = time_steps
             time_steps += 1
             episode_reward += reward
@@ -901,25 +939,22 @@ def changing_maze_experiment(
             for _ in range(n_planning):
                 if not model.has_pairs():
                     break
-                if agent == "dyna_q":
+                if agent in ("dyna_q", "selection_bonus"):
                     ps, pa = model.sample_known_pair(rng)
                     sim_reward, sim_next = model.sample(ps, pa, rng)
                     bonus = 0.0
                 else:  # dyna_q_plus
-                    candidates = []
-                    is_untried = []
-                    for s in model.visited_states():
-                        for a in actions:
-                            known = model.is_known(s, a)
-                            candidates.append((s, a))
-                            is_untried.append(not known)
-                    idx = int(rng.integers(0, len(candidates)))
-                    ps, pa = candidates[idx]
-                    if is_untried[idx]:
+                    ps = visited_states[int(rng.integers(len(visited_states)))]
+                    pa = actions[int(rng.integers(len(actions)))]
+                    if not model.is_known(ps, pa):
                         sim_reward, sim_next = 0.0, ps
                     else:
                         sim_reward, sim_next = model.sample(ps, pa, rng)
-                    bonus = kappa * (time_steps - last_tried.get((ps, pa), 0)) ** 0.5
+                    tried = model.is_known(ps, pa)
+                    bonus = (
+                        kappa * (time_steps - last_tried.get((ps, pa), 0)) ** 0.5
+                        if tried else 0.0
+                    )
                 _q_learning_update(q_table, ps, pa, sim_reward + bonus, sim_next,
                                    alpha, gamma, actions, terminal_states)
             state = next_state
@@ -934,7 +969,7 @@ def changing_maze_experiment(
 # Figure reproduction (Sutton & Barto, 2nd ed., Ch. 8)
 # ---------------------------------------------------------------------------
 
-def plot_dyna_maze(
+def plot_figure_8_3_dyna_maze(
     save_path: str | None = None,
     show: bool = False,
     planning_steps: tuple[int, ...] = (0, 5, 50),
@@ -942,7 +977,7 @@ def plot_dyna_maze(
     runs: int = 30,
     seed: int = 0,
 ):
-    """Dyna maze learning curves (Sec. 8.2, Example 8.1 / Fig. 8.2).
+    """Dyna maze learning curves (Sec. 8.2, Example 8.1 / Fig. 8.3).
 
     The exact 47-state maze of the book (6 rows x 9 cols; S=(2,0), G=(0,8);
     barriers at (1-3,2), (0-2,7) and (4,5)). Reward is +1 entering the goal,
@@ -983,7 +1018,7 @@ def plot_dyna_maze(
     ax.set_xlim(2, n_episodes)
     ax.set_xlabel("Episodes")
     ax.set_ylabel("Steps per episode")
-    ax.set_title("S&B (2nd ed.), Sec. 8.2, Example 8.1 / Fig. 8.2:\nDyna maze learning curves")
+    ax.set_title("S&B (2nd ed.), Sec. 8.2, Example 8.1 / Fig. 8.3:\nDyna maze learning curves")
     ax.legend()
     fig.tight_layout()
     if save_path is not None:
@@ -998,7 +1033,7 @@ def plot_dyna_maze(
 
 def _episode2_mid_snapshot(n_planning: int = 50, seed: int = 0):
     """Replay the first two Dyna maze episodes and capture state/Q at the
-    midpoint of episode 2 (book, Fig. 8.3)."""
+    midpoint of episode 2 (book, Fig. 8.4)."""
     book_walls = ["1,2", "2,2", "3,2", "0,7", "1,7", "2,7", "4,5"]
     env = make_gridworld(rows=6, cols=9, start="2,0", goal="0,8",
                          gamma=0.95, seed=seed, walls=book_walls)
@@ -1059,10 +1094,10 @@ def _draw_policy_panel(ax, q_table, agent_state, title):
 
 
 
-def plot_figure_8_3_policies(save_path: str | None = None, show: bool = False,
+def plot_figure_8_4_policies(save_path: str | None = None, show: bool = False,
                              seed: int = 0):
     """Policies found by the planning and nonplanning Dyna-Q agents halfway
-    through the second episode (Sec. 8.2, Example 8.1, Fig. 8.3).
+    through the second episode (Sec. 8.2, Example 8.1, Fig. 8.4).
 
     Seed held constant across the two agents, as in the book. Arrows indicate
     the greedy action in each state; states whose action values are all equal
@@ -1084,7 +1119,7 @@ def plot_figure_8_3_policies(save_path: str | None = None, show: bool = False,
     _draw_policy_panel(axes[1], snaps["n=50"]["q_table"], snaps["n=50"]["state"],
                        "WITH PLANNING (N=50)")
     fig.suptitle(
-        "S&B (2nd ed.), Sec. 8.2, Example 8.1 / Fig. 8.3:\n"
+        "S&B (2nd ed.), Sec. 8.2, Example 8.1 / Fig. 8.4:\n"
         "Policies halfway through the second episode (illustrative reproduction)",
         fontsize=11)
     fig.tight_layout(rect=(0, 0, 1, 0.90))
@@ -1100,12 +1135,13 @@ def plot_figure_8_3_policies(save_path: str | None = None, show: bool = False,
 def plot_changing_maze(layout: str, change_step: int, steps_cap: int,
                        save_path: str | None = None, show: bool = False,
                        runs: int = 20, n_episodes: int = 3000,
-                       seed: int = 0):
-    """Changing-maze experiment (Sec. 8.3, Example 8.2 blocking / Fig. 8.4,
-    Example 8.3 shortcut / Fig. 8.5).
+                       seed: int = 0,
+                       agents: tuple[str, ...] = ("dyna_q", "dyna_q_plus")):
+    """Changing-maze experiment (Sec. 8.3, Example 8.2 blocking / Fig. 8.5,
+    Example 8.3 shortcut / Fig. 8.6).
 
     Both the regular Dyna-Q agent and the Dyna-Q+ agent (exploration bonus
-    kappa = 1e-3) act on the same maze; after `change_step` real time steps
+    kappa = 1e-4) act on the same maze; after `change_step` real time steps
     the barrier layout changes while the agents' Q-tables and models persist
     (the model is stale). Curves are cumulative reward averaged over `runs`
     repetitions (the same change thresholds, steps caps and layout as the
@@ -1118,30 +1154,33 @@ def plot_changing_maze(layout: str, change_step: int, steps_cap: int,
     import matplotlib.pyplot as plt
 
     curves = {}
-    for agent in ("dyna_q", "dyna_q_plus"):
+    for agent in agents:
         acc = np.zeros(steps_cap + 1, dtype=np.float64)
         for r in range(runs):
             rs = seed + r * 1009
             cum, _ = changing_maze_experiment(
                 layout=layout, agent=agent, change_step=change_step,
                 n_episodes=n_episodes, n_planning=5, alpha=0.1, epsilon=0.1,
-                gamma=0.95, kappa=1e-3, seed=rs, max_steps=400,
+                gamma=0.95, kappa=1e-4, seed=rs, max_steps=400,
                 steps_cap=steps_cap)
             acc[:len(cum)] += np.array(cum, dtype=np.float64)
         curves[agent] = acc / runs
 
     fig, ax = plt.subplots(figsize=(8, 4.5))
     x = np.arange(steps_cap + 1)
-    ax.plot(x, curves["dyna_q"], label="Dyna-Q")
-    ax.plot(x, curves["dyna_q_plus"], label="Dyna-Q+", linestyle="--")
+    styles = {"dyna_q": ("Dyna-Q", "-"), "dyna_q_plus": ("Dyna-Q+", "--"),
+              "selection_bonus": ("Selection-only bonus (Ex. 8.4)", ":")}
+    for agent in agents:
+        label, style = styles[agent]
+        ax.plot(x, curves[agent], label=label, linestyle=style)
     ax.axvline(change_step, color="red", linestyle=":", linewidth=1.2,
                label=f"layout changes at t={change_step}")
     ax.set_xlabel("Time steps")
     ax.set_ylabel("Cumulative reward")
     if layout == "blocking":
-        ex, figno = "Example 8.2", "Fig. 8.4"
+        ex, figno = "Example 8.2", "Fig. 8.5"
     else:
-        ex, figno = "Example 8.3", "Fig. 8.5"
+        ex, figno = "Example 8.3", "Fig. 8.6"
     ax.set_title(f"S&B (2nd ed.), Sec. 8.3, {ex} / {figno}: {layout} maze")
     ax.legend()
     fig.tight_layout()
@@ -1154,8 +1193,8 @@ def plot_changing_maze(layout: str, change_step: int, steps_cap: int,
     return fig, ax
 
 
-def plot_figure_8_7_update_efficiency(save_path: str | None = None, show: bool = False):
-    """Expected vs sample update efficiency (Sec. 8.5, Fig. 8.7).
+def plot_figure_8_8_update_efficiency(save_path: str | None = None, show: bool = False):
+    """Expected vs sample update efficiency (Sec. 8.5, Fig. 8.8).
 
     Sample updates: with b equally likely successor outcomes, all with the
     estimate error initially 1 and the next-state values correct, the RMS
@@ -1181,7 +1220,7 @@ def plot_figure_8_7_update_efficiency(save_path: str | None = None, show: bool =
     ax.set_xlabel("Number of computations")
     ax.set_ylabel("RMS error in value estimate")
     ax.set_ylim(0, 1.05)
-    ax.set_title("S&B (2nd ed.), Sec. 8.5 / Fig. 8.7: efficiency of expected\n"
+    ax.set_title("S&B (2nd ed.), Sec. 8.5 / Fig. 8.8: efficiency of expected\n"
                  "and sample updates (dotted lines: cost b of one expected update)")
     ax.legend(fontsize=9)
     fig.tight_layout()
@@ -1194,8 +1233,8 @@ def plot_figure_8_7_update_efficiency(save_path: str | None = None, show: bool =
     return fig, ax
 
 
-def plot_figure_8_9_heuristic_search(save_path: str | None = None, show: bool = False):
-    """Heuristic search as a sequence of one-step updates (Sec. 8.8, Fig. 8.9).
+def plot_figure_8_10_heuristic_search(save_path: str | None = None, show: bool = False):
+    """Heuristic search as a sequence of one-step updates (Sec. 8.8, Fig. 8.10).
 
     Selective depth-first search update ordering for a 10-node tree: boxes
     are updated in post-order (a box is updated after its descendants),
@@ -1235,7 +1274,7 @@ def plot_figure_8_9_heuristic_search(save_path: str | None = None, show: bool = 
     ax.set_xlim(-4.6, 4.6)
     ax.set_ylim(-1.1, 7.1)
     ax.axis("off")
-    ax.set_title("S&B (2nd ed.), Sec. 8.8 / Fig. 8.9: heuristic search as a\n"
+    ax.set_title("S&B (2nd ed.), Sec. 8.8 / Fig. 8.10: heuristic search as a\n"
                  "sequence of one-step updates (update order = box number)")
     fig.tight_layout()
     if save_path is not None:
@@ -1248,7 +1287,7 @@ def plot_figure_8_9_heuristic_search(save_path: str | None = None, show: bool = 
 
 
 def _backup_panel(ax, row: str, kind: str, label: str):
-    """Draw one backup diagram: simplified schematic of the 2nd-ed. Fig. 8.6."""
+    """Draw one backup diagram: simplified schematic of the 2nd-ed. Fig. 8.7."""
     import matplotlib.pyplot as plt
 
     ax.set_xlim(0, 10)
@@ -1295,8 +1334,8 @@ def _backup_panel(ax, row: str, kind: str, label: str):
     ax.set_title(label, fontsize=9)
 
 
-def plot_figure_8_6_backup_diagrams(save_path: str | None = None, show: bool = False):
-    """Backup diagrams (end of Sec. 8.4, Fig. 8.6).
+def plot_figure_8_7_backup_diagrams(save_path: str | None = None, show: bool = False):
+    """Backup diagrams (end of Sec. 8.4, Fig. 8.7).
 
     Four update targets x two update types. Expected updates (left column)
     branch over all successors; sample updates (right column) follow one
@@ -1325,7 +1364,7 @@ def plot_figure_8_6_backup_diagrams(save_path: str | None = None, show: bool = F
     for j, col in enumerate(("Expected update (tabular DP)", "Sample update (one-step TD)")):
         axes[0, j].text(5.0, 10.4, col, ha="center", va="bottom", fontsize=11,
                         fontweight="bold")
-    fig.suptitle("S&B (2nd ed.), Fig. 8.6: backup diagrams for the eight one-step updates\n"
+    fig.suptitle("S&B (2nd ed.), Fig. 8.7: backup diagrams for the eight one-step updates\n"
                  "(simplified schematic)", fontsize=12)
     fig.tight_layout(rect=(0, 0, 1, 0.94))
     if save_path is not None:
@@ -1338,11 +1377,11 @@ def plot_figure_8_6_backup_diagrams(save_path: str | None = None, show: bool = F
 
 
 # ---------------------------------------------------------------------------
-# Sec. 8.6 / Fig. 8.8: trajectory sampling vs uniform updates (reduced scale)
+# Sec. 8.6 / Fig. 8.9: trajectory sampling vs uniform updates (reduced scale)
 # ---------------------------------------------------------------------------
 
 def _make_random_task(n_states: int, b: int, rng: np.random.Generator):
-    """Random episodic task (Fig. 8.8 reconstruction).
+    """Random episodic task (Fig. 8.9 reconstruction).
 
     2 actions per state; from each (s, a), b distinct next states all equally
     likely; a 0.1 probability of transition to the terminal state on every
@@ -1384,7 +1423,7 @@ def trajectory_sampling_experiment(
     seed: int = 0,
     epsilon: float = 0.1,
 ):
-    """Trajectory-sampling vs uniform-update experiment (Sec. 8.6, Fig. 8.8).
+    """Trajectory-sampling vs uniform-update experiment (Sec. 8.6, Fig. 8.9).
 
     Reduced-scale reproduction: the book averages over 200 tasks and runs to
     20,000/200,000 full backups; here `tasks` defaults to 30 and the x-axis
@@ -1457,12 +1496,12 @@ def trajectory_sampling_experiment(
     return grid, uniform_arr.mean(axis=0), onpolicy_arr.mean(axis=0)
 
 
-def plot_figure_8_8_trajectory_sampling(
+def plot_figure_8_9_trajectory_sampling(
     save_path: str | None = None, show: bool = False,
     tasks: int = 30,
     seed: int = 0,
 ):
-    """On-policy vs uniform backups on random tasks (Sec. 8.6, Fig. 8.8).
+    """On-policy vs uniform backups on random tasks (Sec. 8.6, Fig. 8.9).
 
     Upper panel: 1000-state tasks with branching factor b in {1, 3, 10}.
     Lower panel: 4000-state tasks with b = 1 (the book uses 10,000 states;
@@ -1499,7 +1538,7 @@ def plot_figure_8_8_trajectory_sampling(
     axes[1].set_xlabel("Computation time, in full backups")
     axes[1].set_ylabel("Value of start state under greedy policy")
     axes[1].legend(fontsize=8)
-    fig.suptitle("S&B (2nd ed.), Sec. 8.6 / Fig. 8.8: trajectory sampling vs uniform "
+    fig.suptitle("S&B (2nd ed.), Sec. 8.6 / Fig. 8.9: trajectory sampling vs uniform "
                  "backups (illustrative reproduction, reduced scale)", fontsize=10)
     fig.tight_layout(rect=(0, 0, 1, 0.93))
     if save_path is not None:
@@ -1632,49 +1671,63 @@ class _Solved(Exception):
     """Control-flow exception: the agent's greedy policy is optimal; stop the run."""
 
 
-def _scaling_run_one(k, agent, repeat, seed_base, max_steps, qstar_tol=0.01):
+class _Budget(Exception):
+    """Control-flow exception: the per-run computation budget was exhausted."""
+
+
+def _scaling_run_one(k, agent, repeat, seed_base, max_steps, qstar_tol=0.01,
+                     budget_updates: int = 80_000):
     rows, cols, start, goal, walls = _scaled_dyna_maze(k)
     n_states = rows * cols - len(walls)
-    q_star = _vi_qstar(rows, cols, walls, goal, gamma=0.95)
     optimal_len = _bfs_path_len(rows, cols, walls, start, goal)
     rs = seed_base + k * 1000 + repeat * 137
     counter = {"updates": 0}
 
     def cb(ep, steps, state, q_table, pops):
         counter["updates"] += 1 + pops
+        if counter["updates"] >= budget_updates:
+            raise _Budget()
         if ep < 1:
             return  # burn the first episode; nothing has been learned yet
-        err = 0.0
-        for pair, target in q_star.items():
-            err = max(err, abs(q_table.get(pair, 0.0) - target))
-            if err >= qstar_tol:
-                break
-        if err < qstar_tol:
+        # Book convention: the solution is found when the greedy policy from S
+        # first reaches G along a shortest path. Checking Q* over *all* pairs
+        # would be far stricter than the book's criterion (many off-path pairs
+        # need not be accurate for the start-state policy to be optimal).
+        path_len = _greedy_path_len(q_table, rows, cols, walls, start, goal,
+                                    optimal_len)
+        if path_len == optimal_len:
             raise _Solved()
 
     env = make_gridworld(rows=rows, cols=cols, start=start, goal=goal,
                          gamma=0.95, seed=rs, walls=walls)
     try:
         if agent == "dyna_q":
-            dyna_q(env, n_planning=5, n_episodes=300, alpha=0.1, epsilon=0.1,
+            dyna_q(env, n_planning=5, n_episodes=60, alpha=0.1, epsilon=0.1,
                    gamma=0.95, seed=rs, max_steps=max_steps,
                    start_state=start, step_callback=cb)
         else:
-            prioritized_sweeping(env, theta=1e-3, n_planning=5, n_episodes=300,
-                                 alpha=0.1, epsilon=0.1, gamma=0.95, seed=rs,
+            # Exact (alpha=1) backups are the natural choice for the book's
+            # deterministic maze; a small alpha only adds needless delay.
+            prioritized_sweeping(env, theta=1e-3, n_planning=5, n_episodes=60,
+                                 alpha=1.0, epsilon=0.1, gamma=0.95, seed=rs,
                                  max_steps=max_steps, start_state=start,
                                  step_callback=cb)
         solved_at = None
     except _Solved:
         solved_at = counter["updates"]
+    except _Budget:
+        # No optimal start-state policy within the computation cap: report
+        # None rather than inventing a convergence time.
+        solved_at = None
     return n_states, optimal_len, solved_at
 
 
 def scaling_maze_experiment(
     scale_levels: tuple[int, ...] = (1, 2, 3),
-    repeats: int = 4,
+    repeats: int = 3,
     seed: int = 0,
-    max_steps: int = 20000,
+    max_steps: int = 1200,
+    budget_updates: int = 80_000,
 ):
     """Updates until the optimal solution is found, on scaled Dyna mazes.
 
@@ -1686,6 +1739,10 @@ def scaling_maze_experiment(
     from Peng & Williams 1993); the book spans ~10^2 to ~10^7 states and
     ~10^2 to ~10^6 updates.
 
+    Runs are capped at `budget_updates` updates: a run that has not found an
+    optimal start-state policy by then is reported as ``None`` (not silently
+    treated as solved).
+
     Returns dict: {(agent, scale): (n_states, [updates, ...])} with None for
     unsolved runs.
     """
@@ -1696,7 +1753,8 @@ def scaling_maze_experiment(
             n_states = rows * cols - len(walls)
             runs = []
             for r in range(repeats):
-                _, _, solved_at = _scaling_run_one(k, agent, r, seed, max_steps)
+                _, _, solved_at = _scaling_run_one(
+                    k, agent, r, seed, max_steps, budget_updates=budget_updates)
                 runs.append(solved_at)
             results[(agent, k)] = (n_states, runs)
     return results
@@ -1705,9 +1763,10 @@ def scaling_maze_experiment(
 def plot_example_8_4_scaling(
     save_path: str | None = None, show: bool = False,
     scale_levels: tuple[int, ...] = (1, 2, 3),
-    repeats: int = 4,
+    repeats: int = 3,
     seed: int = 0,
-    max_steps: int = 20000,
+    max_steps: int = 1200,
+    budget_updates: int = 80_000,
 ):
     """Example 8.4 figure: updates until optimal solution vs maze size."""
     import matplotlib
@@ -1717,7 +1776,8 @@ def plot_example_8_4_scaling(
 
     results = scaling_maze_experiment(scale_levels=scale_levels,
                                       repeats=repeats, seed=seed,
-                                      max_steps=max_steps)
+                                      max_steps=max_steps,
+                                      budget_updates=budget_updates)
     fig, ax = plt.subplots(figsize=(8, 5.2))
     for agent, marker in (("dyna_q", "o"), ("prioritized_sweeping", "s")):
         xs, means, stds = [], [], []
@@ -1737,7 +1797,7 @@ def plot_example_8_4_scaling(
     ax.set_xlabel("Gridworld size (#states)")
     ax.set_ylabel("Updates until optimal solution")
     ax.set_title("S&B (2nd ed.), Sec. 8.4, Example 8.4: prioritized sweeping on\n"
-                 "mazes (adapted from Peng & Williams 1993; reduced scale)")
+                 "mazes (Peng & Williams 1993; reduced scale; unsolved runs omitted)")
     ax.legend()
     fig.tight_layout()
     if save_path is not None:

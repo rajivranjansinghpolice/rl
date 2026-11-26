@@ -71,7 +71,7 @@
      actions = {move, attack, reload}; rewards = +1 per hit landed, −0.1 per missed shot.
   Stretch the framework in at least one example by using a **continuous state** (e.g., temperature
   as a real number) or **continuous actions** (e.g., steering torque).
-- **Why this works / takeaway:** the MDP framework is deliberately general; the exercise tests
+- **Explanation (student-friendly).** the MDP framework is deliberately general; the exercise tests
   whether the learner can abstract a real task into states, actions, and `p(s', r | s, a)`.
 
 ### Exercise 3.2 — Is the MDP framework adequate?
@@ -88,7 +88,7 @@
   - tasks where the **agent must learn its own action effects** that are not yet captured by a
     stationary `p(s', r | s, a)` (meta-learning / exploration of model structure);
   - tasks with **partial observability** where `S_t` must summarize history.
-- **Why this works / takeaway:** the framework is a modeling choice; recognizing its limits is part
+- **Explanation (student-friendly).** the framework is a modeling choice; recognizing its limits is part
   of the theory.
 
 ### Exercise 3.3 — Where to draw the agent–environment line?
@@ -102,7 +102,7 @@
   valid; there is no fundamental preference. A practical rule: draw the line where the learner can
   act *and* where the dynamics become tractable/explainable; lower levels give more control but more
   state; higher levels give cleaner reward but possibly less expressive control.
-- **Why this works / takeaway:** the line is a modeling choice; both the agent and the environment
+- **Explanation (student-friendly).** the line is a modeling choice; both the agent and the environment
   can be placed at any consistent level of abstraction.
 
 ### Exercise 3.4 — Expected one-step reward
@@ -116,7 +116,7 @@
   \(E[Rt+1 | St = s, At = a] = \sum _{s', r} p(s', r | s, a) \cdot r\).
   For the recycling robot: \(E[R | high, search] = \alpha \cdot r_search + (1 - \alpha )\cdot r_search = r_search\)
   (expected reward while searching is just the expected cans collected times unit reward).
-- **Why this works / takeaway:** this is the one-step "expected immediate reward" used by all
+- **Explanation (student-friendly).** this is the one-step "expected immediate reward" used by all
   tabular value functions and backups.
 
 ### Exercise 3.5 — Dynamics table for the recycling robot
@@ -141,6 +141,8 @@
 
   (Rows are omitted when probability is zero; each `(s, a)` row of the transition function sums to
   1 over next states.)
+**Explanation (student-friendly).** Think of the table as the world's instruction manual: for each situation and action it lists every outcome that can happen and how often. Keeping only rows with positive probability is not a shortcut — zero-probability rows can never occur, so omitting them is exact.
+
 - **Coding pointer:** `chapter_03/solution.py` → `FiniteMDP.expected_reward`,
   `FiniteMDP.transition_probs`; tests `TestFiniteMDP` (`test_expected_reward`,
   `test_transition_probs`) in `chapter_03/tests/test_solution.py`.
@@ -157,7 +159,7 @@
   Episodic: with finite episode length `T` and `G_T = 0`:
   \(G_t = R_{t+1} + \gamma G_{t+1}\), \(G_t = \sum _{k=0}^{T-t-1} \gamma ^k R_{t+k+1}\), and
   \(V\pi (s) = \sum _a \pi (a|s) \sum _{s',r} p(s', r | s, a) [r + \gamma V\pi (s')]\) with terminal states valued `0`.
-- **Why this works / takeaway:** the same Bellman backup, with terminal-state handling.
+- **Explanation (student-friendly).** the same Bellman backup, with terminal-state handling.
 
 ### Exercise 3.7 — Pole-balancing: episodic return with discounting
 
@@ -171,7 +173,7 @@
   give \(G_t = -\gamma ^m\) where `m` is the number of steps from time `t` until the failure occurs (the \(-1\)
   reward lands at that offset) — they agree; the difference is the horizon handling (`G_T = 0` for
   episodic vs. infinite sum for continuing).
-- **Why this works / takeaway:** discounting and termination are orthogonal; the episodic return is
+- **Explanation (student-friendly).** discounting and termination are orthogonal; the episodic return is
   the finite-horizon version of the discounted return.
 
 ### Exercise 3.8 — Maze task and stagnation
@@ -185,7 +187,7 @@
   optimized a mis-specified objective (e.g., undiscounted vs. discounted framing, or ignored episode
   boundaries), no improvement would follow. In the maze, stagnation most often stems from such an
   objective/termination mismatch.
-- **Why this works / takeaway:** clear specification of objective and horizon is essential.
+- **Explanation (student-friendly).** clear specification of objective and horizon is essential.
 
 ### Exercise 3.9 — Return computation from reward sequences
 
@@ -201,6 +203,8 @@
   - \(G1 = R2 + \gamma \cdot G2 = 2 + 0.5\cdot 8 = 6\)
   - \(G0 = R1 + \gamma \cdot G1 = 1 + 0.5\cdot 6 = 4\)
   Answer: `G = [4, 6, 8, 4, 2, 0]` for `t = 0…5`.
+**Explanation (student-friendly).** A return is the reward you receive now plus a discounted copy of everything you will receive later. Starting from the terminal state, where the future is worth zero, and walking backwards lets you compute all returns without summing long geometric series.
+
 - **Coding pointer:** `chapter_03/solution.py` → `compute_return`, `compute_returns_to_go`;
   tests `TestComputeReturn`.
 - **Command:** `python -m pytest chapter_03/tests/ -v`
@@ -214,6 +218,8 @@
 - **Solution.** Infinite geometric series: \(Gk = \sum _{k'=0}^\infty \gamma ^{k'} \cdot 7 = 7 / (1 - 0.9) = 70\).
   Then \(G0 = R1 + \gamma \cdot G1 = 2 + 0.9\cdot 70 = 64\).
 
+**Explanation (student-friendly).** Once the rewards repeat forever, the infinite tail collapses to the single fraction R/(1-gamma). The one unusual reward at the start matters only through its single discounted appearance, so compute the steady tail first and then add the special first step.
+
 ### Exercise 3.11 — Proving the constant-reward return
 
 - **Book location:** Section 3.3 (equation 3.10), PDF page 63.
@@ -221,6 +227,8 @@
 - **Problem:** Prove equation (3.10): \(G = R / (1 - \gamma )\).
 - **Solution.** For constant reward `R`: \(G = \sum _{k=0}^\infty \gamma ^k \cdot R = R \cdot \sum _{k=0}^\infty \gamma ^k = R / (1 - \gamma )\)
   (geometric series, valid for \(0 \le \gamma < 1\)).
+
+**Explanation (student-friendly).** The geometric-series formula is the mathematical way of saying 'the same reward forever, with each later copy worth gamma times less'. The condition gamma < 1 is essential: without it the copies never shrink and the sum never settles.
 
 ### Exercise 3.12 — Bellman equation check on the gridworld
 
@@ -241,6 +249,8 @@
   formally in the repository via the residual computation (`bellman_expectation_residual` /
   `verify_bellman`; see `TestBellman::test_expectation_residual_zero_on_solution`).
 
+**Explanation (student-friendly).** The Bellman equation is a consistency check on the printed values: a state's value must equal the average of (immediate reward + discounted value of where you land). Plugging the gridworld numbers into that average verifies that the picture and the dynamics agree.
+
 ### Exercise 3.13 — Bellman equation for action values
 
 - **Book location:** Section 3.5 (equations 3.14–3.17), PDF page 66.
@@ -250,6 +260,8 @@
 - **Solution.** \(q\pi (s, a) = \sum _{s', r} p(s', r | s, a) [r + \gamma V\pi (s')]\)
   \(= \sum _{s', r} p(s', r | s, a) [r + \gamma \sum _{a'} \pi (a' | s') q\pi (s', a')]\).
 
+**Explanation (student-friendly).** Fixing the first action removes one layer of averaging: the world still chooses the outcome, but the policy only chooses afterwards. That is why the outer sum is over outcomes and the inner sum is over the policy's next action.
+
 ### Exercise 3.14 — Value shift from a constant reward addition
 
 - **Book location:** Section 3.5, PDF page 66.
@@ -257,6 +269,8 @@
 - **Problem:** Adding a constant `c` to all rewards adds a constant `v_c` to all state values; what
   is `v_c` in terms of `c` and \(\gamma\)?
 - **Solution.** For continuing tasks: \(v_c = c / (1 - \gamma )\). Optimal relative values are unchanged.
+
+**Explanation (student-friendly).** Adding c to every reward adds the same c at every one of the infinitely many discounted future steps, so the total shifts by c/(1-gamma). Every action shifts by the same amount, so the agent's preferences between actions do not change.
 
 ### Exercise 3.15 — Constant reward shift in an episodic task
 
@@ -267,6 +281,8 @@
 - **Solution.** Episodic returns shift by \(c \cdot (1 - \gamma ^T) / (1 - \gamma )\) per episode; the optimal policy
   is unaffected (only the return level changes).
 
+**Explanation (student-friendly).** In an episodic task only T rewards are ever added, so the shift is c(1-gamma^T)/(1-gamma). Every complete trajectory receives exactly the same shift, which changes the reported return level but not the ranking of policies.
+
 ### Exercise 3.16 — State backup via the stochastic policy
 
 - **Book location:** Section 3.5 (backup diagrams), PDF page 66.
@@ -274,6 +290,8 @@
 - **Problem:** Give the Bellman equation for \(v\pi (s)\) in terms of the actions available in `s` and
   the probabilities \(\pi (a|s)\).
 - **Solution.** \(v\pi (s) = \sum _a \pi (a|s) \sum _{s', r} p(s', r | s, a) [r + \gamma v\pi (s')]\).
+
+**Explanation (student-friendly).** At a state the policy first picks an action and the world then picks the outcome. The Bellman equation simply averages over both layers of randomness, discounting the value of the next state but not the immediate reward.
 
 ### Exercise 3.17 — Action backup for \(q\pi (s, a)\)
 
@@ -283,6 +301,8 @@
   and expected next state value, with an explicit (non-expected-value) formulation.
 - **Solution.** (i) \(q\pi (s, a) = \sum _{s', r} p(s', r | s, a) [r + \gamma v\pi (s')]\).
   (ii) Expanded without expectation notation: \(q\pi (s, a) = \sum _{s', r} p(s', r | s, a) r + \gamma \sum _{s'} p(s' | s, a) v\pi (s')\).
+
+**Explanation (student-friendly).** The first line combines reward and next state in one expectation over p(s', r | s, a); the second separates that into an expected reward plus gamma times an expected next-state value. They are the same bookkeeping viewed from two angles.
 
 ### Exercise 3.18 — Optimal state-value function (golf)
 
@@ -294,6 +314,8 @@
   the aim that maximises the expected return (equivalently, with the action maximising \(q*(s, \cdot )\) for
   the current state).
 
+**Explanation (student-friendly).** The optimal state value asks 'if I play as well as possible from here, what return should I expect?' For golf that means always taking the shot with the best expected remaining strokes, so the value surface is highest close to the hole.
+
 ### Exercise 3.19 — Optimal action-value contours for putting (golf)
 
 - **Book location:** Section 3.6, PDF page ~70.
@@ -304,12 +326,16 @@
   putting position; higher contours correspond to better expected putts; contours curve around the
   hole/target region.
 
+**Explanation (student-friendly).** Contours are a map of equal expected return for one fixed putter shot. Where contours crowd together a small change of position matters a lot; near the target they curve around the hole because the best aim changes with position.
+
 ### Exercise 3.20 — Bellman equation for `q*` (recycling robot)
 
 - **Book location:** Section 3.6, PDF page ~70.
 - **Type:** Math.
 - **Problem:** Give the Bellman equation for `q*` for the recycling robot.
 - **Solution.** \(q*(s, a) = \sum _{s', r} p(s', r | s, a) [r + \gamma v*(s')]\), with `v*(s) = max_{a'} q*(s, a')`.
+
+**Explanation (student-friendly).** Action values keep the first action fixed and then switch to the best possible continuation, v* = max q*. This is the Bellman optimality equation in action form and is the identity behind value iteration and Q-learning.
 
 ### Exercise 3.21 — Optimal gridworld value (24.4)
 
@@ -322,6 +348,8 @@
   optimality equation exactly gives \(v*(A) = 24.4194\ldots\) — `24.4` to one decimal and `24.419`
   to three decimals. (Independent hand-derivations online of the same chain —\(10 + 0.9 \times v*(A')\)
   with \(v*(A') = 16.0216\ldots\) — converge on the same value.)
+**Explanation (student-friendly).** Solving the optimality equations exactly, rather than reading a one-decimal picture, shows that 24.4 is a rounded value. Computing to three decimals exposes the small discrepancy that rounding introduced.
+
 - **Coding pointer:** implemented in `chapter_03/solution.py` as `example_3_5_gridworld` (the 5x5
   gridworld MDP, deterministic actions, off-grid -> stay with reward −1, A -> teleport to A′ with +10,
   B -> teleport to B′ with +5, γ = 0.9). Value iteration on the Bellman optimality equation gives
@@ -341,12 +369,16 @@
 - **Solution.** Choose the action whose successor yields the higher expected value: greedy action
   selection \(A* = argmax_a \sum _{s', r} p(s', r | s, a) [r + \gamma v*(s')]\).
 
+**Explanation (student-friendly).** With only one decision point, the optimal choice is simply the action whose successor has the larger expected value. This is the general argmax rule with the expectations written out explicitly.
+
 ### Exercise 3.23 — `v*` in terms of `q*`
 
 - **Book location:** Section 3.6, PDF pages ~72–76.
 - **Type:** Math.
 - **Problem:** Give an equation for `v*` in terms of `q*`.
 - **Solution.** `v*(s) = max_a q*(s, a)`.
+
+**Explanation (student-friendly).** A state's optimal value is the best action value available there. You are free to choose the action at that state, so you take the maximum rather than an average.
 
 ### Exercise 3.24 — `q*` in terms of `v*` and the dynamics
 
@@ -355,6 +387,8 @@
 - **Problem:** Give an equation for `q*` in terms of `v*` and the world's dynamics `p(s', r | s, a)`.
 - **Solution.** \(q*(s, a) = \sum _{s', r} p(s', r | s, a) [r + \gamma v*(s')]\).
 
+**Explanation (student-friendly).** To evaluate one particular action you no longer take a maximum over actions: you average over what the world does and then use the best possible value of the state you land in.
+
 ### Exercise 3.25 — \(\pi *\) in terms of `q*`
 
 - **Book location:** Section 3.6, PDF pages ~72–76.
@@ -362,12 +396,16 @@
 - **Problem:** Give an equation for \(\pi *\) in terms of `q*`.
 - **Solution.** \(\pi *(s) = argmax_a q*(s, a)\).
 
+**Explanation (student-friendly).** An optimal policy picks the action with the largest q* at each state. If several actions tie, any of them is optimal, so the tie can be broken arbitrarily.
+
 ### Exercise 3.26 — \(\pi *\) in terms of `v*` and the dynamics
 
 - **Book location:** Section 3.6, PDF pages ~72–76.
 - **Type:** Math.
 - **Problem:** Give an equation for \(\pi *\) in terms of `v*` and the world's dynamics `p(s', r | s, a)`.
 - **Solution.** \(\pi *(s) = argmax_a \sum _{s', r} p(s', r | s, a) [r + \gamma v*(s')]\).
+
+**Explanation (student-friendly).** This combines the previous two identities: substitute v* = max q* into the expression for q*, giving a policy that maximises the one-step expected return plus the discounted optimal future.
 
 ---
 

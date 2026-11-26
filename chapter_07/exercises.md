@@ -85,6 +85,8 @@ references.
   \[
   G_{t:t+n}-V(S_t)=\sum_{k=0}^{n-1} \gamma^k \delta_{t+k}\,\quad (\text{fixed }V,\ \text{Eq. 7.1–7.2}).
   \]
+**Explanation (student-friendly).** The telescoping works because each reward can be rewritten as a one-step TD error plus a value difference. Adding the errors along the window makes all the intermediate value terms cancel, leaving exactly the n-step error — but only while the values are frozen.
+
 - **Coding pointer / status:** **Theory (identity); exercised by implementation.** `n_step_td_prediction`
   implements the standard (changing-V) form of the box in §7.1; the identity above is verified for the
   fixed-V case in the derivation. See `TestNStepTDPrediction` and the Figure 7.2 experiment
@@ -106,6 +108,8 @@ references.
   **Experiment (theory proposal):** on a random-walk prediction task (e.g. the 19-state walk of
   §7.1), compare RMS value error vs. episodes/steps for (a) standard n-step TD (Eq. 7.2) and
   (b) the sum-of-changing-\(\delta\) variant, sweeping \(n\) and \(\alpha\) with multiple seeds.
+**Explanation (student-friendly).** With online updates the values inside each delta have already changed by the time you add them up, so the neat cancellation no longer holds. The sum-of-errors form becomes a different algorithm; a small random-walk experiment comparing learning curves is the honest way to judge it.
+
 - **Coding pointer / status:** **Implemented (prediction API).** `n_step_td_prediction` in
   `chapter_07/solution.py` implements the online variant exactly as written; the
   sum-of-changing-δ variant is not implemented (it is not the algorithm the book's box
@@ -128,6 +132,8 @@ references.
   not fundamentally change which \(n\) best balances bootstrapping bias and sampling variance;
   the optimal \(n\) is driven mainly by timescale/horizon and step size rather than by a uniform
   shift in terminal reward sign/magnitude.
+**Explanation (student-friendly).** Longer chains make the delay visible: with five states almost every useful n already reaches the end, so all settings look like Monte Carlo and no intermediate optimum stands out. The 19-state walk gives bias and variance room to trade off, and moving the left outcome changes the target scale but not the basic shape of that tradeoff.
+
 - **Coding pointer / status:** **Implemented (Example 7.1).** The 19-state walk is
   `RandomWalkEnv(n_states=19, left_reward=-1.0, right_reward=1.0)` in `rl_envs/random_walk.py`
   (shared with Chapter 6's `RandomWalkEnv`); `n_step_td_prediction` predicts on it, and
@@ -161,6 +167,8 @@ Loop for each episode:
     t <- t+1
 ```
 
+**Explanation (student-friendly).** Importance-sampling ratios correct for the fact that the data came from b while you are evaluating pi. The n-step return is the same as on-policy, but each error is multiplied by the product of ratios over the window — a longer window means a noisier correction.
+
 - **Coding pointer / status:** **Theory-only (no repo API).** No off-policy importance-sampling
   n-step prediction function exists in `solution.py`. Implemented off-policy-without-IS control is
   `tree_backup` (different algorithm/target).
@@ -190,6 +198,8 @@ Q(S_t,A_t) <- Q(S_t,A_t) + α * rho * (G_{t:t+n} - Q(S_t,A_t))
 (The ratio horizon differs because the Expected Sarsa target does not require sampling
 \(A_{t+n}\) from \(\pi\); this matches the per-decision/control-variate reasoning of §7.4.)
 
+**Explanation (student-friendly).** Action values add one choice: the bootstrap at step t+n can use the sampled next action (Sarsa) or average over the target policy (Expected Sarsa). Expected Sarsa removes one source of sampling noise at the price of computing the average.
+
 - **Coding pointer / status:** **Theory-only (no repo API).** No off-policy IS action-value or
   Expected Sarsa n-step implementation exists in `solution.py`. On-policy n-step Sarsa control is
   implemented as `n_step_sarsa` (no \(\rho\) ratios, behavior=target in effect).
@@ -209,6 +219,8 @@ Q(S_t,A_t) <- Q(S_t,A_t) + α * rho * (G_{t:t+n} - Q(S_t,A_t))
   ratio up to the step where it is realized, yielding an equivalent-in-expectation decomposition
   that is the off-policy state-value analogue of Eq. 6.5/6.6: a sum of (importance-weighted)
   state-based TD errors under fixed estimates.
+**Explanation (student-friendly).** Once V is fixed, Exercise 7.1 gives the unweighted telescoping identity; multiplying by the off-policy importance ratio simply carries that correction into each term. This is why per-decision implementations can accumulate discounted TD errors online.
+
 - **Coding pointer / status:** **Theory-only (no repo API).**
 
 ### Exercise 7.7 — Off-policy action version and Expected Sarsa TD errors
@@ -225,6 +237,8 @@ Q(S_t,A_t) <- Q(S_t,A_t) + α * rho * (G_{t:t+n} - Q(S_t,A_t))
   each \(\tilde{\delta}\) is the corresponding one-step (Expected) Sarsa TD error; multiplying by
   the appropriate \(\rho\) factors gives the off-policy weighted/per-decision decomposition
   analogous to Exercise 7.6 but in action-value space.
+**Explanation (student-friendly).** The argument is identical to the state-value case once you replace the state TD error with the Expected Sarsa error. The expectation over the target policy's next action removes the need for an importance ratio at the bootstrap step.
+
 - **Coding pointer / status:** **Theory-only (no repo API).**
 
 ### Exercise 7.8 — Data efficiency: per-decision/off-policy n-step vs simpler off-policy
@@ -242,6 +256,8 @@ Q(S_t,A_t) <- Q(S_t,A_t) + α * rho * (G_{t:t+n} - Q(S_t,A_t))
   term only by ratios up to when it occurs (§7.4). Measure MSE \(\|V - v_\pi\|^2\) vs. episodes
   over many seeds. Per-decision weighting typically reduces variance because irrelevant future
   action mismatches do not downweight already-realized rewards, improving data efficiency.
+**Explanation (student-friendly).** Coarse importance weights multiply whole returns, so a single unlikely action can blow up the entire update. Per-decision weighting uses a ratio for each step, keeping the variance lower; a small MDP with a wandering behaviour policy makes that difference visible in the learning curve.
+
 - **Coding pointer / status:** **Theory-only (no repo API).** Neither off-policy IS variant is
   implemented; `tree_backup` is off-policy *without* IS (a different approach) and is not the
   algorithm pair requested by this exercise.

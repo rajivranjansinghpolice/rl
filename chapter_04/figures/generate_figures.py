@@ -3,9 +3,14 @@
 Usage:
     python chapter_04/figures/generate_figures.py
 """
+import os
 import matplotlib
+import sys
 
 matplotlib.use("Agg")
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__)))))
 
 from chapter_04.solution import plot_gamblers_problem, plot_jacks_car_rental
 

@@ -60,7 +60,7 @@
   would approach optimal play. In practice, early self-play can be unstable because both learners
   explore the same move space simultaneously; divergence or slow convergence may occur before the
   policies stabilise.
-- **Why this works / takeaway:** self-play is a standard way to generate training data without a
+- **Explanation (student-friendly).** self-play is a standard way to generate training data without a
   fixed opponent; the symmetry of the game makes the two roles interchangeable.
 
 ### Exercise 1.2 — Symmetries
@@ -78,7 +78,7 @@
   (equivalent actions should be treated alike). Whether we *should* symmetrise depends on whether the
   opponent cooperates; if the opponent ignores symmetries, exploiting them is still valid for the
   agent.
-- **Why this works / takeaway:** symmetries are a form of state abstraction that can shrink the
+- **Explanation (student-friendly).** symmetries are a form of state abstraction that can shrink the
   learning problem without changing the optimal policy.
 
 ### Exercise 1.3 — Greedy Play
@@ -92,7 +92,7 @@
   beyond those favoured by early (possibly inaccurate) value estimates; it can converge to a
   suboptimal policy. A non-greedy (exploratory) learner can probe alternatives and refine values; the
   learned greedy policy is then the one that maximises expected return.
-- **Why this works / takeaway:** exploration and greedy selection are complementary; value learning
+- **Explanation (student-friendly).** exploration and greedy selection are complementary; value learning
   and policy selection are separate concerns.
 
 ### Exercise 1.4 — Learning from Exploration
@@ -114,7 +114,7 @@
   With continued exploration, the **optimal** estimate set (case 1) is the better one; it is the one
   that leads to better behaviour and, ultimately, more wins, since the agent can act greedily from
   optimal values.
-- **Why this works / takeaway:** what the learner conditions on (all considered moves vs. actual
+- **Explanation (student-friendly).** what the learner conditions on (all considered moves vs. actual
   moves) determines whether the converged value estimates approach the optimal values or the values
   of the exploratory behaviour policy.
 
@@ -129,7 +129,7 @@
   model to look ahead), or better reward/termination design. For tic-tac-toe, combining a learned
   value function with lookahead (as in the book) is already strong; a better solution may combine
   planning with learning.
-- **Why this works / takeaway:** improvement ideas typically target exploration, representation, or
+- **Explanation (student-friendly).** improvement ideas typically target exploration, representation, or
   planning — the three axes of RL methodology.
 
 ---

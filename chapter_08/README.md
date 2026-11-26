@@ -1,68 +1,77 @@
 # Chapter 8 — Planning and Learning with Tabular Methods
 
-> Reference implementation of Sutton & Barto's
-> _Reinforcement Learning: An Introduction_ (2nd Edition), Chapter 8
+> Reference implementation of Sutton & Barto,
+> _Reinforcement Learning: An Introduction_ (2nd edition), Chapter 8.
+> Figure numbers below were verified against the local book PDF.
 
 ## Overview
-Model-based reinforcement learning: the Dyna architecture (direct RL,
-model-learning, planning), prioritized sweeping, expected vs sample
-updates, and world models for stochastic environments. All experiments use
-a small gridworld built on chapter_03's `FiniteMDP`.
 
-## Exercises and Solutions
+Model-based RL: models and planning (§8.1), the Tabular Dyna-Q box (§8.2),
+Dyna-Q+ and changing environments (§8.3), prioritized sweeping (§8.4),
+expected vs sample updates (§8.5), trajectory sampling (§8.6), RTDP (§8.7),
+and decision-time planning / heuristic search (§8.8–§8.9).
 
-- [exercises.md](exercises.md) — Exercises 8.1–8.4 with from-scratch solutions, book §/PDF-page citations, and coding-exercise pointers into this chapter (`dyna_q`, `TabularModel`, `prioritized_sweeping`, `expected_dyna_q`, `make_gridworld`).
+## Implemented APIs (`solution.py` unless noted)
 
-## Algorithms Implemented
-- [x] algorithm_8.1 — Dyna-Q planner (`dyna_q`) ✅
-- [x] exercise_8.1 — Prioritized sweeping (`prioritized_sweeping`, `PriorityQueue`) ✅
-- [x] exercise_8.2 — Expectation vs update Dyna (`expected_dyna_q`, `expected_sweep`, `compare_sample_vs_expected_dyna`) ✅
-- [x] exercise_8.3 — World model with stochastic environments (`TabularModel`, `make_gridworld`) ✅
+| Book item | API | Notes |
+|---|---|---|
+| §8.1 models | `TabularModel` | distribution model from per-outcome counts; sample model; incremental predecessor index |
+| §8.2 Tabular Dyna-Q | `dyna_q` | direct Q-learning + model learning + `n_planning` sample backups |
+| §8.3 Dyna-Q+ | `dyna_q_plus` | `r + κ√τ` on *modelled* (stale) pairs; untried pairs use the zero-reward self-loop default model without a bonus |
+| §8.3 blocking/shortcut | `ChangingGridworld`, `changing_maze_experiment` | barrier swap mid-run; agents retain Q/model; variants `dyna_q`, `dyna_q_plus`, `selection_bonus` |
+| Ex. 8.4 selection-only bonus | `_epsilon_greedy_action_with_bonus` | `argmax_a [Q + κ√τ]` with unchanged updates |
+| §8.4 prioritized sweeping | `PriorityQueue`, `prioritized_sweeping` | expected-update extension for stochastic models |
+| §8.4 Example 8.4 | `scaling_maze_experiment`, `plot_example_8_4_scaling` | scaled Dyna mazes; "solved" = shortest greedy path from S; runs without a solution are reported as `None` |
+| §8.4 Example 8.5 | `chapter_08/rod.py` | 20×20 rod MDP (36 orientations, 4 actions); prioritized sweeping with a known model vs exhaustive sweeps |
+| §8.5 expected updates | `expected_q_target`, `expected_sweep`, `expected_dyna_q`, `compare_sample_vs_expected_dyna` | eq. (8.1) |
+| §8.6 trajectory sampling | `trajectory_sampling_experiment` | on-policy vs uniform backups on random tasks |
+| §8.7 Example 8.6 | `chapter_08/rtdp.py` | RTDP vs Gauss–Seidel value iteration on the shared racetrack |
+| §8.8 heuristic search | `plot_figure_8_10_heuristic_search` | one-step backup sequence toward the root |
 
-Also included: `expected_q_target` (eq. 8.1), `optimal_q_values` (exact
-q* via chapter_03's Bellman optimality backup), `PriorityQueue` (max-priority
-queue with lazy deletion of stale entries).
+## Figures (`figures/`)
 
-## Book Reference
-- Section 8.1: Models and planning — distribution models vs sample models
-- Section 8.2: Dyna-Q — Tabular Dyna-Q box (Example 8.1, maze)
-- Section 8.4: Prioritized sweeping (Moore & Atkeson 1993); stochastic
-  environments use expected updates
-- Section 8.5: Expected vs sample updates — eq. (8.1) and (8.2)
-- Section 8.6/8.7: trajectory sampling / RTDP (not implemented)
+Regenerate with:
 
-## Implementation Notes
-- `TabularModel` generalizes the book's deterministic sample model to a
-  **distribution model** built from per-outcome counts; it serves both as a
-  sample model (`sample`) and a distribution model (`distribution`). This is
-  the Exercise 8.3 world model: stochastic transitions are represented as
-  outcome distributions, not collapsed to an average.
-- `make_gridworld(rows, cols, slip=0.0)`: states `'r,c'`, actions
-  up/down/left/right, +1 on entering the terminal goal, blocked moves stay
-  in place. `slip > 0` sends the two perpendicular moves `slip/2` each.
-  `slip = 0` recovers the deterministic world.
-- `dyna_q` implements the book's "Tabular Dyna-Q" steps (a)-(f): acting with
-  an epsilon-greedy policy, a direct Q-learning update, model learning, and
-  `n_planning` planning updates per real step sampled from previously
-  observed state-action pairs (eq. 8.2 sample updates).
-- `prioritized_sweeping` implements the "Prioritized sweeping" box with the
-  book's stochastic-environment extension: updates use the model's expected
-  update (eq. 8.1); predecessors are re-prioritized with the same priority
-  measure; the priority queue never holds duplicate stale entries for a pair.
-- `expected_dyna_q` is Dyna-Q with expected one-step q* updates (eq. 8.1,
-  direct assignment); `expected_sweep` performs full distribution sweeps over
-  all known pairs — exact in the limit (verified against `optimal_q_values`).
-- `compare_sample_vs_expected_dyna(env_factory, ...)` trains both variants
-  on the same stochastic MDP and reports sample/expected max error on pairs
-  each model actually knows (`known_max_q_error`) plus total `max_q_error`.
-
-## Quick Start
 ```bash
-python -m pytest chapter_08/tests/ -v
-python -m pytest
-ruff check chapter_08/
+python chapter_08/figures/generate_figures.py
+```
+
+Numbered book figures: `fig_8_3_dyna_q.png`, `fig_8_4_policies.png`,
+`fig_8_5_blocking_maze.png`, `fig_8_6_shortcut_maze.png`,
+`fig_8_7_backup_diagrams.png`, `fig_8_8_update_efficiency.png`,
+`fig_8_9_trajectory_sampling.png`, `fig_8_10_heuristic_search.png`.
+
+The book prints **no numbered figure** for Examples 8.4–8.6; their outputs are
+named `example_8_4_scaling.png`, `example_8_5_rod.png` and
+`example_8_6_rtdp_racetrack.png`.
+
+All plots are reduced-scale reproductions or **illustrative demonstrations**,
+not pixel-identical copies. In particular:
+
+- The exact cell coordinates of the blocking/shortcut mazes and the rod
+  obstacles are not printed in the book; the layouts here are reconstructions.
+- The trajectory-sampling reward model is not printed; we use `r(s,a) ~ U[0,1]`
+  with action-independent termination, which reproduces the book's qualitative
+  pattern (on-policy faster initially, relatively slower in the long run).
+- Our κ (1e-4) and maze scale differ from the book's tuning; in our blocking
+  maze plain Dyna-Q sometimes re-learns a new route after the change, whereas
+  the book's Dyna-Q stays stuck. The curves show the qualitative mechanism
+  (bonus-driven recovery), not the book's exact ordering in both phases.
+- Example 8.6 uses a small illustrative racetrack (707 reachable states) with
+  `noise_prob=0`, versus the book's 9,115-state track.
+
+## Exercises
+
+`exercises.md` covers book exercises 8.1–8.4 with student-friendly explanations
+and coding pointers into the APIs above.
+
+## Verification
+
+```bash
+python -m pytest chapter_08/tests/ -q   # 54 tests
+python -m pytest -q                      # full suite from repo root
 ```
 
 ---
 
-*Last updated: 2026-11-14*
+*Last updated: 2026-11-26*

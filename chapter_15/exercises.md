@@ -57,7 +57,7 @@ the sections themselves and are labeled **[derived]**.
   approaches expected discounted reward), so \(\delta _t\) becomes positive at the predictive **cue** and ~0 at a
   fully predicted US (\(R_{t+1} + \gamma V(S_{t+1}) \approx V(S_t)\)). Thus phasic dopamine tracks *changes in
   prediction* (RPE), not reward magnitude per se.
-- **Why this works / takeaway:** bootstrapping makes δ respond to surprise, explaining the cue shift.
+- **Explanation (student-friendly).** bootstrapping makes δ respond to surprise, explaining the cue shift.
 
 ### Derived 2 — Schultz et al.: cue→outcome shift and omission dip [derived]
 
@@ -71,7 +71,7 @@ the sections themselves and are labeled **[derived]**.
   at US \(\delta _US \approx R + 0 - V^- \approx 0\).
   (c) **Omission:** at expected US time `R=0` but `V^- > 0`, so \(\delta _US \approx 0 + 0 - V^- < 0\) (a phasic dip).
   These three signatures follow directly from the same TD error signal.
-- **Why this works / takeaway:** one RPE variable unifies burst, transfer, and omission responses.
+- **Explanation (student-friendly).** one RPE variable unifies burst, transfer, and omission responses.
 
 ### Derived 3 — Neural actor–critic [derived]
 
@@ -86,7 +86,7 @@ the sections themselves and are labeled **[derived]**.
   reinforcement signal. Neurally, the critic is often associated with VTA/SNc dopamine projections
   signaling \(\delta _t\), while the actor is associated with dorsal/ventral striatum and corticostriatal
   plasticity selecting actions; both are modulated by dopamine/RPE.
-- **Why this works / takeaway:** a shared TD error can train both action selection and value prediction.
+- **Explanation (student-friendly).** a shared TD error can train both action selection and value prediction.
 
 ### Derived 4 — Hedonistic neurons [derived]
 
@@ -99,7 +99,7 @@ the sections themselves and are labeled **[derived]**.
   wanting/RPE signaling than to liking: manipulations can increase wanting (cue-triggered pursuit,
   craving) without increasing (or while decreasing) liking. In addiction, sensitization of wanting can
   make cues compulsively motivating even when the drug is no longer pleasurable.
-- **Why this works / takeaway:** motivation ("wanting") and pleasure ("liking") are separable processes.
+- **Explanation (student-friendly).** motivation ("wanting") and pleasure ("liking") are separable processes.
 
 ### Derived 5 — Model-based methods in the brain [derived]
 
@@ -113,7 +113,7 @@ the sections themselves and are labeled **[derived]**.
   evaluation consistent with cognitive maps and planning; dorsolateral striatum is more associated with
   habits. Empirically, behavior can shift from goal-directed (devaluation-sensitive) to habitual with
   overtraining (e.g. Daw/Niv/Dayan tasks), indicating parallel systems.
-- **Why this works / takeaway:** the brain likely implements both planning and cached control.
+- **Explanation (student-friendly).** the brain likely implements both planning and cached control.
 
 ### Derived 6 — Addiction as a persistent prediction error [derived]
 
@@ -127,7 +127,7 @@ the sections themselves and are labeled **[derived]**.
   drug-seeking even without expected pleasure. Because the motivational signal is amplified/pathologically
   conditioned, behavior can persist as if prediction errors keep reinforcing pursuit, resisting normal
   devaluation.
-- **Why this works / takeaway:** maladaptive amplification of wanting sustains compulsive seeking.
+- **Explanation (student-friendly).** maladaptive amplification of wanting sustains compulsive seeking.
 
 ### Derived 7 — Collective reinforcement learning [derived]
 
@@ -141,7 +141,7 @@ the sections themselves and are labeled **[derived]**.
   \((\sigma ^2 /N)(1 + (N-1)\rho )\) (for equal pairwise correlation \(\rho\)), so diversity/redundancy still helps unless
   correlations are perfect. Distributed dopamine/value signals can thus support robust collective
   reinforcement coding.
-- **Why this works / takeaway:** population codes average noise and increase reliability.
+- **Explanation (student-friendly).** population codes average noise and increase reliability.
 
 ### Derived 8 — Actor vs critic: credit assignment depth [derived]
 
@@ -155,7 +155,7 @@ the sections themselves and are labeled **[derived]**.
   earlier actions in proportion to their decayed trace. Because \(\delta _t\) is computed from the critic’s
   value estimates, the actor’s improvement signal is bootstrapped to (and limited by) the critic’s
   predictions.
-- **Why this works / takeaway:** traces distribute credit over time, but the TD error source is the critic.
+- **Explanation (student-friendly).** traces distribute credit over time, but the TD error source is the critic.
 
 ---
 

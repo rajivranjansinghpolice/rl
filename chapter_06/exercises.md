@@ -91,7 +91,7 @@
   error is the correction term \(- \sum _{k=t+1}^{T-1} \gamma ^{k-t} (V_k(S_k) - V_{k-1}(S_k))\), i.e. minus
   the discounted accumulation of in-episode value changes. If `V` is fixed during the episode
   (`V_k = V_{k-1}`), this term vanishes and Eq. (6.6) is recovered exactly.
-- **Why this matters:** Online TD bootstraps from values that may already have been updated within
+- **Explanation (student-friendly).** Online TD bootstraps from values that may already have been updated within
   the same episode; Eq. (6.6) is exact only for batch/fixed estimates.
 - **Coding pointer:** `td0_prediction` in `chapter_06/solution.py` performs online/in-place TD(0)
   updates (`values[state] += alpha * (reward + gamma * next_v - values[state])` each step). Covered
@@ -110,7 +110,7 @@
   update \(V \leftarrow V + \alpha (G_t - V)\) (Eq. 6.1) must wait until you arrive home to observe `G_t`, so it cannot
   correct the prediction mid-episode. TD is also preferable in continuing (non-episodic) tasks or very
   long episodes where waiting for a full return is impractical or high-variance.
-- **Why this matters:** TD learns from incomplete sequences by bootstrapping; MC requires complete
+- **Explanation (student-friendly).** TD learns from incomplete sequences by bootstrapping; MC requires complete
   returns.
 - **Coding pointer:** `td0_prediction` (online TD target \(R+\gamma V(S')\)) vs.
   `mc_prediction_incremental` (first-visit, sample-average return target `G_t`) in
@@ -133,7 +133,7 @@
   on the left (e.g. a path reaching `A` and stepping left). Only `A` changed because every earlier
   transition was to a nonterminal state whose value equaled `V(A)`’s initial value; the magnitude of
   the change was \(0.5\alpha\) downward.
-- **Why this matters:** Early TD learning propagates information only where a sampled transition’s
+- **Explanation (student-friendly).** Early TD learning propagates information only where a sampled transition’s
   target differs from the current estimate.
 - **Coding pointer:** `td0_prediction`, `RandomWalkEnv`, `random_walk_true_values` in
   `chapter_06/solution.py`; `TestRandomWalkEnv` and `TestTDPrediction` in
@@ -158,7 +158,7 @@
   early, and with appropriate (often decaying) step sizes both converge to correct predictions under
   standard conditions. Comparisons should therefore be made across matched/tuned α ranges rather than
   a single value.
-- **Why this matters:** Step size controls the speed–stability (and bias–variance in practice) tradeoff.
+- **Explanation (student-friendly).** Step size controls the speed–stability (and bias–variance in practice) tradeoff.
 - **Coding pointer:** `run_random_walk_comparison(repeats, episodes, alpha, seed)` uses the same
   `alpha` for TD(0) and constant-α MC (`chapter_06/solution.py`). Validated by
   `TestExercise61.test_td0_learned_faster_than_mc` and `TestExercise61.test_td0_error_decreases`
@@ -178,7 +178,7 @@
   sufficiently small (or appropriately decreasing) step sizes satisfy stochastic-approximation
   conditions and yield stable convergence with RMS error trending down. The phenomenon also depends on
   initialization and the particular sample paths, but large constant α is the primary cause.
-- **Why this matters:** Bootstrapping plus a too-large step size can destabilize learning.
+- **Explanation (student-friendly).** Bootstrapping plus a too-large step size can destabilize learning.
 - **Coding pointer:** Compare behavior conceptually to `run_random_walk_comparison(..., alpha=...)`
   (`chapter_06/solution.py`), which reproduces the TD-vs-MC RMS comparison over episodes; tests fix
   `alpha=0.1` (`TestExercise61`).
@@ -201,7 +201,7 @@
   convergence (Eq. 4.5 / §4.1), which converges to the same fixed point for this finite episodic MRP.
   The **most direct** method here is the small linear system (Method 1), since it yields the exact
   closed-form values in one solve; the book’s stated values match this result.
-- **Why this matters:** Exact prediction targets can come from solving Bellman equations or from DP;
+- **Explanation (student-friendly).** Exact prediction targets can come from solving Bellman equations or from DP;
   TD/MC estimate them from samples.
 - **Coding pointer:** `random_walk_true_values()` returns `{A:1/6,...,E:5/6}` in
   `chapter_06/solution.py`. Verified by `TestRandomWalkEnv.test_true_values`
@@ -222,7 +222,7 @@
   the fact that transitions were generated under `b` rather than \(\pi\): actions likelier under \(\pi\) than
   `b` receive larger weight, and vice versa. (Related off-policy control, e.g. Q-learning Eq. 6.8,
   avoids explicit ρ for the greedy target by bootstrapping from `max_a Q(S_{t+1},a)`.)
-- **Why this matters:** Importance sampling enables learning about a target policy from different
+- **Explanation (student-friendly).** Importance sampling enables learning about a target policy from different
   behavior.
 - **Coding pointer:** No explicit off-policy importance-sampling TD(0) prediction function is
   implemented in `chapter_06/solution.py`; the closest implemented off-policy TD control method is
@@ -244,7 +244,7 @@
   \(G_t - Q(S_t,A_t) = \sum _{k=t}^{T-1} \gamma ^{k-t} \delta _k\),
   the action-value analogue of Eq. (6.6). If `Q` changes within the episode, a correction term
   analogous to Exercise 6.1 appears.
-- **Why this matters:** The return–TD-error relationship generalizes from `V` to `Q`, underpinning
+- **Explanation (student-friendly).** The return–TD-error relationship generalizes from `V` to `Q`, underpinning
   Sarsa and related methods.
 - **Coding pointer:** `sarsa` in `chapter_06/solution.py` uses the action-value TD error/target
   \(R_{t+1} + \gamma Q(S_{t+1},A_{t+1})\) (Eq. 6.7). Covered by `TestSarsa`
@@ -266,7 +266,7 @@
   unnecessary because diagonal moves already suffice. A full empirical answer requires running Sarsa
   (or another TD control method) on the modified environment and comparing steps-per-episode curves
   to the 4-action baseline (see Figure 6.9 companion experiment below, no numbered book figure).
-- **Why this matters:** The action set defines reachable policies; TD control learns from whatever
+- **Explanation (student-friendly).** The action set defines reachable policies; TD control learns from whatever
   transitions the environment provides.
 - **Coding pointer.** **Implemented.** `WindyGridWorld(king_moves=True, allow_stay=True)` in
   `rl_envs/windy_gridworld.py` (9 actions, wind applies after every move, including staying still),
@@ -293,7 +293,7 @@
   stochastic-wind transition and running Sarsa with exploration (e.g. ε-greedy), then comparing
   learning curves/trajectories against the deterministic case (see Figure 6.10 companion experiment
   below, no numbered book figure).
-- **Why this matters:** TD methods handle stochastic dynamics naturally through sampled backups.
+- **Explanation (student-friendly).** TD methods handle stochastic dynamics naturally through sampled backups.
 - **Coding pointer.** **Implemented.** `WindyGridWorld(king_moves=True, allow_stay=True,
   stochastic_wind=True)` in `rl_envs/windy_gridworld.py`: whenever the column’s mean wind is \(w \ge 1\),
   the effective wind is drawn uniformly from \(\{w-1, w, w+1\}\) (columns with zero mean wind stay
@@ -314,7 +314,7 @@
   ε-greedy over `Q`), which may choose non-greedy actions. Because the learned/target policy differs
   from the behavior policy, Q-learning is off-policy. (Contrast with Sarsa, Eq. 6.7, which bootstraps
   from the actually sampled `Q(S_{t+1},A_{t+1})` and is on-policy with respect to that behavior.)
-- **Why this matters:** Off-policy control can learn optimal action values while following an
+- **Explanation (student-friendly).** Off-policy control can learn optimal action values while following an
   exploratory behavior policy.
 - **Coding pointer:** `q_learning` in `chapter_06/solution.py` implements Eq. (6.8) with an
   ε-greedy behavior policy and `max` over next-state actions. Covered by `TestQLearning`
@@ -337,7 +337,7 @@
   \(Q_1(S_t,A_t) \leftarrow Q_1(S_t,A_t) + \alpha [R_{t+1} + \gamma ((1-\epsilon ) Q_2(S_{t+1}, argmax_a Q_2(S_{t+1},a)) + (\epsilon /|A|) \sum _a Q_2(S_{t+1},a)) - Q_1(S_t,A_t)]\),
   and symmetrically when updating `Q_2` (swap `Q_1/Q_2` in the target). Behavior can be, for example,
   ε-greedy with respect to `Q_1+Q_2`.
-- **Why this matters:** Double learning reduces maximization bias; the expected (over target-policy
+- **Explanation (student-friendly).** Double learning reduces maximization bias; the expected (over target-policy
   actions) form reduces target variance compared to sampling `A_{t+1}`.
 - **Coding pointer.** **Partially implemented.** Plain Double Q-learning (Eq. 6.10) is implemented as
   `double_q_learning` and evaluated by `maximization_bias_experiment` (Figure 6.7 reproduction,

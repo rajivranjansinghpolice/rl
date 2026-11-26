@@ -11,19 +11,19 @@ Reference: Sutton & Barto (2nd Ed), Chapter 8 (repo Chapter 9)
 # Book Step Mapping Table
 # | Book Step | Description                        | Code (chapter_08/solution.py)   |
 # |-----------|------------------------------------|---------------------------------|
-# | 8.2       | Tabular Dyna-Q (Alg 9.1)           | dyna_q                          |
-# | 8.4       | Prioritized sweeping (Ex 9.1)      | prioritized_sweeping            |
+# | 8.2       | Tabular Dyna-Q           | dyna_q                          |
+# | 8.4       | Prioritized sweeping      | prioritized_sweeping            |
 # | 8.4       | Priority queue with lazy deletion  | PriorityQueue                   |
 # | 8.5 (8.1) | Expected q* update                 | expected_q_target               |
-# | 8.5 (8.1) | Expected-update Dyna (Ex 9.2)      | expected_dyna_q                 |
-# | 8.5       | Full distribution sweeps (Ex 9.2)  | expected_sweep                  |
+# | 8.5 (8.1) | Expected-update Dyna      | expected_dyna_q                 |
+# | 8.5       | Full distribution sweeps  | expected_sweep                  |
 # | 8.5       | Sample vs expected comparison      | compare_sample_vs_expected_dyna |
 # | 8.1/8.3   | Distribution (counting) model      | TabularModel                    |
 # | Ex 9.3    | Stochastic gridworld experiment    | make_gridworld                  |
 
 
 # ============================================================================
-# Algorithm 9.1 (repo) / Book Section 8.2: Tabular Dyna-Q
+# Book Section 8.2: Tabular Dyna-Q
 # ============================================================================
 # Book Section 8.2: Dyna-Q (box "Tabular Dyna-Q")
 # Pseudocode: Tabular Dyna-Q for integrating planning, acting and learning
@@ -43,12 +43,12 @@ Reference: Sutton & Barto (2nd Ed), Chapter 8 (repo Chapter 9)
 
 
 def pseudocode_dyna_q():
-    """Pseudocode for Tabular Dyna-Q. Book Step 8.2 (repo Alg 9.1)."""
+    """Pseudocode for Tabular Dyna-Q. Book Section 8.2."""
     pass
 
 
 # ============================================================================
-# Exercise 9.1 (repo) / Book Section 8.4: Prioritized sweeping
+# Book Section 8.4: Prioritized sweeping
 # ============================================================================
 # Book Section 8.4: Prioritized Sweeping (box "Prioritized sweeping for a
 # deterministic environment"; stochastic extension with expected updates)
@@ -73,12 +73,12 @@ def pseudocode_dyna_q():
 
 
 def pseudocode_prioritized_sweeping():
-    """Pseudocode for prioritized sweeping. Book Step 8.4 (repo Ex 9.1)."""
+    """Pseudocode for prioritized sweeping. Book Section 8.4."""
     pass
 
 
 # ============================================================================
-# Exercise 9.2 (repo) / Book Section 8.5: Expected vs sample updates
+# Book Section 8.5: Expected vs sample updates
 # ============================================================================
 # Book Section 8.5: Expected vs. Sample Updates
 # Eq. (8.1) expected update:
@@ -94,12 +94,12 @@ def pseudocode_prioritized_sweeping():
 
 
 def pseudocode_expected_update_dyna():
-    """Pseudocode for expected-update Dyna and the comparison. Book Step 8.5 (repo Ex 9.2)."""
+    """Pseudocode for expected-update Dyna and the comparison. Book Section 8.5."""
     pass
 
 
 # ============================================================================
-# Exercise 9.3 (repo) / Book Sections 8.1-8.3: World model with stochastic
+# Book Sections 8.1-8.3: World model with stochastic
 # environments
 # ============================================================================
 # Book Section 8.1: models and planning
@@ -114,5 +114,5 @@ def pseudocode_expected_update_dyna():
 
 
 def pseudocode_stochastic_world_model():
-    """Pseudocode for the stochastic world model experiment. Book Steps 8.1-8.3 (repo Ex 9.3)."""
+    """Pseudocode for the stochastic world model experiment. Book Sections 8.1-8.3."""
     pass

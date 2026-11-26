@@ -52,7 +52,7 @@ the applied case studies and the application-relevant sections, labeled **[deriv
   \(Q*(s,a)=E[R + \gamma max_{a'} Q*(s',a') | s,a]\), `V*(s)=max_a Q*(s,a)`.
   **Representation:** with small discrete `s_max` the problem is tabular (exact DP/TD feasible); large
   catalogs or continuous inventory would motivate function approximation.
-- **Why this works / takeaway:** a clear (S,A,R,P,γ) formulation enables DP/RL methods.
+- **Explanation (student-friendly).** a clear (S,A,R,P,γ) formulation enables DP/RL methods.
 
 ### Derived 2 — Optimal order-up-to structure (inventory) [derived]
 
@@ -68,7 +68,7 @@ the applied case studies and the application-relevant sections, labeled **[deriv
   position is state-independent under these conditions. **Empirical check in this repo:** train/evaluate
   `sarsa_inventory` and inspect/evaluate the greedy policy via `evaluate_inventory_policy` (a full
   policy-iteration routine is not implemented in the repo API).
-- **Why this works / takeaway:** DP can characterize optimal policy *structure*, not just values.
+- **Explanation (student-friendly).** DP can characterize optimal policy *structure*, not just values.
 
 ### Derived 3 — Single-server queue control MDP (service speed) [derived]
 
@@ -85,7 +85,7 @@ the applied case studies and the application-relevant sections, labeled **[deriv
   As `q` grows, holding/waiting cost \(h\cdot q\) dominates, so the marginal value of faster service
   increases; this typically induces a **threshold-like** policy (expedite when `q` is high enough),
   depending on cost/probability parameters.
-- **Why this works / takeaway:** control actions trade immediate service cost against congestion cost.
+- **Explanation (student-friendly).** control actions trade immediate service cost against congestion cost.
 
 ### Derived 4 — Comparing DP and TD on applied problems [derived]
 
@@ -99,7 +99,7 @@ the applied case studies and the application-relevant sections, labeled **[deriv
   simulated dynamics but needs many samples and exploration. **Asynchronous DP** updates selected states
   in arbitrary order (e.g. prioritized or real-time), focusing computation where values are inaccurate or
   relevant—preferable when full sweeps are wasteful or states have uneven importance.
-- **Why this works / takeaway:** choose methods based on model availability, state-space size, and compute.
+- **Explanation (student-friendly).** choose methods based on model availability, state-space size, and compute.
 
 ### Derived 5 — Case-study design patterns across applications [derived]
 
@@ -113,7 +113,7 @@ the applied case studies and the application-relevant sections, labeled **[deriv
   aligned with operational goals. Inventory/queue control primarily uses (1) careful MDP formulation and
   (5) cost-based rewards; simulation may provide samples (like TD), but self-play and tree search are less
   central than in games. Feature engineering/function approximation matters when scaling beyond tabular size.
-- **Why this works / takeaway:** successful applications decompose problems into representation, objective,
+- **Explanation (student-friendly).** successful applications decompose problems into representation, objective,
   and computation choices.
 
 ### Derived 6 — Risk-sensitive applied RL [derived]
@@ -129,7 +129,7 @@ the applied case studies and the application-relevant sections, labeled **[deriv
   convention), which explicitly optimizes tail performance. In inventory control, CVaR-like criteria
   penalize severe stockouts more than mean-cost optimization; in thermal soaring, they penalize rare
   land-out events. Such metrics require estimating tail distributions, not just expectations.
-- **Why this works / takeaway:** operational reliability often depends on tail behavior, not averages.
+- **Explanation (student-friendly).** operational reliability often depends on tail behavior, not averages.
 
 ---
 

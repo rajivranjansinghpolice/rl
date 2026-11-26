@@ -74,7 +74,7 @@ part through the current-state value, not the part through the bootstrap target.
 Because the target depends on \(w\) only through the next state, the missing factor is
 \(\nabla_w \hat v(w, S_{t+1})\), scaled by \(\gamma\).
 
-**Student-friendly explanation.** Think of it as "chase the moving target, don't
+**Explanation (student-friendly).** Think of it as "chase the moving target, don't
 push the carrot." The TD error says how far off your estimate is; the semi-gradient
 steps the current estimate toward the bootstrap target. If you also differentiated
 the target, you would be trying to minimize how much the target would change, which
@@ -105,7 +105,7 @@ with the same capacity can produce identical prediction behavior yet very differ
 VE; conversely, minimizing uniform-state squared error (as in regression on a
 uniform grid) is a different objective and generally worse for sequential prediction.
 
-**Student-friendly explanation.** You are not required to model the whole world —
+**Explanation (student-friendly).** You are not required to model the whole world —
 only the part of the world you actually walk through. Optimizing for visited states
 is why on-policy prediction can be far cheaper than "solve everywhere."
 
@@ -137,7 +137,7 @@ Note the prediction objective VE is what is being minimized; this is why the
 fitted solution is exactly the projection of the wave onto the chosen subspace,
 not an interpolation.
 
-**Student-friendly explanation.** Think of fitting a wave as "give the learner a
+**Explanation (student-friendly).** Think of fitting a wave as "give the learner a
 set of building blocks" (0th, 1st, 2nd, ... cosine harmonics). The wave is built
 from block #2 exactly — so hand the learner at least block #2 and it can build the
 wave; without it, no combination of block #0 and #1 works. This is the whole
@@ -170,7 +170,7 @@ barely across the corner boundary activates a completely different tile, giving
 poor generalization across the boundary. Staggering 3–8 tilings offset by a fraction
 of a tile width removes that arbitrariness and gives a smoother approximation.
 
-**Student-friendly explanation.** It is like paving a floor with shifted grids of
+**Explanation (student-friendly).** It is like paving a floor with shifted grids of
 colored tiles. Any point touches one tile in each grid; points close together
 touch the same tiles in most grids, so the learner updates the same features.
 Shifted, overlapping grids avoid the "unlucky boundary" where a tiny step in the
@@ -204,7 +204,7 @@ or properly discounted tasks) to the TD fixed point, which is the closest vector
 \(v_\pi\) in the feature subspace as weighted by the on-policy distribution — a
 projection under the \(\mu\)-weighted norm, matching Exercise 9.2.
 
-**Student-friendly explanation.** After each step the estimate is nudged toward
+**Explanation (student-friendly).** After each step the estimate is nudged toward
 "what would have been better": the difference between the immediate reward plus
 discounted guess-after-transition and the guess-before-transition. Repeat this a lot
 and the estimate settles into the prediction the data actually supports.

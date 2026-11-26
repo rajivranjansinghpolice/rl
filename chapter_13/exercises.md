@@ -77,7 +77,7 @@
   \(dV1/dp = 2[p^2 - 4p + 2]/(p-p^2 )^2 = 0\) ⇒ \(p^2 - 4p + 2 = 0\) ⇒ \(p = 2 ± \sqrt 2\).
   Only \(p* = 2 - \sqrt 2 \approx 0.586\) is feasible. Substituting back gives
   \(V1(p*) = -2\sqrt 2 / ((2 - \sqrt 2)(\sqrt 2 - 1)) = -6 - 4\sqrt 2 \approx -11.66\).
-- **Why this works / takeaway:** function approximation forces a single stochastic policy across
+- **Explanation (student-friendly).** function approximation forces a single stochastic policy across
   states; optimizing that one parameter gives the best achievable performance
   (\(p \approx 0.59\), \(v \approx -11.6\) as reported in the book).
 
@@ -94,7 +94,7 @@
   \(\nabla _\theta ln \pi (a|s,\theta ) = x(s,a) - \nabla _\theta ln \sum _b exp(\theta ^T x(s,b))\).
   \(\nabla _\theta ln \sum _b exp(\theta ^T x(s,b)) = [\sum _b exp(\theta ^T x(s,b)) \cdot x(s,b)] / \sum _b exp(\theta ^T x(s,b)) = \sum _b \pi (b|s,\theta ) x(s,b)\).
   Hence \(\nabla _\theta ln \pi (a|s,\theta ) = x(s,a) - \sum _b \pi (b|s,\theta ) x(s,b)\). ∎
-- **Why this works / takeaway:** the softmax eligibility is the chosen action's feature minus the
+- **Explanation (student-friendly).** the softmax eligibility is the chosen action's feature minus the
   expected feature under the current policy — a centered gradient.
 
 ### Exercise 13.3 — Bernoulli-logistic unit
@@ -122,7 +122,7 @@
       For `a = 0`:  \(\nabla _\theta ln(1-P) = (1/(1-P))\cdot (-P(1-P))\cdot x(s) = -P\cdot x(s)\).
       Combined, for `a ∈ {0, 1}`:
       \(\nabla _\theta ln \pi (a|s,\theta ) = (a - \pi (1|s,\theta ))\cdot x(s)\).
-- **Why this works / takeaway:** the Bernoulli-logistic eligibility is \((a - P)\cdot x(s)\) — positive on
+- **Explanation (student-friendly).** the Bernoulli-logistic eligibility is \((a - P)\cdot x(s)\) — positive on
   a "1" sample, negative on a "0" (response-driven, as in Eq. 15.3 in Chapter 15).
 
 ---

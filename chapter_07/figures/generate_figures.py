@@ -9,6 +9,10 @@ Writes PNGs next to this script. Book figure identities refer to the
 """
 
 import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__)))))
 
 from chapter_07.solution import plot_figure_7_2
 

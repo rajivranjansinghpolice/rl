@@ -69,7 +69,7 @@
   probability \(\epsilon\) an action is drawn uniformly at random from all `k` actions, so the random choice is
   the greedy action with probability `1/k`. Hence
   \(P(greedy) = (1 - \epsilon )\cdot 1 + \epsilon \cdot (1/k) = 1 - \epsilon + \epsilon /k = 1 - 0.5 + 0.25 = 0.75\).
-- **Why this works / takeaway:** ε-greedy explores rarely when ε is small and mostly exploits when ε
+- **Explanation (student-friendly).** ε-greedy explores rarely when ε is small and mostly exploits when ε
   is large.
 
 ### Exercise 2.2 — Which steps involved the ε-case?
@@ -88,7 +88,7 @@
   - Step 4: after step 3, `Q(1) = 1, Q(2) = 1.5` → greedy is action 2, and action 2 was taken → **no ε-case occurred**.
   - Step 5: `Q(2) = 2 > Q(3) = 0` → greedy is action 2; action 3 was taken → **ε-case definitely occurred**.
   The definite ε-case selections are steps 2 and 5; step 4 involved no exploration.
-- **Why this works / takeaway:** whenever the realised action deviates from the greedy choice, an
+- **Explanation (student-friendly).** whenever the realised action deviates from the greedy choice, an
   exploration draw must have happened.
 
 ### Exercise 2.3 — Best method in the 10-armed testbed (Figure 2.2)
@@ -107,7 +107,7 @@
   In quantitative terms, the average reward over the 1000-step horizon (the area under the learning
   curve) shows greedy well below optimal, ε-greedy near optimal, and UCB best among the compared
   methods.
-- **Why this works / takeaway:** exploration strategy determines the trade-off between learning speed
+- **Explanation (student-friendly).** exploration strategy determines the trade-off between learning speed
   and asymptotic optimality.
 
 ### Exercise 2.4 — General step-size weighting
@@ -124,7 +124,7 @@
   The sample-average estimator corresponds to step size \(I_i = \delta / N_i\) (δ = 1 here), which yields
   equal weights `1/n`. In the general case, the weighting on each prior reward is determined by the
   sequence of step sizes `I_i`.
-- **Why this works / takeaway:** step-size sequences control both the weighting and (via the second
+- **Explanation (student-friendly).** step-size sequences control both the weighting and (via the second
   convergence condition) whether estimates converge.
 
 ### Exercise 2.5 — (Programming) Non-stationary experiment
@@ -137,7 +137,7 @@
   `Q(a)` each step). Prepare plots like Figure 2.2 for an action-value method using sample averages,
   incrementally computed, and another using a constant ε = 0.1 (for the ε-greedy method). Use ε = 0.1
   and longer runs, e.g., 10,000 steps.
-- **Why this works / takeaway:** sample averages assume stationarity; constant step sizes handle
+- **Explanation (student-friendly).** sample averages assume stationarity; constant step sizes handle
   non-stationarity better.
 
 ### Exercise 2.6 — Mysterious spikes in optimistic method
@@ -149,7 +149,7 @@
 - **Solution.** Optimistic initial values (`Q(a) = +5`) cause even greedy methods to explore heavily
   early on; with few samples the estimates are noisy, producing spikes and dips. The exploration drive
   is temporary, so performance can oscillate before settling.
-- **Why this works / takeaway:** optimism induces exploration; early estimates are high-variance.
+- **Explanation (student-friendly).** optimism induces exploration; early estimates are high-variance.
 
 ### Exercise 2.7 — Softmax equals logistic
 
@@ -158,7 +158,7 @@
 - **Problem:** Show that in the case of two actions, the softmax distribution is the same as the
   logistic/sigmoid function used in statistics and neural networks.
 - **Solution.** \(p(a1) = e^{H(a1)} / (e^{H(a1)} + e^{H(a2)}) = \sigma (H(a1) - H(a2))\), where \(\sigma (x) = 1/(1+e^{-x})\).
-- **Why this works / takeaway:** softmax with two actions reduces exactly to the sigmoid.
+- **Explanation (student-friendly).** softmax with two actions reduces exactly to the sigmoid.
 
 ### Exercise 2.8 — Associative search / contextual bandits
 
@@ -172,7 +172,7 @@
   behaviour cannot exploit case information. (b) With cues, the agent tracks the case and selects the
   best action per case (action 2 in case A, action 1 in case B), achieving the optimal expected
   success.
-- **Why this works / takeaway:** cues convert a non-stationary bandit into a contextual bandit.
+- **Explanation (student-friendly).** cues convert a non-stationary bandit into a contextual bandit.
 
 ### Exercise 2.9 — (Programming) Figure for the non-stationary case
 
@@ -182,7 +182,7 @@
   2.5. Include the constant-step-size ε-greedy algorithm with ε = 0.1. Use runs of 200,000 steps and,
   as the performance measure for each algorithm and parameter setting, use the average reward over the
   last 100,000 steps.
-- **Why this works / takeaway:** non-stationary problems favour constant step sizes over sample
+- **Explanation (student-friendly).** non-stationary problems favour constant step sizes over sample
   averages.
 
 ---
@@ -214,7 +214,7 @@
   but is nonzero for finite `n` (and never fully “forgets” in the sample-mean sense, since recent
   rewards are weighted more). This recency weighting is why constant \(\alpha\) tracks nonstationary
   problems better than sample averages.
-- **Why this works / takeaway:** sample averages are unbiased in the stationary case; constant-step
+- **Explanation (student-friendly).** sample averages are unbiased in the stationary case; constant-step
   estimates trade a decaying initial bias for responsiveness to recent changes.
 
 ### Derived 2 — Experiment isolating optimistic initialization [derived]
@@ -224,7 +224,7 @@
 - **Problem:** Design an experiment to separate the effect of optimistic initialization from other
   exploration mechanisms. Predict which early steps' performance will differ between the optimistic
   greedy method and an ε-greedy method on the 10-armed testbed.
-- **Why this works / takeaway:** the two mechanisms act at different times — optimism is front-loaded.
+- **Explanation (student-friendly).** the two mechanisms act at different times — optimism is front-loaded.
 
 ### Derived 3 — UCB index from a confidence argument [derived]
 
@@ -241,7 +241,7 @@
   often enough that suboptimal actions are pulled only `O(log t)` times. `ln t` (not `t`) is the
   right scale: it grows slowly enough to keep exploration efficient while still being summable as a
   failure budget. Untried actions (`N_t(a)=0`) are treated as maximizing to force initial sampling.
-- **Why this works / takeaway:** UCB commits to exploring each action `O(log t)` times, giving
+- **Explanation (student-friendly).** UCB commits to exploring each action `O(log t)` times, giving
   near-optimal regret on stationary problems.
 
 ### Derived 4 — Every action is explored infinitely often under UCB, but rarely on average [derived]
@@ -250,7 +250,7 @@
 - **Type:** Math / Theory.
 - **Problem:** Show that under the UCB rule every action is selected infinitely often, but the index
   gap for suboptimal actions grows so that their selection frequency decreases to zero.
-- **Why this works / takeaway:** the `sqrt(ln t / N)` term is unbounded as t → ∞, so any action eventually
+- **Explanation (student-friendly).** the `sqrt(ln t / N)` term is unbounded as t → ∞, so any action eventually
   gets tried; but each pull of a suboptimal action raises its `N`, shrinking the bonus.
 
 ### Derived 5 — Optimistic initialization vs UCB: practical trade-offs [derived]
@@ -259,7 +259,7 @@
 - **Type:** Theory.
 - **Problem:** Compare optimistic initialization and UCB on (a) stationary vs nonstationary problems,
   (b) simplicity/intuition, (c) when each fails. Which would you use, and when?
-- **Why this works / takeaway:** optimism helps early exploration; UCB manages exploration provably in
+- **Explanation (student-friendly).** optimism helps early exploration; UCB manages exploration provably in
   stationary settings. Neither is suited, without modification, to nonstationary tasks.
 
 ### Derived 6 — Why UCB does not extend trivially to large state spaces / function approximation [derived]
@@ -269,7 +269,7 @@
 - **Problem:** Explain why UCB1 is hard to extend beyond bandits (large state spaces, function
   approximation). Describe the general principle of optimistic value functions (OFU — optimism in the
   face of uncertainty) and its common tabular/linear instantiation (LinUCB); give its confidence set.
-- **Why this works / takeaway:** UCB counts samples per (state,action); with function approximation,
+- **Explanation (student-friendly).** UCB counts samples per (state,action); with function approximation,
   confidence must be carried by a weight-vector covariance matrix instead (the OFU/LinUCB principle).
 
 ### Derived 7 — The "disappointment" dynamic of optimistic initialization [derived]
@@ -279,7 +279,7 @@
 - **Problem:** Quantify how many steps optimistic initialization drives exploration: with `Q1 = +5`
   and `q*(a) ~ N(0, 1)`, every greedy pick starts above the true value, so the learner switches until
   rewards reveal lower values; estimate how long this lasts and why.
-- **Why this works / takeaway:** optimism is self-terminating on stationary tasks; the drive for
+- **Explanation (student-friendly).** optimism is self-terminating on stationary tasks; the drive for
   exploration disappears once all estimates drop below the initial optimism.
 
 ### Derived 8 — The tie-breaking rule for untried actions [derived]
@@ -288,7 +288,7 @@
 - **Type:** Theory.
 - **Problem:** In the book's UCB rule, actions with `N_t(a) = 0` are considered maximizing actions.
   Explain why this rule is necessary and what could go wrong without it.
-- **Why this works / takeaway:** untried actions carry no information; mandating their selection
+- **Explanation (student-friendly).** untried actions carry no information; mandating their selection
   removes the `N = 0` division ambiguity and guarantees every action is tried once.
 
 ---

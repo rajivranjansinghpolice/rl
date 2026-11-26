@@ -40,11 +40,16 @@ TODO.md
 pyproject.toml
 uv.lock
 
-# Root utility scripts
+# Root utility scripts and local-only artifacts (never publish)
 check_*.py
 test_*.py
 write_state.py
 verify_package.py
+feedback.txt
+_diag.py
+_diag2.py
+_diag3.py
+_diag4.py
 
 # OS/editor noise
 .DS_Store
@@ -54,3 +59,7 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# Re-include chapter-local test suites (must come after `test_*.py` above).
+!chapter_*/tests/
+!chapter_*/tests/*.py

@@ -72,7 +72,7 @@ collected under a behavior distribution different from the target's). Remove any
 The instability is that **none of the three alone breaks**, and the combination
 can produce an indefinite expected update map.
 
-**Student-friendly explanation.** The update chases a moving target computed from
+**Explanation (student-friendly).** The update chases a moving target computed from
 its own current answer, and the data under a different policy tells you nothing
 directly about the target's Bellman operator. If the approximation can't represent
 the fixed point well, repeated bootstrapping amplifies errors instead of
@@ -102,7 +102,7 @@ so \(I - \alpha H_\mu\) has spectral radius \(> 1\) and the iterates grow withou
 The reward-free MDP has the true value 0 everywhere — divergence here is not a
 feature of the environment's rewards but purely of the update map.
 
-**Student-friendly explanation.** The off-policy policy visits essentially only
+**Explanation (student-friendly).** The off-policy policy visits essentially only
 outer_1, so the learner constantly sees a one-sided slice of the star. Its
 compensating IS weights are huge (\(\rho_A = 50\)) and act as a random, unstable
 amplifier on the components that the slice cannot see.
@@ -139,7 +139,7 @@ semi-gradient is **not** the gradient of MSPBE; it omits the derivative of the
 bootstrap target. The projected Bellman equation is the *correct* fixed-point
 condition, and it is a clean linear system — computable exactly.
 
-**Student-friendly explanation.** There is a single, knowable answer (all zeros),
+**Explanation (student-friendly).** There is a single, knowable answer (all zeros),
 and a direct solve finds it in one shot. The dangerous algorithm is simply the
 *wrong* iterative way to get there — it bounces off the wall instead of sliding
 down to the answer.
@@ -175,7 +175,7 @@ problem and the motivation for second-order/preconditioned and true gradient-TD
 methods like GTD/TDC). Contrast with the semi-gradient, which does not converge
 at all.
 
-**Student-friendly explanation.** MSPBE is a bowl-shaped quadratic, so walking
+**Explanation (student-friendly).** MSPBE is a bowl-shaped quadratic, so walking
 downhill always works; but the bowl is long and narrow, so "downhill" meanders
 in the flat directions. It converges — slowly — while the unsafe method
 diverges. The curved direction is exactly the difference between "a correct
@@ -206,7 +206,7 @@ for this "emphasis" reweighting form and has high variance when \(\rho\) varies
 much across steps. Both are honest fixes; the repo implements the MSPBE family
 exactly and does not claim an unverified TDC recursion from memory.
 
-**Student-friendly explanation.** Both fixes stop the learner from amplifying
+**Explanation (student-friendly).** Both fixes stop the learner from amplifying
 its worst blind spot: either by explicitly minimizing the right error (MSPBE), or
 by giving more vote to the rare transitions that actually matter (emphasis).
 

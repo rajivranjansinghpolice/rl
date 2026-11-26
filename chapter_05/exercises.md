@@ -79,7 +79,7 @@ view, and (3) why the frontmost values are higher in the upper diagrams than in 
    ace have higher (or no worse) value than those without, which is why the upper surfaces sit
    above the lower ones in Figure 5.1.
 
-**Why this matters.** Monte Carlo prediction estimates \(v_\pi\) directly from sampled returns
+**Explanation (student-friendly).** Monte Carlo prediction estimates \(v_\pi\) directly from sampled returns
 (Eq. 5.1–5.2); the learned shape comes from the environment dynamics and the fixed policy.
 
 **Coding pointer.** `BlackjackEnv` and `blackjack_stick_on_threshold(stick_threshold=20)` implement
@@ -104,7 +104,7 @@ over all next states/actions by a model and no bootstrapping**; the update targe
 return \(G_t\). Averaging these targets over visits to \((s,a)\) estimates
 \(q_\pi(s,a)=\mathbb{E}_\pi[G_t\mid S_t=s,A_t=a]\) (the action-value analogue of Eq. 5.1).
 
-**Why this matters.** Without a model, action values are needed for model-free improvement
+**Explanation (student-friendly).** Without a model, action values are needed for model-free improvement
 (§5.2–§5.3), and MC backs up full returns rather than one-step expectations.
 
 **Coding pointer.** Action-value averaging/backups appear inside `mc_control_epsilon_greedy` (Q of
@@ -136,7 +136,7 @@ Q_{n+1}(s,a)=Q_n(s,a)+\frac{1}{n}\bigl(G_n - Q_n(s,a)\bigr).
 This is the sample-average action-value update; off-policy learning additionally weights \(G_t\) by
 importance ratios (Eq. 5.3–5.6, Ex. 5.7).
 
-**Why this matters.** Control improves by acting greedily/ε-greedily with respect to \(Q\) (§5.3–§5.4).
+**Explanation (student-friendly).** Control improves by acting greedily/ε-greedily with respect to \(Q\) (§5.3–§5.4).
 
 **Coding pointer.** `mc_control_epsilon_greedy` maintains per-(state,action) return lists and sets
 `q_table[state][action] = mean(returns)` (batch form of the same average). Tests: `TestOnPolicyControl`.
@@ -165,7 +165,7 @@ first increases and then decreases. Why?
   observed, the ratio stabilizes and the bias/variance tradeoff improves, so error then decreases and
   the estimator converges to the correct value (weighted IS is consistent; §5.5).
 
-**Why this matters.** Variance and small-sample bias differ: ordinary IS is unbiased but can have
+**Explanation (student-friendly).** Variance and small-sample bias differ: ordinary IS is unbiased but can have
 huge variance; weighted IS is biased (especially early) but usually much lower variance (§5.5).
 
 **Coding pointer.** `mc_off_policy_prediction(..., weighted=False)` implements ordinary IS (Eq. 5.4
@@ -203,7 +203,7 @@ growth. The rare long episodes that cause huge \(\rho\) still occur with the sam
 ordinary IS does **not** become finite-variance by changing visit definition. (Weighted IS, by
 contrast, bounds/normalizes contributions and has finite variance in this setting — §5.5.)
 
-**Why this matters.** Visit definition (first vs every) affects estimator details, but it does not
+**Explanation (student-friendly).** Visit definition (first vs every) affects estimator details, but it does not
 cure the fundamental tail/ratio explosion that makes ordinary IS variance infinite in Example 5.5.
 
 **Coding pointer.** Figure 5.3 and 5.4 are both scripted in `chapter_05/solution.py`:
@@ -236,7 +236,7 @@ and ignore later visits to \(s\) in the same episode (first-visit rule). This is
 the incremental mean, applied once per first visit. Every-visit would apply the same update on every
 visit. No list of past returns is required, only \((V, N)\).
 
-**Why this matters.** It shows MC prediction is averaging; incremental form is memory-efficient and
+**Explanation (student-friendly).** It shows MC prediction is averaging; incremental form is memory-efficient and
 generalizes to nonstationary tracking by replacing \(1/N(s)\) with a constant step size \(\alpha\).
 
 **Coding pointer.** `mc_first_visit_prediction` and `mc_every_visit_prediction` compute correct
@@ -268,7 +268,7 @@ V_{n+1}=\frac{C_n V_n + W_{n+1}G_{n+1}}{C_{n+1}}
 which is Eq. (5.6). This reduces to the ordinary sample-average update when \(W_k \equiv 1\)
 (\(C_n=n\)).
 
-**Why this matters.** This recurrence is the basis of weighted importance sampling implementations and
+**Explanation (student-friendly).** This recurrence is the basis of weighted importance sampling implementations and
 off-policy control with incremental updates (§5.6–§5.7).
 
 **Coding pointer.** Weighted incremental updates appear in `mc_control_off_policy(..., weighted=True)`
@@ -306,7 +306,7 @@ noise_prob=0.0, max_steps=100)` runs and returns 9-dimensional ε-soft policies 
 (\(\approx\)10k \(Q\)-entries). A full racetrack solve (competing with the book's tuned runs) is not
 claimed here; the environment and the MC machinery to train it are implemented and tested.
 
-**Why this matters.** It demonstrates MC control on a larger trajectory task where DP is impractical
+**Explanation (student-friendly).** It demonstrates MC control on a larger trajectory task where DP is impractical
 without an explicit model.
 
 **Coding pointer.** Implemented: `RacetrackEnv` (`rl_envs/racetrack.py`), exports in
@@ -337,7 +337,7 @@ weighting expression to \(Q(s,a)\), maintain cumulative weights per \((s,a)\), a
 as in standard off-policy MC control). Any such modification must preserve that \(\pi\) is greedy w.r.t.
 current \(Q\) and that \(b\) has coverage.
 
-**Why this matters.** Variants of weighting/discounting trade bias and variance in off-policy control;
+**Explanation (student-friendly).** Variants of weighting/discounting trade bias and variance in off-policy control;
 all rely on importance ratios (Eq. 5.3) and incremental averaging (Eq. 5.6).
 
 **Coding pointer.** **Not implemented:** the specific discounted weighting variant requested by Ex. 5.9.

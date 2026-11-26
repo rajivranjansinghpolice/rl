@@ -53,10 +53,10 @@ the frontier sections, labeled **[derived]**.
   For off-policy auxiliary prediction, importance sampling (or other corrections) may be needed; the
   simplest on-policy TD(0) update for a parameterized predictor `\hat v(s,w)` is
   `δ_t = c_{t+1} + γ_{t+1}\hat v(S_{t+1},w) - \hat v(S_t,w)`, `w ← w + α δ_t ∇_w \hat v(S_t,w)`.
-  **Why this helps the main task:** auxiliary predictions (next features, sensors, termination, etc.)
+  **Explanation (student-friendly).** auxiliary predictions (next features, sensors, termination, etc.)
   force the agent to learn state features that capture environment dynamics and structure, providing a
   richer representation and learning signal even when extrinsic reward is sparse.
-- **Why this works / takeaway:** predicting many auxiliary signals builds useful features without
+- **Explanation (student-friendly).** predicting many auxiliary signals builds useful features without
   external reward.
 
 ### Derived 2 — SMDP Q-learning [derived]
@@ -75,7 +75,7 @@ the frontier sections, labeled **[derived]**.
   **Contrast:** ordinary Q-learning is the special case `k=1` (a primitive action). The option return
   discounts across the option’s duration via \(\gamma ^k\) and bootstraps only at option termination, enabling
   multi-step temporal abstraction and fewer high-level decisions.
-- **Why this works / takeaway:** options fit the Bellman framework when rewards and discounting are
+- **Explanation (student-friendly).** options fit the Bellman framework when rewards and discounting are
   aggregated over variable option durations.
 
 ### Derived 3 — Options as temporal abstraction that accelerates learning [derived]
@@ -92,7 +92,7 @@ the frontier sections, labeled **[derived]**.
   goal with far fewer **macro decisions** than primitive-only control (see `TestOptions::test_options_solve_in_few_macro_decisions`
   and `test_options_agent_vs_primitive_only_agent`), because high-level choices jump between meaningful
   subgoals instead of replanning every primitive step.
-- **Why this works / takeaway:** reusable subgoal skills compress planning/control depth.
+- **Explanation (student-friendly).** reusable subgoal skills compress planning/control depth.
 
 ### Derived 4 — Observations and state [derived]
 
@@ -109,7 +109,7 @@ the frontier sections, labeled **[derived]**.
   where `η = 1 / P(o_{t+1} | b_t, a_t)` normalizes so that \(\sum _{s'} b_{t+1}(s') = 1\). Because optimal
   control can depend on the full history, practical agents use **memory** (recurrent policies/RNNs,
   belief trackers) to approximate latent state from observation sequences.
-- **Why this works / takeaway:** maintain/update a belief (or learned memory state) when observations are
+- **Explanation (student-friendly).** maintain/update a belief (or learned memory state) when observations are
   partial.
 
 ### Derived 5 — Designing reward signals [derived]
@@ -128,7 +128,7 @@ the frontier sections, labeled **[derived]**.
   advantages and optimal policies are preserved: `Q'*(s,a)` differs from `Q*(s,a)` by a state-dependent
   term that does not change `argmax_a`. **Pitfall:** non-potential shaping (or poorly chosen dense
   rewards) can change the optimal policy and produce reward hacking.
-- **Why this works / takeaway:** shape with potentials to guide learning without altering optimality.
+- **Explanation (student-friendly).** shape with potentials to guide learning without altering optimality.
 
 ### Derived 6 — Intrinsic motivation and novelty bonuses [derived]
 
@@ -147,7 +147,7 @@ the frontier sections, labeled **[derived]**.
   to encourage trying actions/state–action pairs whose outcomes have not been revisited recently in the
   **model/planning** loop (useful under nonstationarity), whereas intrinsic novelty bonuses directly
   augment experienced rewards to drive visitation/coverage during interaction.
-- **Why this works / takeaway:** intrinsic bonuses turn uncertainty/novelty into a learnable signal in
+- **Explanation (student-friendly).** intrinsic bonuses turn uncertainty/novelty into a learnable signal in
   sparse-reward settings.
 
 ### Derived 7 — Reinforcement learning and the future of AI [derived]
@@ -168,7 +168,7 @@ the frontier sections, labeled **[derived]**.
   assignment beyond local TD/eligibility limits; **exploration** — principled intrinsic motivation and
   information-seeking in vast state spaces; **scaling** — efficient, stable training and deployment of
   RL agents that generalize and adapt continually.
-- **Why this works / takeaway:** frontier challenges focus on generality, abstraction, and robust
+- **Explanation (student-friendly).** frontier challenges focus on generality, abstraction, and robust
   long-term learning beyond current benchmarks.
 
 ---

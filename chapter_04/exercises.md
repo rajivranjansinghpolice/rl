@@ -64,7 +64,7 @@
   - **State 7, action down:** moving down from state 7 leads to state 11, so
     \(q_\pi (7, down)= -1 + \gamma \cdot v_\pi (11)\). From Figure 4.1 (converged values for the random policy),
     \(v_\pi (11) \approx -14\), hence \(q_\pi (7, down) \approx -1 + (-14) = **-15**\).
-- **Why this works / takeaway:** an action value is one-step reward plus the discounted value of the
+- **Explanation (student-friendly).** an action value is one-step reward plus the discounted value of the
   successor state; terminal transitions yield only the immediate reward.
 
 ### Exercise 4.2 — Value of a newly added state
@@ -89,7 +89,7 @@
     \(3v_\pi (15)= -40 + v_\pi (13)\).
     Substituting gives \(3v_\pi (15)= -40 - 15 + v_\pi (15)/4 ⇒ 11v_\pi (15)/4 = -55 ⇒ **v_\pi (15)= -20**\),
     and \(v_\pi (13)= -20\) as well.
-- **Why this works / takeaway:** policy evaluation propagates value changes only through the states
+- **Explanation (student-friendly).** policy evaluation propagates value changes only through the states
   whose one-step successors are affected; you solve the resulting Bellman equations consistently.
 
 ### Exercise 4.3 — Action-value analogs of (4.3), (4.4), (4.5)
@@ -106,7 +106,7 @@
     which converges to \(q_\pi\) under the usual policy-evaluation conditions.
   Policy improvement then becomes \(\pi '(s)= argmax_a q_\pi (s,a)\) (with the usual ε-soft/tie-breaking
   qualifications as needed).
-- **Why this works / takeaway:** DP backups are identical in structure once expectations are written
+- **Explanation (student-friendly).** DP backups are identical in structure once expectations are written
   over action values instead of state values.
 
 ### Exercise 4.4 — Guaranteeing termination of policy iteration
@@ -121,7 +121,7 @@
   replace an action by another action of equal value.) In a finite MDP, each actual change then yields
   a strictly better policy, policies cannot cycle among equally good ones, and policy iteration must
   terminate at an optimal policy.
-- **Why this works / takeaway:** the policy improvement theorem needs strict improvement (or a
+- **Explanation (student-friendly).** the policy improvement theorem needs strict improvement (or a
   cycle-free tie rule) to guarantee termination.
 
 ### Exercise 4.5 (Programming) — Jack's car rental with modifications
@@ -149,7 +149,7 @@
   - transitions are exact (Poisson tails folded in; probabilities sum to 1 to machine precision);
     evaluation solves the 441×441 Bellman system directly.
   - tests: `TestJacksCarRental` in `chapter_04/tests/test_solution.py` (`python -m pytest chapter_04/tests/test_solution.py::TestJacksCarRental -v`).
-- **Why this works / takeaway:** DP applies unchanged once the modified dynamics and reward model are
+- **Explanation (student-friendly).** DP applies unchanged once the modified dynamics and reward model are
   specified.
 
 ### Exercise 4.6 — Policy iteration for `q_*`
@@ -169,7 +169,7 @@
      - \(old \leftarrow \pi (s)\); \(\pi (s) \leftarrow argmax_a q(s,a)\);
      - if \(old \ne \pi (s)\) then \(policy-stable \leftarrow false\) (apply the strict/tie-safe rule from Ex. 4.4).
   4. **Termination:** if `policy-stable` stop and return \(q \approx q_*\), \(\pi \approx \pi _*\); else go to 2.
-- **Why this works / takeaway:** greedy improvement with respect to \(q_\pi\) yields a better policy, and
+- **Explanation (student-friendly).** greedy improvement with respect to \(q_\pi\) yields a better policy, and
   evaluation/improvement alternate to the optimal action-value function.
 
 ### Exercise 4.7 — Policy iteration restricted to ε-soft policies
@@ -188,7 +188,7 @@
     policy by iterative policy evaluation using its action probabilities (Eq. 4.5).
   - **Step 1 (initialization):** start from any ε-soft policy, e.g. uniform \(\pi (a|s)=1/|A(s)|\).
   The algorithm converges to an ε-soft optimal policy.
-- **Why this works / takeaway:** the policy-improvement step must satisfy the exploration constraint
+- **Explanation (student-friendly).** the policy-improvement step must satisfy the exploration constraint
   while still being greedy in the allowed (ε-soft) class.
 
 ### Exercise 4.8 — Why the gambler's optimal policy looks "curious"
@@ -208,7 +208,7 @@
   reflect the Bellman optimality trade-off between immediate goal reach and the value of the losing
   successor state; this produces the non-monotone/triangular-looking policy seen in Figure 4.3 (and
   reproduced by `gamblers_problem(p_h=0.4)`, with smallest-stake tie-breaking (the optimal policy is non-unique per Exercise 4.9)).
-- **Why this works / takeaway:** maximizing success probability can favor bold, state-dependent bets
+- **Explanation (student-friendly).** maximizing success probability can favor bold, state-dependent bets
   when the underlying wager is unfavorable.
 
 ### Exercise 4.9 (Programming) — Value iteration for the gambler's problem
@@ -228,7 +228,7 @@
 - **Coding pointer:** `chapter_04/solution.py` provides `gamblers_problem(p_h, goal=100, theta=...)`
   and `value_iteration`; tests: `TestGamblersProblem`, `TestValueIteration`.
   Example: `python -m pytest chapter_04/tests/test_solution.py::TestGamblersProblem -v`
-- **Why this works / takeaway:** value iteration directly applies the Bellman optimality backup to the
+- **Explanation (student-friendly).** value iteration directly applies the Bellman optimality backup to the
   known MDP dynamics.
 
 ### Exercise 4.10 — Value iteration update for action values
@@ -241,7 +241,7 @@
   \(q_{k+1}(s,a)= \sum _{s',r} p(s',r | s,a) [r + \gamma max_{a'} q_k(s',a')]\), for all `s,a`
   (with the usual terminal-state convention \(q(terminal,\cdot )=0\)). This is the direct analog of (4.10),
   replacing `v_k(s')` by `max_{a'} q_k(s',a')`.
-- **Why this works / takeaway:** optimal state values are maxima over optimal action values; iterating
+- **Explanation (student-friendly).** optimal state values are maxima over optimal action values; iterating
   this backup converges to `q_*`.
 
 ---

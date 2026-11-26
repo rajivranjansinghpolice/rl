@@ -51,7 +51,7 @@ the sections themselves and are labeled **[derived]**.
   **Phase 2 (AX→US):** \(V_AX = V_A + V_B \approx \lambda + 0\), hence the prediction error
   \(\delta = \lambda - V_AX \approx 0\) and \(ΔV_B = \alpha _B \beta \delta \approx 0\). Because A already fully predicts the US, no error
   remains to drive learning for B — the **blocking** effect.
-- **Why this works / takeaway:** prediction errors drive learning; a fully predictive cue blocks
+- **Explanation (student-friendly).** prediction errors drive learning; a fully predictive cue blocks
   association to redundant cues.
 
 ### Derived 2 — TD model of classical conditioning [derived]
@@ -68,7 +68,7 @@ the sections themselves and are labeled **[derived]**.
   `V(CS)` overpredicts, driving \(V(CS) \to 0\). (c) **Fixed point:** \(E[\delta _t | S_t]=0\) implies
   \(V(S_t)=E[R_{t+1}+\gamma V(S_{t+1})]\); for a reliably predicted US this yields `V(CS)>0` (the CS
   acquires predictive value equal to the discounted/expected outcome).
-- **Why this works / takeaway:** TD’s bootstrapped error explains acquisition, extinction, and
+- **Explanation (student-friendly).** TD’s bootstrapped error explains acquisition, extinction, and
   second-order conditioning as consequences of one update rule.
 
 ### Derived 3 — Instrumental vs classical conditioning [derived]
@@ -84,7 +84,7 @@ the sections themselves and are labeled **[derived]**.
   Sarsa/Q-learning learn action values `Q(s,a)` and select actions to maximize return; because the
   policy/choice affects outcomes, they model instrumental learning. Prediction-only TD (estimating `V`)
   corresponds to classical conditioning.
-- **Why this works / takeaway:** prediction is Pavlovian/classical; control (action selection that
+- **Explanation (student-friendly).** prediction is Pavlovian/classical; control (action selection that
   changes outcomes) is instrumental.
 
 ### Derived 4 — Delayed reinforcement [derived]
@@ -100,7 +100,7 @@ the sections themselves and are labeled **[derived]**.
   \((\gamma \lambda )^k x(S_t)\) of earlier states, so credit is assigned backward across the delay. Larger \(\lambda\)
   (closer to 1) keeps traces alive longer, bridging longer delays but with higher variance; smaller
   \(\lambda\) emphasizes recent, bootstrapped credit.
-- **Why this works / takeaway:** decaying eligibility traces propagate TD errors to temporally distant
+- **Explanation (student-friendly).** decaying eligibility traces propagate TD errors to temporally distant
   causes of reward.
 
 ### Derived 5 — Cognitive maps as learned models [derived]
@@ -116,7 +116,7 @@ the sections themselves and are labeled **[derived]**.
   map-like representations. In RL terms, cognitive maps correspond to **model-based** methods (e.g.
   learning a transition model and planning, as in Dyna), whereas cached responses correspond to
   model-free value/policy learning.
-- **Why this works / takeaway:** internal models enable planning and flexible re-routing beyond cached
+- **Explanation (student-friendly).** internal models enable planning and flexible re-routing beyond cached
   habits.
 
 ### Derived 6 — Habitual vs goal-directed behavior [derived]
@@ -132,7 +132,7 @@ the sections themselves and are labeled **[derived]**.
   they evaluate the now-devalued outcome, while habitual control persists. Overtraining tends to shift
   control from model-based to model-free systems, consistent with dual-process accounts (and with
   Dyna-like planning vs direct TD control in RL).
-- **Why this works / takeaway:** devaluation sensitivity distinguishes outcome-evaluating (model-based)
+- **Explanation (student-friendly).** devaluation sensitivity distinguishes outcome-evaluating (model-based)
   from cached (model-free) control.
 
 ---

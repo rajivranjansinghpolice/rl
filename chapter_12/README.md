@@ -25,7 +25,26 @@ behavior.
 - [x] algorithm_12.4 — Watkins's Q(λ) (`watkins_q_lambda`, `watkins_lambda_return`) ✅
 
 Also included: `td_lambda_prediction` with `trace="accumulating"`
-(Section 12.2, box on p. 240).
+(Section 12.2, box on p. 240), and `chapter_12/figure_experiments.py`, which
+reuses the 19-state random walks of Chapter 7 and the tile-coded Mountain Car
+agent of Chapter 10 for the figures below.
+
+## Figures (`figures/`)
+
+Regenerate with `python chapter_12/figures/generate_figures.py`:
+
+- `fig_12_3_offline_lambda_return.png` — off-line λ-return on the 19-state walk.
+- `fig_12_6_td_lambda.png` — TD(λ) vs off-line λ-return.
+- `fig_12_8_true_online_td_lambda.png` — on-line λ-return / true online TD(λ).
+- `fig_12_10_sarsa_lambda_mountain_car.png` — Sarsa(λ) on Mountain Car.
+- `fig_12_11_sarsa_lambda_variants.png` — comparison of trace variants.
+- `fig_12_14_lambda_effects.png` — effect of λ across tasks.
+
+All are **reduced-scale illustrative reproductions**, not pixel-level copies.
+In particular, Fig. 12.14's Cart/Pole and Puddle World panels are labelled
+illustrative stand-ins: those book tasks are not reproduced here. The random
+walk panels share pre-sampled walks across parameter settings (as in the book)
+but use 5 repetitions rather than 100.
 
 ## Book Reference
 - Section 12.2 / box p. 240: semi-gradient TD(λ); accumulating traces Eq. 12.5
@@ -63,4 +82,4 @@ ruff check chapter_12/
 
 ---
 
-*Last updated: 2026-11-14*
+*Last updated: 2026-11-26*
