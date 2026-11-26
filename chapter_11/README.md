@@ -40,6 +40,15 @@ and gradient-corrected objectives (MSPBE) on an exactly-enumerable counterexampl
   justification.
 
 ## Figures
+
+Regenerate with `python chapter_11/figures/generate_figures.py`. Figure
+numbers 11.2/11.6/11.7 were verified against the local 2nd-edition PDF.
+The Baird-star panels use expected (full-distribution) updates, not sampled
+transitions, so they are labelled illustrative reproductions.
+
+- `figures/fig_11_2_baird_divergence.png` — semi-gradient divergence (Fig. 11.2)
+- `figures/fig_11_6_tdc_baird.png` — TDC on Baird's star (Fig. 11.6)
+- `figures/fig_11_7_emphatic_td_baird.png` — one-step emphatic TD (Fig. 11.7)
 - `figures/example_11_1_divergence.png` — semi-gradient off-policy TD, ||w|| on log scale,
   diverging (illustrative demonstration).
 - `figures/example_11_2_mspbe.png` — MSPBE gradient descent: monotone (conditioning-limited)
@@ -51,8 +60,8 @@ and gradient-corrected objectives (MSPBE) on an exactly-enumerable counterexampl
   is indefinite; this is computed exactly (lstsq eigen-solve), not sampled.
 - All functions operate on NumPy arrays; import as a package:
   `from chapter_11.solution import ...`.
-- Exact book figure identity cannot be verified against the local PDF summary;
-  figures are labelled illustrative.
+- Exact book figure numbers are now verified against the local PDF; all plots
+  are illustrative reduced-scale reproductions, not pixel-level copies.
 
 ## Quick Start
 ```bash

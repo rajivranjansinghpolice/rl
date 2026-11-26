@@ -38,6 +38,15 @@ basis, tile coding, and RMS error measurement.
 - **Episodic semi-gradient control** — this is Chapter 10 and is implemented there.
 
 ## Figures
+
+Regenerate with `python chapter_09/figures/generate_figures.py`. Figure numbers
+9.1/9.2/9.5/9.10 were verified against the local 2nd-edition PDF; the
+reproductions are reduced-scale (100 states instead of 1000).
+
+- `figures/fig_9_1_state_aggregation_mc.png` — state aggregation, gradient MC (Fig. 9.1)
+- `figures/fig_9_2_state_aggregation_td.png` — state aggregation with bootstrapping (Fig. 9.2)
+- `figures/fig_9_5_fourier_vs_polynomial.png` — Fourier vs polynomial bases (Fig. 9.5)
+- `figures/fig_9_10_tilings.png` — single vs multiple tilings (Fig. 9.10)
 - `figures/example_9_1_wavelength_fourier.png` — Fourier-basis fit of cos(2*pi*x) for
   orders 0–5 (illustrative demonstration of Sections 9.2/9.4.5; not a claimed
   numbered book figure — see the book-identity note in `exercises.md`).

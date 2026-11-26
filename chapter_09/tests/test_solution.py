@@ -136,3 +136,35 @@ class TestWavelengthTask:
         high_err = np.sqrt(np.mean(
             (true_values - np.array([linear_value(high, f) for f in high_feats])) ** 2))
         assert high_err < low_err
+
+
+class TestFigureExperiments:
+    """Reduced-scale data behind Figs 9.1, 9.2, 9.5 and 9.10."""
+
+    def test_figure_9_1_data(self):
+        from chapter_09.figure_experiments import figure_9_1_data
+
+        d = figure_9_1_data(n_states=20, episodes=3)
+        assert len(d["states"]) == 20
+        assert len(d["true"]) == len(d["approx"]) == len(d["mu"]) == 20
+        assert np.all(d["mu"] >= 0)
+
+    def test_figure_9_2_data(self):
+        from chapter_09.figure_experiments import figure_9_2_data
+
+        d = figure_9_2_data(n_states=20, episodes=2, repeats=1)
+        assert set(d["curves"]) == {1, 2, 4, 8, 16}
+        assert all(len(v) == len(d["alphas"]) for v in d["curves"].values())
+
+    def test_feature_families(self):
+        from chapter_09.figure_experiments import (
+            aggregation_features,
+            polynomial_features,
+            tiling_features_1d,
+        )
+
+        assert aggregation_features([1, 5, 9], 10, 2).shape == (3, 2)
+        assert polynomial_features(np.array([0.2, 0.8]), 3).shape == (2, 4)
+        f = tiling_features_1d(np.array([0.1, 0.9]), 2, 4)
+        assert f.shape == (2, 8)
+        assert np.allclose(f.sum(axis=1), 2.0)

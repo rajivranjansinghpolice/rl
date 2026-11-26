@@ -52,8 +52,9 @@ policy for continuous actions.
   dV1/dp (numerically stable from p in (0,1)); `run_short_corridor_value_ascent`
   converges deterministically to p*, while `run_short_corridor_reinforce`
   demonstrates empirical REINFORCE (high-variance with all-negative rewards).
-  Figures 13.1 and 13.2 are reproduced as illustrative demonstrations; exact
-  book-figure identities cannot be verified against the local PDF summary.
+  Figures 13.1 (REINFORCE on the short-corridor gridworld) and 13.2 (REINFORCE
+  with vs without a baseline) were verified against the local 2nd-edition PDF.
+  The plots are reduced-scale illustrative reproductions, not pixel-level copies.
 - Import as a package (`from chapter_13.solution import ...`); see
   `chapter_13/__init__.py` for the package marker.
 

@@ -103,3 +103,31 @@ class TestAccessControlQueue:
         agent, moving = run_access_control(n_steps=300, seed=0, plot_window=50)
         assert np.isfinite(agent.r_bar)
         assert len(moving) == 300 - 50 + 1
+
+
+class TestFigureExperiments:
+    """Reduced-scale data behind Figs 10.1-10.5."""
+
+    def test_nstep_mountain_car(self):
+        from chapter_10.figure_experiments import run_nstep_mountain_car
+
+        w, lengths, snaps = run_nstep_mountain_car(
+            n=2, alpha=0.5, episodes=3, max_steps=50, snapshots=(1,))
+        assert w.shape[0] == 3
+        assert len(lengths) == 3 and all(0 < n <= 50 for n in lengths)
+        assert 1 in snaps
+
+    def test_cost_to_go_grid(self):
+        from chapter_10.figure_experiments import cost_to_go_grid
+
+        weights = np.zeros((3, 8 * 8 * 8))
+        positions, velocities, grid = cost_to_go_grid(weights, 4, 3)
+        assert len(positions) == 4 and len(velocities) == 3
+        assert grid.shape == (4, 3)
+
+    def test_access_control_heatmaps(self):
+        from chapter_10.figure_experiments import figure_10_5_data
+
+        d = figure_10_5_data(n_steps=200)
+        assert d["value"].shape == (11, 11)
+        assert d["policy"].shape == (11, 11)

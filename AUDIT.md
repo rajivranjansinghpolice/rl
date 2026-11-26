@@ -22,6 +22,9 @@ API reproduces an algorithm when it only illustrates part of it.
 | Ch 8 §8.6 | Trajectory sampling | `trajectory_sampling_experiment` |
 | Ch 8 §8.7 ex 8.6 | RTDP vs value iteration on a racetrack | `chapter_08/rtdp.py` using the shared `rl_envs.racetrack` |
 | Ch 8 figures | Verified Fig. 8.3/8.4/8.7–8.10; blocking & shortcut as `example_8_2_*`/`example_8_3_*` (not Fig. 8.5/8.6); Examples 8.4–8.6 | `chapter_08/figures/generate_figures.py` |
+| Ch 9 figs 9.1/9.2/9.5/9.10 | Reduced-scale reproductions | `chapter_09/figure_experiments.py`, `chapter_09/figures/generate_figures.py` |
+| Ch 10 figs 10.1–10.5 | Reduced-scale reproductions, incl. n-step semi-gradient Sarsa | `chapter_10/figure_experiments.py`, `chapter_10/figures/generate_figures.py` |
+| Ch 11 figs 11.2/11.6/11.7 | Expected-update Baird-star reproductions (TDC, emphatic TD) | `chapter_11/figure_experiments.py`, `chapter_11/figures/generate_figures.py` |
 | Ch 12 figs 12.3/12.6/12.8/12.10/12.11/12.14 | Reduced-scale reproductions | `chapter_12/figure_experiments.py`, `chapter_12/figures/generate_figures.py` |
 | All chapters | Student-friendly explanation after every exercise answer | `chapter_XX/exercises.md`, `**Explanation (student-friendly).**` markers |
 
@@ -96,6 +99,13 @@ Documented per chapter in `chapter_XX/README.md`. Summary:
   in phase 1 (the opposite of the book), so those outputs are named
   `example_8_2_*`/`example_8_3_*` and are never cited as Fig. 8.5/8.6.
   Example 8.6 uses a small racetrack (707 states) rather than the book's 9,115.
+- Ch 9/10/11: figure identities verified from the local PDF, but all
+  reproductions use reduced scales (100 vs 1000 random-walk states, fewer
+  Mountain Car episodes, 20k vs 2M access-control steps). Baird-counterexample
+  panels use expected (full-distribution) updates rather than the book's
+  sampled transitions; the expected semi-gradient TD update here is stable,
+  while the DP-style expected update diverges — only the latter reproduces
+  the book's instability panel.
 - Ch 12: reduced-scale random-walk and Mountain Car experiments (5 repetitions
   vs 100). Fig. 12.14 reproduces only two of the book's four panels; the
   Cart/Pole and Puddle World panels are empty with an explicit notice. Earlier

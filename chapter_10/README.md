@@ -36,6 +36,16 @@ semi-gradient Sarsa on the continuing Access-Control Queuing problem.
   the same justification as Chapter 9.
 
 ## Figures
+
+Regenerate with `python chapter_10/figures/generate_figures.py`. Figure
+numbers 10.1–10.5 were verified against the local 2nd-edition PDF; these
+are reduced-scale illustrative reproductions.
+
+- `figures/fig_10_1_cost_to_go.png` — cost-to-go at several episodes (Fig. 10.1)
+- `figures/fig_10_2_mountain_car_alpha.png` — learning curves vs α (Fig. 10.2)
+- `figures/fig_10_3_nstep_mountain_car.png` — n=1 vs n=8 (Fig. 10.3)
+- `figures/fig_10_4_alpha_n_grid.png` — α × n early performance (Fig. 10.4)
+- `figures/fig_10_5_access_control.png` — policy/value heatmaps (Fig. 10.5)
 - `figures/example_10_2_mountain_car.png` — Mountain Car learning curve
   (illustrative; Sec. 10.1).
 - `figures/example_10_1_access_control.png` — average reward per step vs time on

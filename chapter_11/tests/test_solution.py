@@ -131,3 +131,16 @@ class TestSemiGradientOffPolicy:
         traj = agent.run(1200)
         norms = np.linalg.norm(traj, axis=1)
         assert norms[-1] > norms[0] * 2.0
+
+
+class TestFigureExperiments:
+    """Expected-update data behind Figs 11.2, 11.6, 11.7."""
+
+    def test_expected_update_modes(self):
+        from chapter_11.figure_experiments import run_expected
+
+        init = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 10.0])
+        for mode in ("semi_gradient_td", "semi_gradient_dp", "tdc", "emphatic"):
+            traj = run_expected(mode, n_steps=5, alpha=0.01, init=init)
+            assert traj.shape == (6, 6)
+            assert np.all(np.isfinite(traj))

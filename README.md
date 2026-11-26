@@ -47,6 +47,10 @@ important deviations are:
 - `chapter_12/`: random-walk figures use 5 repetitions instead of 100; Fig. 12.14
   reproduces only two of four panels — the Cart/Pole and Puddle World panels
   are empty with an explicit notice (no fabricated data).
+- `chapter_09/`–`chapter_11/`: figures 9.1/9.2/9.5/9.10, 10.1–10.5 and
+  11.2/11.6/11.7 are now implemented at reduced scale (100 vs 1000 walk
+  states, fewer Mountain Car episodes, expected rather than sampled updates
+  for Baird's counterexample).
 - `chapter_03/`–`chapter_16/`: several experiments use fewer runs/episodes
   than the printed book; see each chapter `README.md` for its exact settings.
 
