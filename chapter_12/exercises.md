@@ -23,7 +23,7 @@
 
 ## How to Use This Document
 
-- Each exercise lists **Book location**, **Type**, **Paraphrased problem**, **Solution/derivation**, and **Coding pointer** (or theory-only note).
+- Each exercise lists **Book location**, **Type**, **Paraphrased problem**, and a worked answer in the five-part house style (**Hook**, **Formal bridge**, **Reasoning chain**, **Why it makes sense**, **Check your understanding**), plus a **Where this shows up in the code** pointer (or theory-only note).
 - Verify mapped code with:
   - `python -m pytest chapter_12/tests/ -v`
   - `python -m pytest chapter_12/tests/ -v`
@@ -37,224 +37,574 @@
 - **Book location:** §12.1 (The λ-return), pp. ~255–256; uses (12.1), (12.2), (12.3).
 - **Type:** Math.
 - **Paraphrased problem:** The ordinary return satisfies a one-step recursion (as in Ch. 3, Eq. 3.9). Derive the analogous recursion for the λ-return defined by (12.1)–(12.2).
-- **Solution/derivation:**
-  Let the n-step return be
-  `G_{t:t+n} = \sum_{k=0}^{n-1} γ^k R_{t+k+1} + γ^n V(S_{t+n})` ((12.1), with `V` the bootstrap value), and for the continuing/infinite-horizon form
-  `G_t^λ = (1-λ) \sum_{n=1}^{∞} λ^{n-1} G_{t:t+n}` ((12.2)).
-  Note \(G_{t:t+1}=R_{t+1}+\gamma V(S_{t+1})\) and, for `n>=2`, \(G_{t:t+n}=R_{t+1}+\gamma G_{t+1:t+n}\). Substitute:
-  `G_t^λ = (1-λ)G_{t:t+1} + (1-λ)\sum_{n=2}^{∞} λ^{n-1}(R_{t+1}+γG_{t+1:t+n})`.
-  Since `(1-λ)\sum_{n=1}^{∞}λ^{n-1}=1`, the reward terms collect to `R_{t+1}`. With index shift `m=n-1`,
-  `(1-λ)\sum_{n=2}^{∞} λ^{n-1}G_{t+1:t+n} = λ (1-λ)\sum_{m=1}^{∞} λ^{m-1}G_{t+1:t+1+m} = λ G_{t+1}^λ`.
-  Therefore the λ-return recursion is
-  `G_t^λ = R_{t+1} + γ\left[(1-λ)\,V(S_{t+1}) + λ\,G_{t+1}^λ\right]`  (cf. (12.3)).
-  **Checks:** at \(\lambda =0\), \(G_t^\lambda = R_{t+1}+\gamma V(S_{t+1})=G_{t:t+1}\) (one-step return). At \(\lambda =1\), \(G_t^\lambda = R_{t+1}+\gamma G_{t+1}^\lambda\), which unfolds to the full Monte Carlo return (with the usual episodic terminal convention).
-**Explanation (student-friendly).** The lambda-return is a weighted average of all n-step returns. Peeling off the first n-step return leaves the same kind of average starting one step later, which is exactly the recursive form — lambda = 0 keeps only the first piece, lambda = 1 keeps only the full return.
 
-- **Coding pointer:** `chapter_12/solution.py:td_lambda_prediction` is the backward-view TD(λ) prediction algorithm whose forward-view target is the λ-return; see `TestTDLambdaPrediction` (`test_lambda_zero_matches_td0`, `test_high_lambda_close_to_true_values`) for the \(\lambda =0\) and high-\(\lambda\) behavior implied by this recursion.
+**Hook.** The λ-return is an average of infinitely many n-step returns. Peeling off the first one should leave the same kind of average starting one step later — that is the recursion we are after.
+
+**Formal bridge.** The n-step return and the λ-return are
+
+\[
+G_{t:t+n}=\sum_{k=0}^{n-1}\gamma^kR_{t+k+1}+\gamma^nV(S_{t+n}),
+\qquad
+G_t^\lambda=(1-\lambda)\sum_{n=1}^{\infty}\lambda^{n-1}G_{t:t+n}.
+\tag{12.1.1}
+\]
+
+where \(G_{t:t+n}\) is the n-step return, \(G_t^\lambda\) the λ-return, \(V\) the bootstrap value, \(\gamma\) the discount, \(\lambda\in[0,1]\) the mixing parameter, and \(R_{t+k+1}\) the reward \(k+1\) steps ahead.
+
+**Reasoning chain.** Note \(G_{t:t+1}=R_{t+1}+\gamma V(S_{t+1})\) and, for \(n\ge2\), \(G_{t:t+n}=R_{t+1}+\gamma G_{t+1:t+n}\). Substituting into (12.1.1) gives
+
+\[
+G_t^\lambda=(1-\lambda)G_{t:t+1}
++(1-\lambda)\sum_{n=2}^{\infty}\lambda^{n-1}\bigl(R_{t+1}+\gamma G_{t+1:t+n}\bigr).
+\tag{12.1.2}
+\]
+
+Since \((1-\lambda)\sum_{n=1}^{\infty}\lambda^{n-1}=1\), the reward terms collect to \(R_{t+1}\). With the index shift \(m=n-1\),
+
+\[
+(1-\lambda)\sum_{n=2}^{\infty}\lambda^{n-1}G_{t+1:t+n}
+=\lambda(1-\lambda)\sum_{m=1}^{\infty}\lambda^{m-1}G_{t+1:t+1+m}
+=\lambda G_{t+1}^\lambda .
+\tag{12.1.3}
+\]
+
+The \(n=1\) piece contributes \((1-\lambda)\gamma V(S_{t+1})\), so the λ-return recursion is
+
+\[
+G_t^\lambda=R_{t+1}+\gamma\Bigl[(1-\lambda)V(S_{t+1})+\lambda G_{t+1}^\lambda\Bigr].
+\tag{12.1.4}
+\]
+
+**Why it makes sense.** Check the two ends of the \(\lambda\) dial. At \(\lambda=0\), (12.1.4) gives \(G_t^\lambda=R_{t+1}+\gamma V(S_{t+1})=G_{t:t+1}\), the one-step return. At \(\lambda=1\), it gives \(G_t^\lambda=R_{t+1}+\gamma G_{t+1}^\lambda\), which unfolds to the full Monte-Carlo return with the usual episodic terminal convention. The recursion interpolates between these extremes one step at a time, which is exactly what a weighted average of all n-step returns should do.
+
+**Check your understanding.** Prediction: setting \(\lambda=0\) collapses (12.1.4) to a single bootstrap step; nudging \(\lambda\) upward gives the later, recursive term more weight, so information from farther ahead enters sooner — but at \(\lambda=1\) the recursion must wait until the episode terminates.
+
+**Where this shows up in the code.** `chapter_12/solution.py:td_lambda_prediction` is the backward-view TD(λ) prediction algorithm whose forward-view target is the λ-return; see `TestTDLambdaPrediction` (`test_lambda_zero_matches_td0`, `test_high_lambda_close_to_true_values`) for the \(\lambda=0\) and high-\(\lambda\) behavior implied by this recursion.
 
 ### Exercise 12.2 — λ and the half-life of trace weighting [traces]
 
 - **Book location:** §12.1, p. ~256 (Figure 12.2 weighting discussion).
 - **Type:** Computation / Math.
-- **Paraphrased problem:** The weighting on later n-step returns in the λ-return decays geometrically in \(\lambda\). Relate \(\lambda\) to a half-life `τ_{1/2}` (or \(\lambda _h\)), the horizon after which the geometric factor has fallen to half its initial size.
-- **Solution/derivation:**
-  In (12.2) the n-step component is weighted proportionally to \(\lambda ^{n-1}\). Taking the factor relative to `n=1` as \(\lambda ^{k}\) after `k=n-1` additional steps, the half-life satisfies \(\lambda ^{τ_{1/2}} = 1/2\) (for \(0<\lambda <1\)).
-  Solving gives `τ_{1/2} = \ln(1/2) / \ln(λ) = -\ln 2 / \ln(λ)` (steps, in the same step units as the decay). Equivalently, to achieve a desired half-life `τ_{1/2}` choose `λ = 2^{-1/τ_{1/2}} = exp(-\ln 2 / τ_{1/2})`.
-  **Sanity:** \(\lambda \to 1\) ⇒ very long half-life; small \(\lambda\) ⇒ short half-life (near one-step).
-**Explanation (student-friendly).** The extra n-step returns are weighted (1-lambda) lambda^(n-1). Halving that weight takes about log(1/2)/log(lambda) steps, so small lambda gives a short effective horizon and lambda near 1 looks far ahead. This converts an abstract parameter into 'how many steps ago still matters half as much'.
+- **Paraphrased problem:** The weighting on later n-step returns in the λ-return decays geometrically in \(\lambda\). Relate \(\lambda\) to a half-life \(\tau_{1/2}\) (or \(\lambda_h\)), the horizon after which the geometric factor has fallen to half its initial size.
 
-- **Coding pointer:** Theory-only (parameter-interpretation). Relevant knobs: `lam` in `td_lambda_prediction`, `sarsa_lambda_replacing`, `sarsa_lambda_clearing`, `true_online_td_lambda`.
+**Hook.** \(\lambda\) is an abstract number between 0 and 1. Translating it into "how many steps ago still matters half as much" makes it much easier to set in practice.
+
+**Formal bridge.** In (12.2) the n-step component is weighted proportionally to \(\lambda^{n-1}\). Relative to \(n=1\), after \(k=n-1\) additional steps the factor is \(\lambda^k\), so the half-life satisfies
+
+\[
+\lambda^{\tau_{1/2}}=\frac12,
+\qquad
+\tau_{1/2}=\frac{\ln(1/2)}{\ln\lambda}=\frac{-\ln 2}{\ln\lambda}.
+\tag{12.2.1}
+\]
+
+where \(\lambda\in(0,1)\) is the decay parameter, \(k\) counts steps beyond \(n=1\), and \(\tau_{1/2}\) is the half-life in the same step units as the decay.
+
+**Reasoning chain.** Solving (12.2.1) for the desired half-life gives
+
+\[
+\lambda=2^{-1/\tau_{1/2}}=\exp\!\left(-\frac{\ln 2}{\tau_{1/2}}\right).
+\tag{12.2.2}
+\]
+
+So a smaller \(\lambda\) means a shorter half-life and a more myopic λ-return; a \(\lambda\) very close to 1 means a long half-life and a far-looking return. The constant factor \((1-\lambda)\) in (12.2) only normalises the weights — the decay from one n-step component to the next is entirely governed by \(\lambda^{n-1}\), which is why (12.2.1) captures the effective horizon.
+
+**Why it makes sense.** Think of \(\lambda\) as the retention rate of a memory. If each step retains 90% of the previous weight, it takes a few steps to fall to half; if it retains 99%, it takes many. The direction is unavoidable: \(\lambda\to1\) makes \(\ln\lambda\to0^-\), so \(\tau_{1/2}\to\infty\). A near-one \(\lambda\) therefore behaves almost like Monte Carlo, while small \(\lambda\) behaves almost like one-step TD.
+
+**Check your understanding.** Prediction: doubling the desired half-life in (12.2.2) requires taking the square root of \(\lambda\), moving it closer to 1; halving it squares \(\lambda\), moving it much closer to 0.
+
+**Where this shows up in the code.** Theory-only (parameter-interpretation). Relevant knobs: `lam` in `td_lambda_prediction`, `sarsa_lambda_replacing`, `sarsa_lambda_clearing`, `true_online_td_lambda`.
 
 ### Exercise 12.3 — Offline λ-return error as a sum of TD errors [traces]
 
 - **Book location:** §12.2, p. ~260; offline λ-return algorithm (12.4) and TD error (12.6), by analogy with (6.6).
 - **Type:** Math / Proof.
 - **Paraphrased problem:** For a fixed value/weight vector over an episode, show that the offline λ-return error \(G_t^\lambda - V(S_t)\) can be written as a discounted sum of TD errors (cf. Exercise 12.1 and Ch. 6’s n-step/MC↔TD identities).
-- **Solution/derivation:**
-  Hold `V` (or `\hat v(\cdot,w)`) fixed. Define \(\delta _t = R_{t+1} + \gamma V(S_{t+1}) - V(S_t)\) ((12.6), with terminal bootstrap 0). From Ex. 12.1,
-  `G_t^λ - V(S_t) = R_{t+1}+γV(S_{t+1})-V(S_t) + γλ\,(G_{t+1}^λ - V(S_{t+1})) = δ_t + γλ\,(G_{t+1}^λ - V(S_{t+1}))`.
-  Unrolling to the terminal time `T` (with \(G_T^\lambda = V(S_T)\) = 0 at termination) yields
-  `G_t^λ - V(S_t) = \sum_{k=t}^{T-1} (γλ)^{k-t}\, δ_k`.
-  (With changing weights this is the identity underlying the forward/backward-view relationship; it becomes an exact per-episode algebraic identity when \(V/\delta _k\) are evaluated consistently/fixed as assumed.)
-**Explanation (student-friendly).** With the value function held still, the same telescoping trick used for n-step returns applies: each reward is a TD error plus a difference of neighbouring values, and the intermediate differences cancel. The remaining sum shows that lambda-return updates are just a discounted collection of one-step TD signals.
 
-- **Coding pointer:** Theory-only derivation; motivates `td_lambda_prediction` (`chapter_12/solution.py`) and the forward/backward-view equivalence ideas exercised in `TestTDLambdaPrediction`.
+**Hook.** The same telescoping trick as for n-step returns works for the λ-return, provided the value function stands still while we do the algebra.
+
+**Formal bridge.** With \(V\) (or \(\hat v(\cdot,w)\)) held fixed, define the one-step TD error
+
+\[
+\delta_t=R_{t+1}+\gamma V(S_{t+1})-V(S_t),
+\tag{12.3.1}
+\]
+
+with terminal bootstrap \(0\). From Exercise 12.1's recursion,
+
+\[
+G_t^\lambda-V(S_t)=\delta_t+\gamma\lambda\bigl(G_{t+1}^\lambda-V(S_{t+1})\bigr).
+\tag{12.3.2}
+\]
+
+where \(G_t^\lambda\) is the λ-return, \(V\) the fixed value estimate, \(\delta_t\) the TD error, \(R_{t+1}\) the reward, and \(\gamma\lambda\) the effective per-step decay of the λ-return error.
+
+**Reasoning chain.** Subtract \(V(S_t)\) from the recursion (12.1.4) and regroup the first terms: \(R_{t+1}+\gamma V(S_{t+1})-V(S_t)\) is exactly \(\delta_t\), leaving (12.3.2). Unrolling that recurrence to the terminal time \(T\), with \(G_T^\lambda=V(S_T)=0\) at termination, gives
+
+\[
+G_t^\lambda-V(S_t)=\sum_{k=t}^{T-1}(\gamma\lambda)^{k-t}\,\delta_k.
+\tag{12.3.3}
+\]
+
+Every intermediate \(V(S_k)\) cancels, just as in the n-step case, because each reward is a TD error plus a difference of neighbouring values. With changing weights this identity underlies the forward/backward-view relationship; it becomes an exact per-episode algebraic identity when \(V\) and \(\delta_k\) are evaluated consistently with the fixed estimates assumed here.
+
+**Why it makes sense.** A λ-return update is just a discounted collection of one-step TD signals. At \(\lambda=0\), (12.3.3) keeps only \(\delta_t\) — ordinary one-step TD. At \(\lambda=1\) it adds every later error without the extra \(\lambda\) decay, matching the Monte-Carlo-style full return. The decay \(\gamma\lambda\) shrinking the contribution of later errors is the right direction: later errors rest on more bootstrap estimates, so they should carry less weight when λ is small.
+
+**Check your understanding.** Prediction: holding \(\gamma\) fixed and lowering \(\lambda\) makes the sum in (12.3.3) concentrate on early \(\delta_k\); raising \(\lambda\) toward 1 gives late errors increasing influence, until at \(\lambda=1\) all remaining steps count equally apart from discounting.
+
+**Where this shows up in the code.** Theory-only derivation; motivates `td_lambda_prediction` (`chapter_12/solution.py`) and the forward/backward-view equivalence ideas exercised in `TestTDLambdaPrediction`.
 
 ### Exercise 12.4 — Modified online TD(λ) using a pre-update baseline [traces]
 
 - **Book location:** §12.2, p. ~260.
 - **Type:** Theory / Math.
-- **Paraphrased problem:** Consider redefining the TD error with a pre-update baseline, `\hatδ_t = R_{t+1} + γV_t(S_{t+1}) - V_{t-1}(S_t)`, and argue/show that a correspondingly modified online TD(λ) can achieve the exact per-state increment `ΔV_t(S_t)=α\,[G_t^λ - V_{t-1}(S_t)]` even with online updating/large \(\alpha\). Discuss tradeoffs and sketch an experiment to compare with conventional online TD(λ).
-- **Solution/derivation (sketch, as asked):**
-  - **Why equivalence can hold:** Conventional online TD(λ) changes `V` during the episode so later TD errors/targets are computed against already-updated values, breaking exact equality to the offline λ-return target based on `V_{t-1}`. By anchoring the “error being corrected” at the pre-update baseline `V_{t-1}(S_t)` (and carrying the effect of within-episode updates into the trace/target accounting, as in the online λ-return / true-online line of derivations in §12.4–§12.5), each visited state’s net increment can be arranged to match \(\alpha (G_t^\lambda - V_{t-1}(S_t))\) for the λ-return computed with the pre-episode values.
-  - **Possible advantages:** exact forward-view/λ-return equivalence at any \(\alpha\); clearer target semantics.
-  - **Possible disadvantages:** more bookkeeping/memory or computation than standard TD(λ); sensitivity/behavior differs on continuing tasks or with function approximation; practical gains may be small versus simpler true-online variants.
-  - **Experiment sketch:** On a prediction benchmark (e.g. random walk, cf. repo’s `chapter_06.solution.RandomWalkEnv` used by ch.8 tests), run conventional TD(λ), the modified method, and true online TD(λ) across \(\alpha , \lambda\); compare RMS value error vs. the known/estimated true values over episodes (learning curves) and sensitivity to \(\alpha\).
-**Explanation (student-friendly).** The online update normally changes V(S_t) before the error is formed, so the identity breaks. Measuring the error against the pre-update value restores exactness: each state then receives precisely the increment the offline lambda-return would have given it, even with a large step size.
+- **Paraphrased problem:** Consider redefining the TD error with a pre-update baseline, `\hatδ_t = R_{t+1} + γV_t(S_{t+1}) - V_{t-1}(S_t)`, and argue/show that a correspondingly modified online TD(λ) can achieve the exact per-state increment `ΔV_t(S_t)=α[G_t^λ - V_{t-1}(S_t)]` even with online updating/large α. Discuss tradeoffs and sketch an experiment to compare with conventional online TD(λ).
 
-- **Coding pointer:** No direct implementation of this modified baseline in repo. Closest implemented methods: `chapter_12/solution.py:td_lambda_prediction` (conventional backward-view TD(λ)) and `chapter_12/solution.py:true_online_td_lambda` (true online TD(λ), dutch-trace/online λ-return lineage, §12.5/Eq. 12.14–12.16 tabular form), with `TestTrueOnlineTDLambda`.
+**Hook.** Online TD(λ) changes the value before the error is formed, which breaks the clean offline identity. Measuring the error against the pre-update value is a way to restore it.
+
+**Formal bridge.** The pre-update-baseline error and the target increment are
+
+\[
+\hat\delta_t=R_{t+1}+\gamma V_t(S_{t+1})-V_{t-1}(S_t),
+\qquad
+\Delta V_t(S_t)=\alpha\bigl[G_t^\lambda-V_{t-1}(S_t)\bigr].
+\tag{12.4.1}
+\]
+
+where \(V_{t-1}\) is the value before the update at step \(t\), \(V_t\) the value after it, \(G_t^\lambda\) the λ-return computed with the pre-episode values, \(R_{t+1}\) the reward, \(\gamma\) the discount, and \(\alpha\) the step size.
+
+**Reasoning chain.** Conventional online TD(λ) changes \(V\) during the episode, so later TD errors and targets are computed against already-updated values. That breaks exact equality to the offline λ-return target based on \(V_{t-1}\). By anchoring the "error being corrected" at the pre-update baseline \(V_{t-1}(S_t)\) as in (12.4.1), and carrying the effect of within-episode updates into the trace/target accounting — as in the online λ-return / true-online line of derivations in §12.4–§12.5 — each visited state's net increment can be arranged to match \(\alpha(G_t^\lambda-V_{t-1}(S_t))\) for the λ-return computed with the pre-episode values.
+
+The possible advantages are exact forward-view/λ-return equivalence at any \(\alpha\), and clearer target semantics. The costs are more bookkeeping, memory, or computation than standard TD(λ); different sensitivity and behaviour on continuing tasks or with function approximation; and practical gains that may be small compared with simpler true-online variants.
+
+An experiment sketch: on a prediction benchmark such as a random walk (cf. the repo's `chapter_06.solution.RandomWalkEnv`, used by chapter 8 tests), run conventional TD(λ), the modified method, and true online TD(λ) across a sweep of \(\alpha\) and \(\lambda\). Compare RMS value error against known or estimated true values over episodes (learning curves), and compare sensitivity to \(\alpha\).
+
+**Why it makes sense.** The identity in Exercise 12.3 holds when every value in the sum is the same fixed number. Online updating replaces those numbers mid-stream, so the telescoping chain has mismatched ends. Measuring every error against the pre-update baseline re-anchors the chain: the increment each state receives is precisely the one the offline λ-return would have given it, even with a large step size. The tradeoff is bookkeeping — remembering the old baseline is what buys exactness.
+
+**Check your understanding.** Prediction: if \(\alpha\) is made tiny, conventional online TD(λ) barely changes \(V\) during an episode, so the modified method's advantage shrinks; with a large \(\alpha\), the conventional update drifts far from the baseline and the exactness guaranteed by (12.4.1) matters most.
+
+**Where this shows up in the code.** No direct implementation of this modified baseline in the repo. Closest implemented methods: `chapter_12/solution.py:td_lambda_prediction` (conventional backward-view TD(λ)) and `chapter_12/solution.py:true_online_td_lambda` (true online TD(λ), dutch-trace/online λ-return lineage, §12.5/Eq. 12.14–12.16 tabular form), with `TestTrueOnlineTDLambda`.
 
 ### Exercise 12.5 — Truncated λ-return as a sum of TD errors, Eq. (12.11) [traces]
 
 - **Book location:** §12.3 (TTD(λ)), p. ~261; Eq. (12.11).
 - **Type:** Math / Proof.
-- **Paraphrased problem:** For the (horizon-truncated/ n-step) λ-return, show it can be written in the form of a bootstrapped value plus a discounted sum of TD errors, i.e. `G_t^{λ|h} = V(S_t) + \sum_{i=t}^{h-1} (γλ)^{i-t} δ_i` with \(\delta _i = R_{i+1}+\gamma V(S_{i+1})-V(S_i)\), when `V` is held fixed. Prove (12.11).
-- **Solution/derivation:**
-  Using the truncated λ-return (cf. (12.9)/(12.10)) or directly the same recursion as Ex. 12.3 but stopped at horizon `h` (where we bootstrap from `V(S_h)`): from Ex. 12.1’s form applied stepwise,
-  `G_t^{λ|h} - V(S_t) = δ_t + γλ (G_{t+1}^{λ|h} - V(S_{t+1})) = ... = \sum_{i=t}^{h-1} (γλ)^{i-t} δ_i + (γλ)^{h-t}(V(S_h)-V(S_h))`,
-  hence `G_t^{λ|h} = V(S_t) + \sum_{i=t}^{h-1} (γλ)^{i-t} δ_i`, which is (12.11). This is the same telescoping identity as (6.6)/Ex. 12.3, now truncated at `h`.
-**Explanation (student-friendly).** Truncating simply stops the telescoping at the chosen horizon and bootstraps from the value there. Writing the result as a value plus a finite sum of TD errors makes the truncated method cheap to implement incrementally.
+- **Paraphrased problem:** For the (horizon-truncated/ n-step) λ-return, show it can be written in the form of a bootstrapped value plus a discounted sum of TD errors, i.e. `G_t^{λ|h} = V(S_t) + \sum_{i=t}^{h-1} (γλ)^{i-t} δ_i` with \(\delta_i = R_{i+1}+\gamma V(S_{i+1})-V(S_i)\), when `V` is held fixed. Prove (12.11).
 
-- **Coding pointer:** Theory-only identity behind truncated/offline/online λ-return views; implemented learning rules in `chapter_12` are backward-view (`td_lambda_prediction`, `sarsa_lambda_*`, `true_online_td_lambda`).
+**Hook.** Truncation just stops the telescoping early and bootstraps from the value at the cutoff. The proof is Exercise 12.3 with a finite endpoint.
+
+**Formal bridge.** The truncated λ-return identity to prove is
+
+\[
+G_t^{\lambda|h}=V(S_t)+\sum_{i=t}^{h-1}(\gamma\lambda)^{i-t}\delta_i,
+\qquad
+\delta_i=R_{i+1}+\gamma V(S_{i+1})-V(S_i),
+\tag{12.5.1}
+\]
+
+where \(h\) is the truncation horizon, \(V\) is held fixed, \(G_t^{\lambda|h}\) is the λ-return stopped at \(h\), \(\delta_i\) the one-step TD error, and \(\gamma\lambda\) the effective decay.
+
+**Reasoning chain.** Using the truncated λ-return (cf. (12.9)/(12.10)), or directly the recursion of Exercise 12.3 stopped at horizon \(h\) where we bootstrap from \(V(S_h)\), we have stepwise
+
+\[
+G_t^{\lambda|h}-V(S_t)
+=\delta_t+\gamma\lambda\bigl(G_{t+1}^{\lambda|h}-V(S_{t+1})\bigr)=\cdots
+=\sum_{i=t}^{h-1}(\gamma\lambda)^{i-t}\delta_i
++(\gamma\lambda)^{h-t}\bigl(V(S_h)-V(S_h)\bigr).
+\tag{12.5.2}
+\]
+
+The final bracket vanishes, so (12.5.2) is exactly (12.5.1). This is the same telescoping identity as (6.6)/Exercise 12.3, now truncated at \(h\): each intermediate value appears once with a positive and once with a negative sign and cancels.
+
+**Why it makes sense.** Cutting the λ-return at \(h\) replaces all later, noisier information with a single bootstrap estimate \(V(S_h)\). In (12.5.1) that shows up as a finite sum: the sum is cheap to accumulate incrementally, which is precisely why truncated λ-return methods are practical. At \(h=t+1\) the sum has one term and we recover one-step TD; as \(h\to\infty\) we recover Exercise 12.3.
+
+**Check your understanding.** Prediction: setting \(h=t+1\) reduces (12.5.1) to \(V(S_t)+\delta_t=R_{t+1}+\gamma V(S_{t+1})\), the one-step target; moving \(h\) later adds more TD errors and makes the target less reliant on the bootstrap at any single state.
+
+**Where this shows up in the code.** Theory-only identity behind truncated/offline/online λ-return views; implemented learning rules in `chapter_12` are backward-view (`td_lambda_prediction`, `sarsa_lambda_*`, `true_online_td_lambda`).
 
 ### Exercise 12.6 — Sarsa(λ) pseudocode modified to use dutch traces [traces]
 
 - **Book location:** §12.8 (True online TD(λ)/Sarsa(λ) context) and dutch traces (12.14)–(12.16); exercise p. ~268.
 - **Type:** Programming / Theory (pseudocode modification).
 - **Paraphrased problem:** Modify the standard accumulating-trace Sarsa(λ) pseudocode to use dutch traces (12.16) instead, assuming linear function approximation with binary features, without adding the other true-online corrections.
-- **Solution (modified pseudocode, linear binary features `x(s,a)`):**
-  Standard Sarsa(λ): on transition `(S,A,R,S',A')` compute `δ = R + γ\,q(S',A',w) - q(S,A,w)` (or terminal form), \(z \leftarrow \gamma \lambda z + x(S,A)\), \(w \leftarrow w + \alpha \delta z\). **Dutch-trace modification** replaces the trace update by (12.16, tabular/binary-feature friendly form):
-  `δ = R + γ\,w^T x(S',A') - w^T x(S,A)` (with terminal handling)
-  \(z \leftarrow \gamma \lambda z + x(S,A) - \alpha \gamma \lambda (z^T x(S,A)) x(S,A)\)  (dutch trace: blends accumulating effect with a correction proportional to the component already present in the direction of `x(S,A)`)
-  \(w \leftarrow w + \alpha \delta z\)
-  and then proceed as usual (choose `A'` etc.). For purely binary one-hot features this reduces so that the visited component’s increment is tempered by \(\alpha \gamma \lambda z_i\), interpolating between accumulating and replacing-like behavior (cf. discussion in §12.6/§12.8).
-**Explanation (student-friendly).** Dutch traces replace the naive eligibility increment with one corrected by the current dot product z·x, so repeated visits to the same feature cannot over-count credit. The action-value update is otherwise unchanged: the same TD error is distributed over the corrected traces.
 
-- **Coding pointer:** `chapter_12/solution.py:sarsa_lambda_replacing` and `sarsa_lambda_clearing` implement Sarsa(λ) with **replacing/clearing** traces (not dutch). `chapter_12/solution.py:true_online_td_lambda` implements the **true online (dutch-trace) TD(λ)** prediction update in tabular/one-hot form (Section 12.5, Eq. 12.14–12.16 style), tested by `TestTrueOnlineTDLambda`. A dutch-trace Sarsa(λ) control variant itself is **not implemented** here (theory/pseudocode answer).
+**Hook.** Accumulating traces let repeated visits pile credit onto the same feature. Dutch traces temper that pile-up with a correction term — the rest of Sarsa(λ) stays put.
+
+**Formal bridge.** The modified trace and weight updates are
+
+\[
+z\leftarrow\gamma\lambda z+x(S,A)-\alpha\gamma\lambda\bigl(z^\top x(S,A)\bigr)x(S,A),
+\qquad
+w\leftarrow w+\alpha\delta\,z,
+\tag{12.6.1}
+\]
+
+with the Sarsa TD error
+
+\[
+\delta=R+\gamma\,w^\top x(S',A')-w^\top x(S,A),
+\tag{12.6.2}
+\]
+
+where \(z\) is the eligibility vector, \(x(s,a)\) the binary feature vector, \(w\) the weight vector, \(\alpha\) the step size, \(\gamma\lambda\) the trace decay, \(R\) the reward, and \(S',A'\) the next state and action (terminal handling as usual).
+
+**Reasoning chain.** Standard Sarsa(λ), on transition \((S,A,R,S',A')\), computes \(\delta=R+\gamma q(S',A',w)-q(S,A,w)\), updates \(z\leftarrow\gamma\lambda z+x(S,A)\), and applies \(w\leftarrow w+\alpha\delta z\). The dutch-trace modification replaces only the trace update with (12.6.1), which blends the accumulating effect with a correction proportional to the component already present in the direction of \(x(S,A)\). The weight update (12.6.1) is unchanged, as is action selection.
+
+For purely binary one-hot features, the correction tempers the visited component's increment by \(\alpha\gamma\lambda z_i\), interpolating between accumulating and replacing-like behaviour (cf. §12.6/§12.8). The TD error in (12.6.2) is the ordinary Sarsa error — we are deliberately *not* adding the other true-online corrections.
+
+**Why it makes sense.** With accumulating traces, revisiting the same feature ten times can give it ten times the credit, even if the later visits add no new information. The \(-\alpha\gamma\lambda(z^\top x)x\) term subtracts a piece proportional to what that direction already holds, so repeated visits cannot over-count. If that correction were missing, the update would be the naive accumulating rule; if it were made complete with the other true-online terms, it would be a different (more elaborate) algorithm.
+
+**Check your understanding.** Prediction: with a very small step size \(\alpha\), the dutch correction in (12.6.1) nearly vanishes and the rule approaches plain accumulating traces; a large \(\alpha\) makes the trace of an already-visited feature much smaller, pushing behaviour toward replacing traces.
+
+**Where this shows up in the code.** `chapter_12/solution.py:sarsa_lambda_replacing` and `sarsa_lambda_clearing` implement Sarsa(λ) with **replacing/clearing** traces (not dutch). `chapter_12/solution.py:true_online_td_lambda` implements the **true online (dutch-trace) TD(λ)** prediction update in tabular/one-hot form (Section 12.5, Eq. 12.14–12.16 style), tested by `TestTrueOnlineTDLambda`. A dutch-trace Sarsa(λ) control variant itself is **not implemented** here (theory/pseudocode answer).
 
 ### Exercise 12.7 — Truncated versions of off-policy λ-return recursions [Q(lambda)]
 
 - **Book location:** §12.9 (off-policy traces), p. ~272; by analogy with (12.9).
 - **Type:** Math.
-- **Paraphrased problem:** Generalize the (untruncated) off-policy/state- and action-value λ-return recursions given in §12.9 to horizon-`h` truncated forms \(G_t^{\lambda ,h}\) for (i) state values and (ii) action values in Sarsa-like and Expected-Sarsa-like forms.
-- **Solution/derivation:**
-  By the same truncation pattern as (12.9), stop mixing n-step returns at horizon `h` and place the remaining weight on the `h`-step return:
-  `G_t^{λ,h} = (1-λ)\sum_{n=1}^{h-t-1} λ^{n-1} G_{t:t+n} + λ^{h-t-1} G_{t:h}` (with the convention that if `h <= t+1` the sum vanishes and \(G_t^{\lambda ,h}=G_{t:h}\)).
-  Apply this template with the appropriate off-policy n-step targets/returns from §12.9:
-  - **State-value/per-decision off-policy:** use `G_{t:t+n}` as the per-decision importance-sampling (or related) n-step state return appearing in (12.29)/(12.31).
-  - **Action-value Sarsa form:** use the n-step action returns of (12.26)/(12.27) (with \(\rho\) factors as defined there).
-  - **Action-value Expected Sarsa form:** use the n-step returns of (12.27)/(12.28) (bootstrapping from `\bar Q`/expectation under target policy where specified).
-  In all cases the only structural change is truncation of the geometric mixture at `h` exactly as in (12.9).
-**Explanation (student-friendly).** Truncation means the same recursion stops at h and bootstraps from the estimated value there instead of continuing to termination. The structure of the recursion is unchanged; only the terminal condition and the final bootstrap term differ.
+- **Paraphrased problem:** Generalize the (untruncated) off-policy/state- and action-value λ-return recursions given in §12.9 to horizon-\(h\) truncated forms \(G_t^{\lambda ,h}\) for (i) state values and (ii) action values in Sarsa-like and Expected-Sarsa-like forms.
 
-- **Coding pointer:** **Theory-only / not directly implemented.** `chapter_12/solution.py:watkins_lambda_return` implements a *different* forward-view truncated/cut λ-return (Watkins/Q-learning max-bootstrap with a horizon cut at the first non-greedy action, §12.10/Fig. 12.12 style), which is a useful related reference but **not** the same as the §12.9 off-policy IS/Expected-Sarsa recursions asked for here. See `TestWatkinsLambdaReturn`.
+**Hook.** Truncation is a single structural change: stop mixing n-step returns at \(h\) and put the leftover weight on the \(h\)-step return. The off-policy details sit inside the n-step targets.
+
+**Formal bridge.** The truncation template is
+
+\[
+G_t^{\lambda,h}=(1-\lambda)\sum_{n=1}^{h-t-1}\lambda^{n-1}G_{t:t+n}
++\lambda^{h-t-1}G_{t:h},
+\qquad
+G_t^{\lambda,h}=G_{t:h}\ \text{if }h\le t+1,
+\tag{12.7.1}
+\]
+
+where \(h\) is the truncation horizon, \(\lambda\) the mixing parameter, \(n\) the n-step horizon, and \(G_{t:t+n}\) the appropriate off-policy n-step return from §12.9.
+
+**Reasoning chain.** Apply the template (12.7.1) with the right n-step targets. For the state-value/per-decision off-policy case, use the per-decision importance-sampling n-step state return of (12.29)/(12.31). For the action-value Sarsa form, use the n-step action returns of (12.26)/(12.27), with the \(\rho\) factors as defined there. For the action-value Expected Sarsa form, use the n-step returns of (12.27)/(12.28), bootstrapping from \(\bar Q\) (the expectation under the target policy) where specified.
+
+In all three cases the only structural change is truncating the geometric mixture at \(h\), exactly as in (12.9); the off-policy weighting lives in the choice of \(G_{t:t+n}\) and does not alter the truncation pattern. The boundary convention in (12.7.1) handles the case where the horizon is closer than one step away.
+
+**Why it makes sense.** The λ-return is a weighted average of all n-step returns. Truncation simply says "stop at \(h\) and trust the bootstrap there instead of waiting for the rest of the episode." The weights still sum to one — the leftover geometric mass is placed on the \(h\)-step return — so the truncated target is a proper average, just a shorter one. If the leftover mass were dropped instead, the target would shrink systematically and be biased downward.
+
+**Check your understanding.** Prediction: setting \(h=t+1\) collapses (12.7.1) to the single \(G_{t:t+1}\) target; pushing \(h\) to the episode end recovers the full off-policy λ-return, with the \(\rho\) factors unchanged.
+
+**Where this shows up in the code.** **Theory-only / not directly implemented.** `chapter_12/solution.py:watkins_lambda_return` implements a *different* forward-view truncated/cut λ-return (Watkins/Q-learning max-bootstrap with a horizon cut at the first non-greedy action, §12.10/Fig. 12.12 style), a useful related reference but **not** the same as the §12.9 off-policy IS/Expected-Sarsa recursions asked for here. See `TestWatkinsLambdaReturn`.
 
 ### Exercise 12.8 — Exactness of Eq. (12.31) for a fixed value function [Q(lambda)]
 
 - **Book location:** §12.9, p. ~272; Eq. (12.31).
 - **Type:** Math / Proof.
-- **Paraphrased problem:** Prove that the off-policy state-value λ-return expansion (12.31), `G_t^λ \approx V(S_t,w_t) + ρ_t \sum_{k=t}^{\infty} (...) δ_k`, becomes an exact equality when the approximate value function is held fixed (take `t=0`, write `V_k = v(S_k,w)` constant in `w`).
-- **Solution/derivation:**
-  With fixed `V_k=v(S_k,w)` and TD error \(\delta _k = R_{k+1}+\gamma V_{k+1}-V_k\) ((12.6), terminal-adjusted), the per-decision off-policy λ-return of §12.9 can be expanded recursively (same telescoping as Ex. 12.3/12.5 but carrying the per-step importance ratio \(\rho _k = \pi (A_k|S_k)/b(A_k|S_k)\) factors as in (12.29)–(12.31)). For `t=0`,
-  \(G_0^\lambda - V_0 = \rho _0 \delta _0 + \gamma \lambda \rho _0 (G_1^\lambda - V_1)\) and, unrolling, `G_0^λ - V_0 = \sum_{k=0}^{\infty} (γλ)^{k} (\prod_{i=0}^{k} ρ_i^{(form)}) δ_k` in the precise per-decision/product form given by (12.31). Because no term is dropped when `V` does not change (the approximation in (12.31) comes from within-episode/online changes to `w`), the identity is exact under a fixed value function. (Algebra mirrors the book’s derivation: expand \(G_0^\lambda\), substitute \(R_{k+1}+\gamma V_{k+1}=\delta _k+V_k\), and cancel successive `V_k` terms.)
-**Explanation (student-friendly).** When the approximation is frozen, every value in the expansion is a fixed number, so the algebraic rewriting is an identity rather than an approximation. The 'approximately equal' in the book only appears because in a real algorithm w changes during the episode.
+- **Paraphrased problem:** Prove that the off-policy state-value λ-return expansion (12.31), `G_t^λ ≈ V(S_t,w_t) + ρ_t \sum_{k=t}^{\infty} (...) δ_k`, becomes an exact equality when the approximate value function is held fixed (take `t=0`, write `V_k = v(S_k,w)` constant in `w`).
 
-- **Coding pointer:** Theory-only; see also Ex. 12.12/12.13 for the backward-view recurrences. No direct IS-weighted off-policy evaluator in repo beyond the Watkins/Q-learning-style control in `chapter_12`.
+**Hook.** The "approximately equal" in the book comes from \(w\) changing mid-episode. Freeze it and the same expression becomes an algebraic identity.
+
+**Formal bridge.** With fixed \(V_k=v(S_k,w)\) and the TD error \(\delta_k=R_{k+1}+\gamma V_{k+1}-V_k\), the per-decision off-policy expansion at \(t=0\) is
+
+\[
+G_0^\lambda-V_0=\rho_0\delta_0+\gamma\lambda\rho_0(G_1^\lambda-V_1),
+\tag{12.8.1}
+\]
+
+which unrolls to
+
+\[
+G_0^\lambda-V_0=\sum_{k=0}^{\infty}(\gamma\lambda)^k\Bigl(\prod_{i=0}^{k}\rho_i\Bigr)\delta_k,
+\tag{12.8.2}
+\]
+
+where \(V_k\) is the fixed approximate value at step \(k\), \(\delta_k\) the TD error, \(\rho_k=\pi(A_k\mid S_k)/b(A_k\mid S_k)\) the per-step importance ratio, \(\gamma\lambda\) the effective decay, and \(w\) is held constant.
+
+**Reasoning chain.** The per-decision off-policy λ-return of §12.9 can be expanded recursively exactly as in Exercises 12.3/12.5, but carrying the per-step importance factors \(\rho_k\) of (12.29)–(12.31). At \(t=0\), (12.8.1) follows by substituting \(R_{k+1}+\gamma V_{k+1}=\delta_k+V_k\) and cancelling successive \(V_k\) terms. Unrolling gives (12.8.2) in the precise per-decision/product form of (12.31).
+
+Because \(V\) does not change, no term is dropped: every value in the expansion is a fixed number, so the algebraic rewriting is an identity rather than an approximation. The approximation in (12.31) comes from within-episode/online changes to \(w\), which are absent under the fixed-value assumption.
+
+**Why it makes sense.** Telescoping requires that the quantity subtracted at one step is the same quantity added at the next. With fixed \(V_k\), that is literally true, so the chain closes exactly. Once \(w\) updates mid-episode, the "same" value is evaluated at two different weights and the chain has a gap — hence only \(\approx\). This is the same distinction as offline versus online λ-return in Exercise 12.4.
+
+**Check your understanding.** Prediction: if \(\rho_i=1\) for all \(i\) (behavior equals target), (12.8.2) reduces to the on-policy sum-of-TD-errors identity; if \(w\) is allowed to change each step, the equality in (12.8.2) degrades to the book's approximation by exactly those within-episode changes.
+
+**Where this shows up in the code.** Theory-only; see also Ex. 12.12/12.13 for the backward-view recurrences. No direct IS-weighted off-policy evaluator in the repo beyond the Watkins/Q-learning-style control in `chapter_12`.
 
 ### Exercise 12.9 — Truncated off-policy state-value return (guess from 12.31) [Q(lambda)]
 
 - **Book location:** §12.9, p. ~272.
 - **Type:** Math / Theory.
-- **Paraphrased problem:** By analogy with (12.31) and (12.9), write the horizon-`h` truncated off-policy state-value λ-return \(G_t^{\lambda ,h}\).
-- **Solution/derivation:**
-  Truncate the infinite discounted sum in (12.31) at `k = h-1`:
-  `G_t^{λ,h} = V(S_t,w) + \sum_{k=t}^{h-1} (γλ)^{k-t}\left(\prod_{i=t}^{k} ρ_i\right) δ_k^{(V)}` (in the per-decision/state-value form consistent with 12.31), with \(\delta _k^{(V)} = R_{k+1}+\gamma V(S_{k+1},w)-V(S_k,w)\) and the book’s convention for any modified \(\rho\) factors inside the product as specified in §12.9. This matches the “value + truncated weighted sum of TD errors” pattern and reduces to the on-policy truncated form when \(\rho _i=1\).
-**Explanation (student-friendly).** Take the infinite sum in the exact off-policy expansion and cut it at the horizon h, replacing the remaining tail by the bootstrapped value. The importance-sampling product is accumulated step by step so the truncated return remains off-policy-correct.
+- **Paraphrased problem:** By analogy with (12.31) and (12.9), write the horizon-\(h\) truncated off-policy state-value λ-return \(G_t^{\lambda ,h}\).
 
-- **Coding pointer:** Theory-only. Related truncation/cutoff behavior (different target: max-bootstrap, non-greedy cut) is illustrated by `watkins_lambda_return` in `chapter_12/solution.py` / `TestWatkinsLambdaReturn`.
+**Hook.** Take the exact off-policy expansion from the last exercise and cut the sum at \(h\); the importance product is accumulated along the way.
+
+**Formal bridge.** The truncated off-policy state-value return is
+
+\[
+G_t^{\lambda,h}=V(S_t,w)+\sum_{k=t}^{h-1}(\gamma\lambda)^{k-t}
+\Bigl(\prod_{i=t}^{k}\rho_i\Bigr)\delta_k^{(V)},
+\tag{12.9.1}
+\]
+
+with the state TD error
+
+\[
+\delta_k^{(V)}=R_{k+1}+\gamma V(S_{k+1},w)-V(S_k,w),
+\tag{12.9.2}
+\]
+
+where \(h\) is the horizon, \(V(\cdot,w)\) the fixed approximate value, \(\rho_i=\pi(A_i\mid S_i)/b(A_i\mid S_i)\) the importance ratio, \(\gamma\lambda\) the effective decay, and \(\delta_k^{(V)}\) the state-value TD error.
+
+**Reasoning chain.** Truncate the infinite discounted sum in (12.31) at \(k=h-1\), which gives (12.9.1). The TD error \(\delta_k^{(V)}\) is the ordinary state TD error under the fixed \(w\), and the product \(\prod_{i=t}^{k}\rho_i\) follows the book's convention for any modified \(\rho\) factors inside the product as specified in §12.9.
+
+This matches the "value + truncated weighted sum of TD errors" pattern of (12.11) and Exercise 12.5, with the importance-sampling product accumulated step by step so the truncated return remains off-policy-correct. When \(\rho_i=1\), it reduces exactly to the on-policy truncated form.
+
+**Why it makes sense.** Cutting at \(h\) replaces the remaining tail of the infinite sum with the bootstrapped value \(V(S_h,w)\). Keeping the product \(\prod_{i=t}^{k}\rho_i\) up to each term is essential: a reward realized at step \(k\) should be corrected only for the importance mismatch up to that step, not for mismatches later in the window. That is the same per-decision logic as in Chapter 7, and it is why the truncated return stays unbiased under \(b\).
+
+**Check your understanding.** Prediction: if the horizon \(h\) is moved later, more TD terms enter (12.9.1) and the reliance on the single bootstrap \(V(S_h,w)\) decreases; if \(b=\pi\), all \(\rho_i=1\) and the expression collapses to the on-policy truncated λ-return.
+
+**Where this shows up in the code.** Theory-only. Related truncation/cutoff behaviour (different target: max-bootstrap, non-greedy cut) is illustrated by `watkins_lambda_return` in `chapter_12/solution.py` / `TestWatkinsLambdaReturn`.
 
 ### Exercise 12.10 — Exactness of Eq. (12.34) for a fixed action-value function [Q(lambda)]
 
 - **Book location:** §12.9, p. ~273; Eqs. (12.33)–(12.35).
 - **Type:** Math / Proof.
 - **Paraphrased problem:** Prove the action-value analogue (12.34), `G_t^{λ,a} = Q(S_t,A_t,w) + \sum ... δ_k^a`, becomes exact when `q(\cdot,\cdot,w)` is held fixed (take `t=0`, `Q_k = q(S_k,A_k,w)`).
-- **Solution/derivation:**
-  With fixed `Q_k=q(S_k,A_k,w)`, define the action TD error of §12.9, e.g. `δ_k^a = R_{k+1} + γ \bar V(S_{k+1}) - Q_k` or the exact form given in (12.35) (including expectation/correction terms as specified). Starting from (12.33)/(12.27)-(12.28), write \(G_0^{\lambda ,a} - Q_0\) and substitute `R_{1}+...` in terms of \(\delta _0^a + Q_0\):
-  \(G_0^{\lambda ,a} - Q_0 = \delta _0^a + \gamma \lambda (…)(G_1^{\lambda ,a} - Q_1)\) in the factorized form of (12.34); unrolling gives
-  `G_0^{λ,a} = Q_0 + \sum_{k=0}^{\infty} (γλ)^{k}\,\Pi_k\, \delta_k^a`, where `\Pi_k` denotes the appropriate product of action/importance factors from (12.34). As in Ex. 12.8, fixed `q` makes the expansion exact because no approximation-from-updates remains.
-**Explanation (student-friendly).** The lambda-return is a weighted average of all n-step returns. Peeling off the first n-step return leaves the same kind of average starting one step later, which is exactly the recursive form — lambda = 0 keeps only the first piece, lambda = 1 keeps only the full return.
 
-- **Coding pointer:** Theory-only.
+**Hook.** Repeat the fixed-value argument in action space. Freeze \(q\), and the sum-of-TD-errors expansion stops being approximate.
+
+**Formal bridge.** With fixed \(Q_k=q(S_k,A_k,w)\), define an action TD error of §12.9, e.g.
+
+\[
+\delta_k^a=R_{k+1}+\gamma\bar V(S_{k+1})-Q_k,
+\tag{12.10.1}
+\]
+
+or the exact form given in (12.35) including its expectation/correction terms. The expansion to prove is
+
+\[
+G_0^{\lambda,a}=Q_0+\sum_{k=0}^{\infty}(\gamma\lambda)^k\,\Pi_k\,\delta_k^a,
+\tag{12.10.2}
+\]
+
+where \(Q_k\) is the fixed action value, \(\bar V(S_{k+1})\) the expected next-state value under the target policy, \(\delta_k^a\) the action TD error, \(\Pi_k\) the appropriate product of action/importance factors from (12.34), and \(\gamma\lambda\) the effective decay.
+
+**Reasoning chain.** Starting from (12.33)/(12.27)–(12.28), write \(G_0^{\lambda,a}-Q_0\) and substitute \(R_1+\cdots\) in terms of \(\delta_0^a+Q_0\). That gives \(G_0^{\lambda,a}-Q_0=\delta_0^a+\gamma\lambda(\cdots)(G_1^{\lambda,a}-Q_1)\) in the factorized form of (12.34). Unrolling produces (12.10.2), with \(\Pi_k\) collecting the relevant action/importance factors.
+
+As in Exercise 12.8, fixed \(q\) makes the expansion exact because no approximation from within-episode updates remains: each \(Q_k\) is the same number every time it appears, so the telescoping cancellation is complete. The \(\lambda\)-return itself is a weighted average of all n-step returns; peeling off the first leaves the same kind of average starting one step later, which is the recursive form behind the unrolling.
+
+**Why it makes sense.** The action-value case mirrors the state-value case because the algebra only cares that the bootstrapped quantity is fixed. The extra \(\Pi_k\) factors are the price of off-policy sampling — they reweight each action TD error for the behaviour/target mismatch. With \(\Pi_k=1\), (12.10.2) is the familiar on-policy sum; with fixed \(q\), that weighted sum is an identity rather than a target to be chased.
+
+**Check your understanding.** Prediction: allowing \(w\) to change during the episode breaks the equality in (12.10.2) by exactly the within-episode changes; setting \(\lambda=0\) leaves only the \(k=0\) term, the one-step action TD error.
+
+**Where this shows up in the code.** Theory-only.
 
 ### Exercise 12.11 — Truncated off-policy action-value return (guess from 12.34) [Q(lambda)]
 
 - **Book location:** §12.9, p. ~274.
 - **Type:** Math / Theory.
-- **Paraphrased problem:** Give the horizon-`h` truncated form of the off-policy action-value λ-return \(G_t^{\lambda ,h}\) consistent with (12.34).
-- **Solution/derivation:**
-  Truncate (12.34) at `h-1`:
-  `G_t^{λ,h} = q(S_t,A_t,w) + \sum_{k=t}^{h-1} (γλ)^{k-t}\,\Pi_{t,k}\,\delta_k^a`, with `\delta_k^a` as in (12.35) and `\Pi_{t,k}` the same cumulative factor/product over `[t,k]` as in (12.34). This is the direct action-value analogue of Ex. 12.9 and of (12.9).
-**Explanation (student-friendly).** The lambda-return is a weighted average of all n-step returns. Peeling off the first n-step return leaves the same kind of average starting one step later, which is exactly the recursive form — lambda = 0 keeps only the first piece, lambda = 1 keeps only the full return.
+- **Paraphrased problem:** Give the horizon-\(h\) truncated form of the off-policy action-value λ-return \(G_t^{\lambda ,h}\) consistent with (12.34).
 
-- **Coding pointer:** Theory-only. (See note in Ex. 12.7/12.9 regarding `watkins_lambda_return` being a different cut/target.)
+**Hook.** Same cut as Exercise 12.9, now in action space: stop the infinite sum at \(h-1\) and keep the cumulative factor.
+
+**Formal bridge.** The truncated off-policy action-value return is
+
+\[
+G_t^{\lambda,h}=q(S_t,A_t,w)+\sum_{k=t}^{h-1}(\gamma\lambda)^{k-t}\,\Pi_{t,k}\,\delta_k^a,
+\tag{12.11.1}
+\]
+
+with \(\delta_k^a\) as in (12.35) and \(\Pi_{t,k}\) the same cumulative product of action/importance factors over \([t,k]\) as in (12.34), \(q(\cdot,\cdot,w)\) the fixed action-value estimate, and \(\gamma\lambda\) the effective decay.
+
+**Reasoning chain.** Truncate (12.34) at \(k=h-1\), which yields (12.11.1). This is the direct action-value analogue of Exercise 12.9 and of (12.9): the value at the start plus a finite, weighted sum of TD errors up to the horizon. As before, the λ-return behind the expansion is a weighted average of n-step returns, and peeling off the first n-step return leaves the same kind of average starting one step later — the recursion that makes the truncation pattern work.
+
+**Why it makes sense.** Stopping at \(h\) trades the remaining tail of TD errors for a bootstrap at the horizon. The cumulative factor \(\Pi_{t,k}\) still carries the off-policy correction for each term, so each realized reward is weighted only by the mismatches up to its own step. At \(\lambda=0\) only the first term survives; at \(h\) reaching termination the bootstrap disappears and the full off-policy return is recovered.
+
+**Check your understanding.** Prediction: moving the horizon \(h\) earlier makes (12.11.1) depend more on \(q(S_h,A_h,w)\) and less on later TD errors; if all importance factors become 1, the expression becomes the on-policy truncated action λ-return.
+
+**Where this shows up in the code.** Theory-only. (See note in Ex. 12.7/12.9 regarding `watkins_lambda_return` being a different cut/target.)
 
 ### Exercise 12.12 — Deriving the action-value eligibility trace, Eq. (12.36) [traces]
 
 - **Book location:** §12.9, p. ~274; Eqs. (12.21), (12.33), (12.34), (12.36).
 - **Type:** Math / Proof.
 - **Paraphrased problem:** Derive the backward-view action-value trace recurrence (12.36), \(z_t = \gamma \lambda _t \rho _t z_{t-1} + \nabla q(S_t,A_t,w_t)\) (up to the book’s exact notation/conventions), from the forward-view/semi-gradient update (12.21) by substituting the λ-return expansion (12.33)/(12.34), paralleling the state-value derivation of (12.32).
-- **Solution/derivation (step outline):**
-  1. Start from the forward-view update (12.21): \(w_{t+1} = w_t + \alpha (G_t^\lambda - q(S_t,A_t,w_t)) \nabla q(S_t,A_t,w_t)\) (per-step form).
-  2. Substitute \(G_t^\lambda - q(S_t,A_t,w_t)\) by the sum-of-weighted-TD-errors form (12.34)/(12.33): `G_t^λ - q_t = \sum_{k>=t} (γλ)^{k-t}\Pi_{t,k} δ_k^a`.
-  3. Reindex/sum the total gradient contribution over time as in (12.32): `\sum_t α (G_t^λ-q_t)∇q_t = \sum_k α δ_k^a \sum_{t<=k} (γλ)^{k-t}\Pi_{t,k} ∇q_t`.
-  4. Identify the inner sum as an eligibility trace `z_k = \sum_{t<=k} (γλ)^{k-t}\Pi_{t,k} ∇q_t`, which satisfies the one-step recurrence \(z_k = \gamma \lambda _k \rho _k z_{k-1} + \nabla q(S_k,A_k,w_k)\) with `z_{-1}=0` (matching 12.36 under the book’s \(\rho\)/\(\lambda\) conventions). This yields the backward-view update \(w \leftarrow w + \alpha \delta _k^a z_k\) equivalent in the idealized/offline sense.
-**Explanation (student-friendly).** The lambda-return is a weighted average of all n-step returns. Peeling off the first n-step return leaves the same kind of average starting one step later, which is exactly the recursive form — lambda = 0 keeps only the first piece, lambda = 1 keeps only the full return.
 
-- **Coding pointer:** Theory-only derivation. Related implemented backward-view traces: `td_lambda_prediction` (state, accumulating/replacing), `sarsa_lambda_replacing/clearing` (action, replacing/clearing) in `chapter_12/solution.py`.
+**Hook.** Forward views sum a long return; backward views keep a running trace. This derivation shows they are the same sum reordered.
+
+**Formal bridge.** Start from the forward-view semi-gradient update
+
+\[
+w_{t+1}=w_t+\alpha\bigl(G_t^\lambda-q(S_t,A_t,w_t)\bigr)\nabla q(S_t,A_t,w_t),
+\tag{12.12.1}
+\]
+
+and aim for the trace recurrence
+
+\[
+z_k=\gamma\lambda_k\rho_k z_{k-1}+\nabla q(S_k,A_k,w_k),
+\qquad
+w\leftarrow w+\alpha\delta_k^a z_k.
+\tag{12.12.2}
+\]
+
+where \(\nabla q\) is the gradient of the action value, \(z_k\) the eligibility trace, \(\delta_k^a\) the action TD error, \(\rho_k\) the importance ratio, \(\lambda_k\) the trace parameter, \(\gamma\) the discount, \(\alpha\) the step size, and \(z_{-1}=0\).
+
+**Reasoning chain.** First, substitute \(G_t^\lambda-q_t\) using the sum-of-weighted-TD-errors form (12.34)/(12.33): \(G_t^\lambda-q_t=\sum_{k\ge t}(\gamma\lambda)^{k-t}\Pi_{t,k}\delta_k^a\). Next reindex the total gradient contribution over time exactly as in (12.32):
+
+\[
+\sum_t\alpha(G_t^\lambda-q_t)\nabla q_t
+=\sum_k\alpha\delta_k^a\sum_{t\le k}(\gamma\lambda)^{k-t}\Pi_{t,k}\nabla q_t.
+\tag{12.12.3}
+\]
+
+The inner sum in (12.12.3) is the eligibility trace, \(z_k=\sum_{t\le k}(\gamma\lambda)^{k-t}\Pi_{t,k}\nabla q_t\), which satisfies the one-step recurrence (12.12.2) with \(z_{-1}=0\), matching (12.36) under the book's \(\rho\)/\(\lambda\) conventions. This yields the backward-view update \(w\leftarrow w+\alpha\delta_k^a z_k\), equivalent in the idealized/offline sense. The \(\lambda\)-return behind (12.12.1) is a weighted average of all n-step returns, and peeling off the first leaves the same average one step later — the recursion that makes the reindexing valid.
+
+**Why it makes sense.** A forward view must remember a whole trajectory to compute \(G_t^\lambda\); a backward view compresses that memory into one vector \(z_k\) that decays with \(\gamma\lambda\rho\) and is refreshed by the current gradient. The \(\rho_k\) factor in (12.12.2) is there because off-policy credit must be reweighted as it travels backward. When the trace is zero, no past state is eligible, and the update reduces to the one-step case — the same limiting behaviour as λ=0.
+
+**Check your understanding.** Prediction: setting \(\lambda_k=0\) kills the decayed past term in (12.12.2), leaving only the current gradient and one-step TD; raising \(\lambda_k\) keeps older gradients eligible longer, but large \(\rho_k\) can make them high-variance.
+
+**Where this shows up in the code.** Theory-only derivation. Related implemented backward-view traces: `td_lambda_prediction` (state, accumulating/replacing), `sarsa_lambda_replacing/clearing` (action, replacing/clearing) in `chapter_12/solution.py`.
 
 ### Exercise 12.13 — Expected Sarsa λ-return yields same trace with a different TD error [traces]
 
 - **Book location:** §12.9, p. ~274; Eqs. (12.27), (12.28), and resulting TD error form.
 - **Type:** Math / Proof.
 - **Paraphrased problem:** Repeat the derivation idea of Ex. 12.12 starting from the Expected Sarsa form of the off-policy action λ-return ((12.27),(12.28)) to obtain the same eligibility-trace recurrence as (12.36) but with a different TD error `\hatδ_t^{(a),ES}` that uses the target expectation `\bar Q(S_{t+1})=\sum_a π(a|S_{t+1}) q(S_{t+1},a,w)` and applies \(\rho _{t+1}\) only to the deviation from that expectation.
-- **Solution/derivation:**
-  In the Expected Sarsa off-policy target ((12.27),(12.28)), the next-state bootstrap is partly the expected value `\bar Q(S_{t+1})` (no importance ratio needed for that expectation component) and partly the sampled-action correction weighted by \(\rho _{t+1}\). Substituting this λ-return into (12.21) and regrouping as in Ex. 12.12 leaves the eligibility vector `z_t` with the same structural recurrence \(z_t = \gamma \lambda _t \rho _t z_{t-1} + \nabla q(S_t,A_t,w_t)\) (the trace still follows the sampled action’s gradient and the per-decision weighting), but the scalar driving it becomes
-  `δ_t^{ES} = R_{t+1} + γ\,\bar Q(S_{t+1}) - q(S_t,A_t,w) + γλ_{t+1}\left[ρ_{t+1}\,q(S_{t+1},A_{t+1},w) - \bar Q(S_{t+1})\right]` (as in the book’s stated form, up to \(\gamma _{t+1}/\lambda _{t+1}\) conventions), i.e. the usual Expected Sarsa error plus a trace/IS correction only for the off-policy sampled-action part beyond `\bar Q`.
-**Explanation (student-friendly).** The lambda-return is a weighted average of all n-step returns. Peeling off the first n-step return leaves the same kind of average starting one step later, which is exactly the recursive form — lambda = 0 keeps only the first piece, lambda = 1 keeps only the full return.
 
-- **Coding pointer:** Theory-only (no Expected Sarsa(λ) implementation in repo).
+**Hook.** Changing the bootstrap from a sampled action to an expectation does not change the trace — it changes the scalar driving it.
+
+**Formal bridge.** In the Expected Sarsa off-policy target, the bootstrap splits into an expectation under the target policy and a sampled-action correction:
+
+\[
+\bar Q(S_{t+1})=\sum_a\pi(a\mid S_{t+1})\,q(S_{t+1},a,w),
+\tag{12.13.1}
+\]
+
+\[
+\delta_t^{ES}=R_{t+1}+\gamma\bar Q(S_{t+1})-q(S_t,A_t,w)
++\gamma\lambda_{t+1}\Bigl[\rho_{t+1}q(S_{t+1},A_{t+1},w)-\bar Q(S_{t+1})\Bigr].
+\tag{12.13.2}
+\]
+
+where \(\bar Q\) is the expected next-state action value under \(\pi\), \(q\) the action-value estimate, \(\rho_{t+1}\) the importance ratio on the sampled next action, \(\lambda_{t+1}\) the trace parameter, \(\gamma\) the discount, and \(R_{t+1}\) the reward.
+
+**Reasoning chain.** In (12.27)/(12.28), the next-state bootstrap is partly \(\bar Q(S_{t+1})\) — no importance ratio is needed for that expectation component — and partly the sampled-action correction weighted by \(\rho_{t+1}\). Substituting this λ-return into (12.21) and regrouping as in Exercise 12.12 leaves the eligibility vector \(z_t\) with the same structural recurrence \(z_t=\gamma\lambda_t\rho_t z_{t-1}+\nabla q(S_t,A_t,w_t)\): the trace still follows the sampled action's gradient and the per-decision weighting. What changes is the scalar driving it, which becomes (12.13.2) — the usual Expected Sarsa error plus a trace/IS correction only for the off-policy sampled-action part beyond \(\bar Q\), as in the book's stated form (up to \(\gamma_{t+1}/\lambda_{t+1}\) conventions).
+
+**Why it makes sense.** Expectation components are already under the target policy, so importance-sampling them would double-count the correction; only the deviation of the actually sampled action from that expectation needs \(\rho_{t+1}\). This is the same per-decision logic as Chapter 7's Expected Sarsa bootstrap. When \(\rho_{t+1}=1\) or the sampled action equals the expectation, the correction term in (12.13.2) vanishes and the ordinary Expected Sarsa TD error remains.
+
+**Check your understanding.** Prediction: making \(\pi\) deterministic turns \(\bar Q(S_{t+1})\) into a single action value, so the correction bracket in (12.13.2) shrinks and the error approaches the sampled-action form; making \(\pi\) uniform leaves a larger expected component and a different correction magnitude, but the trace recurrence is unchanged.
+
+**Where this shows up in the code.** Theory-only (no Expected Sarsa(λ) implementation in repo).
 
 ### Exercise 12.14 — Dutch and replacing traces for off-policy state/action methods [traces]
 
 - **Book location:** §12.9, p. ~277.
 - **Type:** Theory.
 - **Paraphrased problem:** Describe how to form dutch-trace and replacing-trace variants of off-policy eligibility traces for (a) state-value methods and (b) action-value methods.
-- **Solution:**
-  - **Replacing traces (off-policy):** in place of the accumulating increment, set the trace component(s) for the visited feature(s)/state(-action) to 1 (or the feature value) at visit time, while retaining the off-policy decay/product factors from (12.32)/(12.36) (e.g. multiply by \(\gamma \lambda\) and the appropriate \(\rho\)/policy factors on non-visited steps). For action values, replace/raise the trace of `(S_t,A_t)`; for state values, of `S_t`. Clearing variants (as in Fig. 12.11 style for on-policy control) zero other actions’ traces in the same state when applicable.
-  - **Dutch traces (off-policy):** replace the accumulating update by the dutch correction (cf. 12.16): \(z_t \leftarrow \gamma \lambda _t \rho _t z_{t-1} + \alpha _t(1 - \gamma \lambda _t \rho _t z_{t-1}^T x_t) x_t\) in the linear/feature form (adapting notation to state or state-action features and the book’s off-policy factors). This stabilizes/interpolates trace magnitude relative to accumulating traces and is the trace mechanism underlying true-online/off-policy true-online methods.
-  - **Interaction with \(\rho\):** in off-policy control/prediction, importance ratios can make accumulating traces high-variance; replacing or dutch traces bound/temper growth but change the effective credit assignment, so behavior and stability differ by method (on-policy vs IS vs tree-backup-like targets).
-**Explanation (student-friendly).** The lambda-return is a weighted average of all n-step returns. Peeling off the first n-step return leaves the same kind of average starting one step later, which is exactly the recursive form — lambda = 0 keeps only the first piece, lambda = 1 keeps only the full return.
 
-- **Coding pointer:** On-policy implementations in `chapter_12/solution.py`: replacing/clearing for Sarsa(λ) (`sarsa_lambda_replacing`, `sarsa_lambda_clearing`, `TestSarsaLambdaReplacing`, `TestSarsaLambdaClearing`), accumulating/replacing for TD(λ) prediction (`td_lambda_prediction`), and dutch/true-online for prediction (`true_online_td_lambda`, `TestTrueOnlineTDLambda`). Off-policy dutch/replacing trace variants per §12.9 are **not implemented** in this repo.
+**Hook.** Trace type and off-policy correction are independent choices. Let's combine them carefully so the correction factors survive the change of trace.
+
+**Formal bridge.** The two variants modify the accumulating trace increment:
+
+\[
+\text{replacing:}\quad z_i\leftarrow x_i\ \text{for visited }i,
+\tag{12.14.1}
+\]
+
+\[
+\text{dutch:}\quad
+z_t\leftarrow\gamma\lambda_t\rho_t z_{t-1}
++\alpha_t\bigl(1-\gamma\lambda_t\rho_t z_{t-1}^\top x_t\bigr)x_t,
+\tag{12.14.2}
+\]
+
+where \(z_t\) is the eligibility vector, \(x_t\) the current (state or state–action) feature vector, \(\rho_t\) the importance ratio, \(\lambda_t\) the trace parameter, \(\gamma\) the discount, and \(\alpha_t\) the step size. Both keep the off-policy decay/product factors of (12.32)/(12.36).
+
+**Reasoning chain.** For replacing traces in the off-policy case, set the trace component(s) for the visited feature(s)/state(-action) to 1 (or the feature value) at visit time, while retaining the off-policy decay/product factors from (12.32)/(12.36) — multiply by \(\gamma\lambda\) and the appropriate \(\rho\)/policy factors on non-visited steps. For action values, replace or raise the trace of \((S_t,A_t)\); for state values, of \(S_t\). Clearing variants, as in Fig. 12.11 style for on-policy control, zero other actions' traces in the same state when applicable.
+
+For dutch traces, replace the accumulating update by the dutch correction (12.14.2) adapted to state or state–action features and the book's off-policy factors. This stabilises or interpolates trace magnitude relative to accumulating traces and is the mechanism underlying true-online/off-policy true-online methods.
+
+The interaction with \(\rho\) matters: importance ratios can make accumulating traces high-variance; replacing or dutch traces bound or temper growth, but they also change the effective credit assignment, so behaviour and stability differ by method (on-policy vs IS vs tree-backup-like targets).
+
+**Why it makes sense.** Accumulating traces add a little credit every time a feature is visited, so a long, off-policy trajectory with large \(\rho\) can produce enormous eligibility. Replacing traces cap a component at one visit's worth; dutch traces subtract the component already present via the \(z_{t-1}^\top x_t\) term. Both are ways of saying "revisiting the same feature should not multiply its credit without bound" — the same intuition as in Exercise 12.6, now with the \(\rho\) factor carried through.
+
+**Check your understanding.** Prediction: if \(\rho_t\approx1\), (12.14.2) reduces to the ordinary on-policy dutch form; if \(\rho_t\) is large, the decay term grows and the correction must work harder to keep the trace from exploding, which is why off-policy dutch variants are higher-variance than on-policy ones.
+
+**Where this shows up in the code.** On-policy implementations in `chapter_12/solution.py`: replacing/clearing for Sarsa(λ) (`sarsa_lambda_replacing`, `sarsa_lambda_clearing`, `TestSarsaLambdaReplacing`, `TestSarsaLambdaClearing`), accumulating/replacing for TD(λ) prediction (`td_lambda_prediction`), and dutch/true-online for prediction (`true_online_td_lambda`, `TestTrueOnlineTDLambda`). Off-policy dutch/replacing trace variants per §12.9 are **not implemented** in this repo.
 
 ### Exercise 12.15 (Programming) — Rigid Tree Backup (proposed) [Q(lambda)]
 
 - **Book location:** §12.11 (stable off-policy methods / implementation issues, near tree-backup discussion), p. ~277; uses (12.36) and (12.38).
 - **Type:** Programming.
 - **Paraphrased problem:** Implement the proposed "Rigid Tree Backup" method, which combines the truncated tree-backup λ-return target (12.38) with the usual backward-view eligibility-trace/action update mechanism (cf. 12.36), and compare its behavior to ordinary (one-step or n-step as specified by the reader’s setup) Tree Backup on a small task.
-- **Solution (what to do):**
-  1. Use the tree-backup n-step/λ-return target (12.38): for action-values, bootstrapping with expected values under the target policy and **not** cutting traces on exploratory actions via IS ratios in the Watkins manner; the truncated tree-backup λ-return mixes these targets over horizons.
-  2. Maintain eligibility traces over `(s,a)` updated as in (12.36)’s form appropriate to the chosen approximation (e.g. \(z \leftarrow \gamma \lambda z + \nabla q(s,a)\) with the tree-backup TD/error signal; in tabular form `z(s,a)` accumulates/decays per step).
-  3. On each step compute the tree-backup TD error for the chosen horizon/mixing and update `q` (or `w`) by \(\alpha * \delta * z\).
-  4. **Experiment:** compare to ordinary Tree Backup on a small control task (e.g. a gridworld/random-walk-style control setup or windy gridworld), plotting learning curves / average return; expect no Watkins-style trace-cut instability from off-policy sampling because tree-backup uses expectations over actions.
-**Explanation (student-friendly).** The lambda-return is a weighted average of all n-step returns. Peeling off the first n-step return leaves the same kind of average starting one step later, which is exactly the recursive form — lambda = 0 keeps only the first piece, lambda = 1 keeps only the full return.
 
-- **Coding pointer:** **Not implemented in this repo.** There is **no** Tree Backup / Tree-Backup(λ) / Rigid Tree Backup implementation in `chapter_12` or `chapter_12`. The closest off-policy trace control code is `chapter_12/solution.py:watkins_q_lambda` and `watkins_lambda_return` (Watkins’s Q(λ), trace-cut on non-greedy actions, max-bootstrap target) with tests `TestWatkinsQLambda`, `TestWatkinsLambdaReturn` — **this is not the same algorithm as Rigid/Tree Backup(λ)** and must not be used as its implementation mapping.
+**Hook.** Tree backup avoids importance-sampling ratios by averaging over untried actions. Let's give it eligibility traces and see what that combination buys.
+
+**Formal bridge.** The target mixes tree-backup n-step returns over horizons:
+
+\[
+G_t^{\lambda,\mathrm{TB}}=(1-\lambda)\sum_{n=1}^{h-t-1}\lambda^{n-1}G_{t:t+n}^{\mathrm{TB}}
++\lambda^{h-t-1}G_{t:h}^{\mathrm{TB}},
+\tag{12.15.1}
+\]
+
+with the TD error driving the backward view
+
+\[
+z\leftarrow\gamma\lambda z+\nabla q(s,a),
+\qquad
+w\leftarrow w+\alpha\,\delta^{\mathrm{TB}}\,z.
+\tag{12.15.2}
+\]
+
+where \(G^{\mathrm{TB}}\) is the tree-backup return built from expected values under the target policy, \(z\) the eligibility trace, \(q\) the action value, \(\delta^{\mathrm{TB}}\) the tree-backup TD error, \(\gamma\lambda\) the trace decay, and \(\alpha\) the step size.
+
+**Reasoning chain.** The implementation plan has four parts. First, use the tree-backup n-step/λ-return target (12.38): for action values, bootstrap with expected values under the target policy and **do not** cut traces on exploratory actions via importance ratios in the Watkins manner; the truncated tree-backup λ-return mixes these targets over horizons as in (12.15.1).
+
+Second, maintain eligibility traces over \((s,a)\) updated in the form of (12.36) appropriate to the chosen approximation — e.g. \(z\leftarrow\gamma\lambda z+\nabla q(s,a)\) with the tree-backup TD/error signal; in tabular form, \(z(s,a)\) accumulates and decays per step (12.15.2).
+
+Third, on each step compute the tree-backup TD error for the chosen horizon/mixing and update \(q\) (or \(w\)) by \(\alpha\delta z\).
+
+Fourth, compare with ordinary Tree Backup on a small control task — for example a gridworld/random-walk-style control setup or windy gridworld — plotting learning curves or average return. Expect no Watkins-style trace-cut instability from off-policy sampling, because tree backup uses expectations over actions.
+
+**Why it makes sense.** Watkins's Q(λ) cuts the trace when an exploratory action is taken, because a max-bootstrap cannot safely credit a non-greedy action. Tree backup instead averages over all actions under the target policy, so no cut is needed — the expectation already accounts for the possibility that the sampled action was exploratory. Combining that expectation-based target with traces (12.15.2) should therefore retain credit assignment without the cutoff instability, which is exactly what the proposed experiment checks.
+
+**Check your understanding.** Prediction: setting \(\lambda=0\) should make Rigid Tree Backup behave like ordinary one-step Tree Backup, since the trace in (12.15.2) then carries no past credit; raising \(\lambda\) should speed up credit propagation but also expose any instability the expectation-based target fails to suppress.
+
+**Where this shows up in the code.** **Not implemented in this repo.** There is **no** Tree Backup / Tree-Backup(λ) / Rigid Tree Backup implementation in `chapter_12` or `chapter_12`. The closest off-policy trace control code is `chapter_12/solution.py:watkins_q_lambda` and `watkins_lambda_return` (Watkins's Q(λ), trace-cut on non-greedy actions, max-bootstrap target) with tests `TestWatkinsQLambda`, `TestWatkinsLambdaReturn` — **this is not the same algorithm as Rigid/Tree Backup(λ)** and must not be used as its implementation mapping.
 
 ### Exercise 12.16 — Double Expected Sarsa with eligibility traces [traces]
 
 - **Book location:** §12.13 (conclusions / extensions context), p. ~279.
 - **Type:** Theory / Math.
 - **Paraphrased problem:** Propose how to extend Double Expected Sarsa to use eligibility traces.
-- **Solution:**
-  Maintain two independent action-value estimators `Q1, Q2` (double learning). On a transition `(S,A,R,S')`:
-  - With some rule (e.g. swap/update `Q1` or `Q2` with probability 1/2, or a symmetric scheme), choose which estimator to update, say `Q1`.
-  - Form the Double Expected Sarsa target using the **other** estimator for evaluation: `\bar Q_2(S') = \sum_{a'} π(a'|S'; Q1)\, Q2(S',a')` (policy/greedy probabilities can be derived from `Q1` while values come from `Q2`, per the double/expected-sarsa bias-reduction idea).
-  - Compute TD error `δ = R + γ \bar Q_2(S') - Q1(S,A)` and apply an eligibility-trace backward view: \(z \leftarrow \gamma \lambda z + \nabla Q1(S,A)\) (and decay/clear per chosen trace type), \(Q1 \leftarrow Q1 + \alpha \delta z\) (or keep separate traces per estimator if updating asymmetrically — a simple design is a trace associated with the estimator being updated).
-  This preserves double-estimator decoupling (reducing maximization bias / overestimation) while assigning credit backward in time via traces.
-**Explanation (student-friendly).** The lambda-return is a weighted average of all n-step returns. Peeling off the first n-step return leaves the same kind of average starting one step later, which is exactly the recursive form — lambda = 0 keeps only the first piece, lambda = 1 keeps only the full return.
 
-- **Coding pointer:** **Theory-only / not implemented** in `chapter_12`.
+**Hook.** Double learning already decouples action selection from evaluation. Adding traces should assign credit backward without undoing that decoupling.
+
+**Formal bridge.** Maintain two estimators \(Q_1,Q_2\); the double Expected Sarsa target uses one to choose and the other to evaluate:
+
+\[
+\bar Q_2(S')=\sum_{a'}\pi(a'\mid S';Q_1)\,Q_2(S',a'),
+\qquad
+\delta=R+\gamma\bar Q_2(S')-Q_1(S,A),
+\tag{12.16.1}
+\]
+
+with the backward view
+
+\[
+z\leftarrow\gamma\lambda z+\nabla Q_1(S,A),
+\qquad
+Q_1\leftarrow Q_1+\alpha\delta z.
+\tag{12.16.2}
+\]
+
+where \(\pi(\cdot\mid S';Q_1)\) is the greedy policy derived from \(Q_1\), \(\bar Q_2\) the expected next-state value under \(Q_2\), \(\delta\) the TD error, \(z\) the eligibility trace, \(\gamma\lambda\) the trace decay, and \(\alpha\) the step size.
+
+**Reasoning chain.** On a transition \((S,A,R,S')\), first choose which estimator to update — for example, swap or update \(Q_1\) or \(Q_2\) with probability 1/2, or use a symmetric scheme; say we update \(Q_1\). Form the Double Expected Sarsa target using the **other** estimator for evaluation: \(\bar Q_2(S')=\sum_{a'}\pi(a'|S';Q_1)Q_2(S',a')\), with policy/greedy probabilities derived from \(Q_1\) while values come from \(Q_2\), per the double/expected-Sarsa bias-reduction idea.
+
+Compute the TD error \(\delta=R+\gamma\bar Q_2(S')-Q_1(S,A)\) and apply the eligibility-trace backward view \(z\leftarrow\gamma\lambda z+\nabla Q_1(S,A)\) (decaying or clearing per the chosen trace type), followed by \(Q_1\leftarrow Q_1+\alpha\delta z\). If updates are asymmetric, keep separate traces per estimator — a simple design ties the trace to the estimator being updated.
+
+This preserves double-estimator decoupling — reducing maximisation bias / overestimation — while assigning credit backward in time via traces. The λ-return reasoning still applies: the weighted average of n-step returns can be peeled into a recursion starting one step later, which is what lets the trace carry the multi-step credit.
+
+**Why it makes sense.** Overestimation comes from using the same noisy estimate both to pick the best action and to score it. Splitting those jobs makes the target conservative without shrinking values by hand. Traces then propagate that honest target to earlier states; if the trace instead used \(Q_2\)'s gradient while updating \(Q_1\), the decoupling would blur and the bias reduction would be compromised. At \(\lambda=0\) the scheme is ordinary Double Expected Sarsa — a useful limiting check.
+
+**Check your understanding.** Prediction: using a single estimator for both selection and evaluation would restore maximisation bias; setting \(\lambda=0\) removes the trace and gives plain Double Expected Sarsa, while a large \(\lambda\) spreads the conservatively evaluated target further back at the cost of more variance.
+
+**Where this shows up in the code.** **Theory-only / not implemented** in `chapter_12`.
 
 ---
 

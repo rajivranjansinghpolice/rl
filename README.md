@@ -57,7 +57,10 @@ important deviations are:
 `AUDIT.md` is the complete inventory of items that are **not implemented** or
 **theory-only**, with a justification for each; it also lists what was
 implemented during the book-alignment work. Exercise writeups in
-`chapter_XX/exercises.md` each end with a student-friendly explanation.
+`chapter_XX/exercises.md` follow the house style in
+[`STUDENT_ANSWER_TEMPLATE.md`](STUDENT_ANSWER_TEMPLATE.md):
+a conversational hook, a numbered formal equation with a symbol glossary, a
+reasoning chain, an intuition check, and a prediction-style self-check.
 
 ## Chapter renumbering provenance
 

@@ -63,30 +63,50 @@
 two player-sum rows in the rear view, (2) why it drops off for the whole last row on the left
 view, and (3) why the frontmost values are higher in the upper diagrams than in the lower.
 
-**Solution.**
-1. **Rear view, last two rows jump up (player sums 20 and 21).** Under the evaluated policy the
-   player sticks on 20 or 21, so these states immediately stop drawing and usually avoid busting.
-   That gives much higher expected return than states like 19 where the policy still hits and risks
-   going over 21. The jump reflects the policy’s action change at the threshold, not a modeling
-   artifact (§5.1, Example 5.1).
-2. **Left view, whole last row drops (dealer showing an ace).** A dealer ace is strong: the dealer
-   has a usable ace and many chances to reach a high total (or blackjack in the initial deal),
-   which lowers the player’s expected return across player sums in that column compared with a
-   weak dealer showing (e.g. 4–6). The plot shows this systematic disadvantage.
-3. **Frontmost values higher in the upper diagrams than the lower (usable ace vs no usable ace).**
-   A usable ace means the player can count an ace as 11 without busting, giving flexibility (an
-   extra safe hit option). Therefore, for the same player sum/dealer showing, states with a usable
-   ace have higher (or no worse) value than those without, which is why the upper surfaces sit
-   above the lower ones in Figure 5.1.
+**Hook.** The estimated Blackjack surface is not smooth, and every kink is a story about the fixed
+policy or the dealer's cards. Let's read the three features one at a time.
 
-**Explanation (student-friendly).** Monte Carlo prediction estimates \(v_\pi\) directly from sampled returns
-(Eq. 5.1–5.2); the learned shape comes from the environment dynamics and the fixed policy.
+**Formal bridge.** Monte Carlo prediction estimates
 
-**Coding pointer.** `BlackjackEnv` and `blackjack_stick_on_threshold(stick_threshold=20)` implement
-the Example 5.1 environment/policy idea; prediction can be run with `mc_first_visit_prediction` /
-`mc_every_visit_prediction`. Tests: `TestBlackjackEnv`, `test_blackjack_stick_on_threshold`.
+\[
+v_\pi(s) = \mathbb{E}_\pi\left[G_t \mid S_t=s\right],
+\tag{5.1.1}
+\]
 
----
+where \(s\) is the player sum, dealer showing card and usable-ace flag, \(\pi\) is the fixed policy
+"stick on 20 or 21, otherwise hit", and \(G_t\) is the sampled return from that state.
+
+**Reasoning chain.** First, the rear view's last two rows jump up. Those rows are player sums 20
+and 21, where the policy sticks, so the player stops drawing cards and usually avoids busting. A
+sum of 19 still hits under this policy and risks going over 21. The jump is therefore the policy's
+threshold showing up in the value surface — it is not a plotting artifact (§5.1, Example 5.1).
+
+Second, the left view's whole last row drops. That row corresponds to the dealer showing an ace: a
+usable ace gives the dealer many chances to reach a high total, or even blackjack on the initial
+deal. Compared with a weak dealer showing 4–6, the player's expected return is systematically lower
+across all player sums, so the entire row sits lower.
+
+Third, the frontmost values are higher in the upper diagrams than in the lower ones. The upper
+diagrams are states with a usable ace, which the player can count as 11 without busting. That extra
+flexibility means an extra safe hit option, so for the same player sum and dealer card the usable-ace
+state has value at least as high as the corresponding no-usable-ace state. Because MC prediction
+averages sampled returns from the actual dynamics and fixed policy (5.1.1), all three effects are
+learned rather than imposed.
+
+**Why it makes sense.** Push each effect to an extreme. If the policy hit on 21, the value there
+would collapse, because a bust would be nearly certain — the jump exists because stopping is
+valuable. If the dealer always showed an ace and had blackjack every time, the player's value would
+fall to zero everywhere; a weak dealer card is the opposite extreme. And an ace that cannot be used
+as 11 is just a 1, with no flexibility, so the lower surfaces must be no better than the upper
+ones. The direction of each feature is forced by the rules of the game.
+
+**Check your understanding.** Prediction: change the stick threshold from 20 to 19. The jump in
+the rear view should move down one row to player sum 19, and values around 20 should shift because
+the player now stops earlier; the dealer-ace and usable-ace patterns should remain.
+
+**Where this shows up in the code.** `BlackjackEnv` and `blackjack_stick_on_threshold(stick_threshold=20)`
+implement the Example 5.1 environment and policy; prediction can use `mc_first_visit_prediction` or
+`mc_every_visit_prediction`; tests `TestBlackjackEnv` and `test_blackjack_stick_on_threshold`.
 
 ### Exercise 5.2 — Backup diagram for Monte Carlo estimation of \(q_\pi\)
 
@@ -96,22 +116,48 @@ the Example 5.1 environment/policy idea; prediction can be run with `mc_first_vi
 **Problem (paraphrased).** What is the backup diagram for Monte Carlo estimation of action values
 \(q_\pi(s,a)\)?
 
-**Solution.** For action-value MC, each estimate is based on a **sample episode return** following a
-visit to the state–action pair \((S_t=s, A_t=a)\): the “backup” is a single sampled trajectory
-\(S_t,A_t,R_{t+1},S_{t+1},A_{t+1},\dots\) down to termination, producing
-\(G_t=\sum_{k=0}^{T-t-1}\gamma^k R_{t+k+1}\). Unlike DP (Eq. 4.x backups), there is **no branching
-over all next states/actions by a model and no bootstrapping**; the update target is the actual
-return \(G_t\). Averaging these targets over visits to \((s,a)\) estimates
-\(q_\pi(s,a)=\mathbb{E}_\pi[G_t\mid S_t=s,A_t=a]\) (the action-value analogue of Eq. 5.1).
+**Hook.** A Monte Carlo "backup" is not a one-step branch at all. Let's describe the diagram and
+see why it has no model or bootstrapping in it.
 
-**Explanation (student-friendly).** Without a model, action values are needed for model-free improvement
-(§5.2–§5.3), and MC backs up full returns rather than one-step expectations.
+**Formal bridge.** The target of an action-value backup is the sampled return after a visit to
+\((s,a)\),
 
-**Coding pointer.** Action-value averaging/backups appear inside `mc_control_epsilon_greedy` (Q of
-state–action pairs) and in off-policy control returns processing. **Not implemented:** a dedicated
-standalone \(q_\pi\) prediction API; prediction APIs in this repo estimate \(v_\pi\).
+\[
+q_\pi(s,a) = \mathbb{E}_\pi\left[G_t \mid S_t=s, A_t=a\right],
+\qquad
+G_t = \sum_{k=0}^{T-t-1}\gamma^k R_{t+k+1}.
+\tag{5.2.1}
+\]
 
----
+where \((s,a)\) is the visited state-action pair, \(G_t\) is the complete episode return following
+that visit, \(\gamma\) is the discount factor, and \(T\) is termination.
+
+**Reasoning chain.** Draw the diagram starting at the node \((S_t=s,A_t=a)\). From it there is a
+single sampled trajectory \(S_t,A_t,R_{t+1},S_{t+1},A_{t+1},\ldots\) continuing all the way down to
+termination, and the contribution carried back along that one path is \(G_t\). That is the entire
+backup: one path, one return.
+
+Contrast this with a dynamic-programming backup, which branches over all next states and actions
+using the model and then bootstraps from estimated values. Here there is no branching over a model
+and no bootstrap — the target is the actual observed return. Averaging those returns over all visits
+to \((s,a)\) estimates \(q_\pi(s,a)\), the action-value analogue of Eq. 5.1. That is why action values
+are the natural object for model-free control: they can be learned from trajectories without knowing
+\(p\).
+
+**Why it makes sense.** The extreme check is an episode of length one: the path is a single reward
+and \(G_t=R_{t+1}\), so the action value is just the average reward received. As episodes get longer,
+the same path simply carries more rewards back, each discounted by \(\gamma^k\). If the diagram
+branched over all outcomes, it would be a DP backup and would require a model — the whole point of
+Monte Carlo estimation is that the sampled path stands in for the expectation.
+
+**Check your understanding.** Prediction: although the visit definition changes which returns are
+counted, the diagram does not branch either way; every-visit adds more single paths from repeated
+visits to \((s,a)\), while first-visit keeps only the first path per episode.
+
+**Where this shows up in the code.** Action-value averaging appears inside
+`mc_control_epsilon_greedy` and in off-policy control return processing; a dedicated standalone
+\(q_\pi\) prediction API is **not implemented** — the prediction APIs in this chapter estimate
+\(v_\pi\).
 
 ### Exercise 5.3 — Monte Carlo update/estimate for action values
 
@@ -122,26 +168,53 @@ standalone \(q_\pi\) prediction API; prediction APIs in this repo estimate \(v_\
 (Eq. 5.2 / 5.1 idea), i.e. how to estimate \(q_\pi(s,a)\) from returns generated using policy \(\pi\)
 (or behavior policy \(b\) in the off-policy sense, before correction).
 
-**Solution.** Let \(\mathcal{T}(s,a)\) be the set of time steps at which \((s,a)\) is visited (first-visit
-or every-visit, by choice) and \(G_t\) the return following time \(t\). The Monte Carlo estimate is
-the average return after those visits:
+**Hook.** Replacing states by state-action pairs is almost all it takes. Let's write the batch and
+incremental forms so the bookkeeping is explicit.
+
+**Formal bridge.** Let \(\mathcal{T}(s,a)\) be the set of visits to \((s,a)\) (first-visit or
+every-visit, by choice) and \(G_t\) the return following \(t\). The estimate is
+
 \[
-Q(s,a)\;\doteq\;\frac{1}{|\mathcal{T}(s,a)|}\sum_{t\in \mathcal{T}(s,a)} G_t,
-\qquad \text{(analogous to Eq. 5.2 for }V(s)\text{).}
+Q(s,a)\;\doteq\;\frac{1}{|\mathcal{T}(s,a)|}\sum_{t\in \mathcal{T}(s,a)} G_t.
+\tag{5.3.1}
 \]
-Incrementally (cf. §5.6 / Eq. 2.4), after the \(n\)-th observed return \(G_n\) for \((s,a)\):
+
+After the \(n\)-th observed return \(G_n\) for that pair, the same average can be maintained as
+
 \[
-Q_{n+1}(s,a)=Q_n(s,a)+\frac{1}{n}\bigl(G_n - Q_n(s,a)\bigr).
+Q_{n+1}(s,a)=Q_n(s,a)+\frac{1}{n}\bigl(G_n-Q_n(s,a)\bigr).
+\tag{5.3.2}
 \]
-This is the sample-average action-value update; off-policy learning additionally weights \(G_t\) by
-importance ratios (Eq. 5.3–5.6, Ex. 5.7).
 
-**Explanation (student-friendly).** Control improves by acting greedily/ε-greedily with respect to \(Q\) (§5.3–§5.4).
+where \(Q(s,a)\) estimates \(q_\pi(s,a)\), \(n=|\mathcal{T}(s,a)|\), and \(G_t\) is the episode return
+after the visit; in the off-policy case the returns are additionally weighted by importance ratios
+(Ex. 5.7).
 
-**Coding pointer.** `mc_control_epsilon_greedy` maintains per-(state,action) return lists and sets
-`q_table[state][action] = mean(returns)` (batch form of the same average). Tests: `TestOnPolicyControl`.
+**Reasoning chain.** The batch form (5.3.1) is just Eq. 5.2 with \(s\) replaced by \((s,a)\): collect
+every return that followed a visit to that pair and average them. Choosing first-visit or
+every-visit determines which time steps enter \(\mathcal{T}(s,a)\), but not the form of the average.
 
----
+The incremental form (5.3.2) is the sample-average recursion of §2.4 applied separately to each
+state-action pair: the error \(G_n-Q_n\) is moved into the estimate by a step of size \(1/n\). This
+avoids storing the full list of returns.
+
+If the data came from a different behaviour policy \(b\), these raw averages estimate \(q_b\) until
+correction; off-policy learning weights each \(G_t\) by an importance ratio (Eq. 5.3–5.6) so the
+average targets \(q_\pi\) instead. Control then improves the policy by acting greedily or
+ε-greedily with respect to \(Q\).
+
+**Why it makes sense.** With a single visit, (5.3.2) sets \(Q=G_1\) exactly — the observed return is
+the only evidence available. With many visits, each new return moves the estimate by \(1/n\), so
+early samples matter more and later ones are progressively averaged out. The direction is right:
+if a new return is higher than the current estimate, the estimate rises; a lower return pulls it
+down.
+
+**Check your understanding.** Prediction: replace the step size \(1/n\) by a constant \(\alpha\). The
+estimate becomes a recency-weighted average that can track changing action values, but it no longer
+equals the exact mean of the observed returns.
+
+**Where this shows up in the code.** `mc_control_epsilon_greedy` maintains per-\((s,a)\) return
+lists and sets `q_table[state][action] = mean(returns)`; test `TestOnPolicyControl`.
 
 ### Exercise 5.4 — Why weighted importance-sampling error can rise then fall (Fig. 5.3)
 
@@ -150,33 +223,59 @@ importance ratios (Eq. 5.3–5.6, Ex. 5.7).
 - **Type:** Theory / math intuition.
 
 **Problem (paraphrased).** In learning curves like Figure 5.3, the error of ordinary importance
-sampling typically decreases with more episodes, but weighted importance sampling can show error that
-first increases and then decreases. Why?
+sampling typically decreases with more episodes, but weighted importance sampling can show error
+that first increases and then decreases. Why?
 
-**Solution.** Both estimators target \(v_\pi(s)=\mathbb{E}_b[\rho_{t:T-1}G_t\mid S_t=s]\)
-(Eq. 5.3–5.5), but they behave differently at small sample sizes:
-- **Ordinary IS (Eq. 5.4)** divides by the number of visits/episodes \(n\), so early estimates can
-  be very noisy yet often move quickly in magnitude; the curve can appear to improve in a simple MSE
-  trend while still having extremely high/possibly infinite variance in such problems (see Ex. 5.5).
-- **Weighted IS (Eq. 5.5)** forms a self-normalized ratio
-  \((\sum \rho_t G_t)/(\sum \rho_t)\). With very few returns, the denominator and numerator may be
-  dominated by a small number of atypical trajectories with moderate ratios, producing a **biased**
-  estimate that can move away from the true value (apparent error increase). As more episodes are
-  observed, the ratio stabilizes and the bias/variance tradeoff improves, so error then decreases and
-  the estimator converges to the correct value (weighted IS is consistent; §5.5).
+**Hook.** Both estimators chase the same target, but they normalise their samples in different
+ways. That difference is invisible in the limit and dramatic in the first few episodes.
 
-**Explanation (student-friendly).** Variance and small-sample bias differ: ordinary IS is unbiased but can have
-huge variance; weighted IS is biased (especially early) but usually much lower variance (§5.5).
+**Formal bridge.** Both target
 
-**Coding pointer.** `mc_off_policy_prediction(..., weighted=False)` implements ordinary IS (Eq. 5.4
-behavior in code) and `weighted=True` implements weighted IS (Eq. 5.5). `mc_control_off_policy`
-supports `weighted=True/False`. Figure 5.3 itself is reproducible via
-`plot_importance_sampling` in `chapter_05/solution.py` (MSE of ordinary vs weighted IS on the
-single blackjack state, player sum 13 / dealer 2 / usable ace, averaged over 100 runs; the
-reference value is estimated by a 200,000-episode first-visit MC prediction, not hardcoded).
-Tests: `TestOffPolicyPrediction`, `TestOffPolicyControl`.
+\[
+v_\pi(s)=\mathbb{E}_b\!\left[\rho_{t:T-1}G_t\mid S_t=s\right],
+\qquad
+\rho_{t:T-1}=\prod_{k=t}^{T-1}\frac{\pi(A_k\mid S_k)}{b(A_k\mid S_k)},
+\tag{5.4.1}
+\]
 
----
+and the two estimators are the ordinary average \(\sum \rho G/n\) and the self-normalised ratio
+\((\sum \rho G)/(\sum \rho)\).
+
+where \(\rho_{t:T-1}\) is the importance-sampling ratio from step \(t\) to termination, \(\pi\) is
+the target policy, \(b\) is the behaviour policy, \(G_t\) is the return, and \(n\) is the number of
+returns for \(s\).
+
+**Reasoning chain.** Ordinary IS (Eq. 5.4) divides the weighted return sum by the visit count \(n\),
+not by the sum of weights. With few episodes it can be very noisy, and in problems like Example 5.5
+its variance may be extremely high or even infinite; nevertheless its error curve can appear to
+improve steadily in a simple mean-squared-error plot because its early estimates are not distorted
+by a random denominator.
+
+Weighted IS (Eq. 5.5) uses the self-normalised form \((\sum \rho G)/(\sum \rho)\). With very few
+returns, both the numerator and denominator can be dominated by a handful of atypical trajectories
+with moderate ratios, producing a biased estimate that can first move *away* from the true value —
+the apparent rise in error. As more episodes arrive, the accumulated weights stabilise, the
+self-normalisation bias shrinks, and the estimator converges to the correct value: weighted IS is
+consistent (§5.5), and usually has far lower variance than ordinary IS.
+
+**Why it makes sense.** Picture one early trajectory with a large ratio \(\rho\). Ordinary IS scales
+its contribution by \(\rho/n\), so a single huge value can dominate — an infinite-variance risk.
+Weighted IS divides by the sum of ratios, so that same trajectory is partly cancelled by its own
+weight in the denominator; the estimate is dragged toward that trajectory's return when the sample
+is small, which is a bias, but it cannot be multiplied without bound. As the denominator grows,
+one trajectory's influence fades. This is the classic bias-variance trade: lower variance bought
+with a temporary, small-sample bias — hence an error curve that rises before it falls.
+
+**Check your understanding.** Prediction: start the experiment from a larger initial sample count.
+The weighted-IS curve should skip most of its rising phase, because the self-normalising denominator
+is already stable; ordinary IS remains noisy whenever a rare large-ratio trajectory appears.
+
+**Where this shows up in the code.** `mc_off_policy_prediction(..., weighted=False)` implements
+ordinary IS and `weighted=True` implements weighted IS; `mc_control_off_policy` supports both.
+`plot_importance_sampling` reproduces Figure 5.3 (MSE of ordinary vs weighted IS on the single
+blackjack state — player sum 13 / dealer 2 / usable ace — averaged over 100 runs, with the reference
+value estimated by 200,000-episode first-visit MC prediction rather than hardcoded). Tests:
+`TestOffPolicyPrediction` and `TestOffPolicyControl`.
 
 ### Exercise 5.5 — Every-visit MC and the infinite-variance example (Example 5.5 / Fig. 5.4)
 
@@ -187,36 +286,56 @@ Tests: `TestOffPolicyPrediction`, `TestOffPolicyControl`.
 **Problem (paraphrased).** Example 5.5/Figure 5.4 used first-visit MC. If every-visit MC were used
 on the same problem, would the variance of the estimator still be infinite? Why or why not?
 
-**Solution.** **Yes, for ordinary importance sampling the variance can still be infinite.** In the
-example there is one nonterminal state \(s\). Target policy \(\pi\) always selects the action that
-may stay in \(s\) (so the episode can be long) and behavior policy \(b\) selects that action with
-probability 1/2. Let the episode length/termination be such that a return of 1 occurs with
-probability \(0.1\cdot 0.9^{k}\) after \(k\) self-loops (geometric tail), while the importance
-ratio for a trajectory that stays \(k\) steps is \(\rho = 2^{k+1}\) (since \(\pi/b=2\) on each taken
-step). The ordinary IS contribution involves \(\rho G\); its **second moment** scales like
-\(\sum_k (2^{k+1})^2 \cdot 0.1\cdot 0.9^k\), which diverges because \(4\cdot 0.9 > 1\). Therefore
-\(\operatorname{Var}(\rho G)=\infty\) in the first-visit/once-per-episode sense of that example.
+**Hook.** Switching to every-visit changes how often we count, but not how wildly the importance
+weights grow. Let's check the tail that actually causes the divergence.
 
-Switching to **every-visit** counting means we would include multiple \((s,t)\) time steps within the
-same episode, adding *more* correlated high-variance terms rather than removing the explosive weight
-growth. The rare long episodes that cause huge \(\rho\) still occur with the same probabilities, so
-ordinary IS does **not** become finite-variance by changing visit definition. (Weighted IS, by
-contrast, bounds/normalizes contributions and has finite variance in this setting — §5.5.)
+**Formal bridge.** In the one-state example, a trajectory with \(k\) self-loops has importance ratio
+\(\rho=2^{k+1}\) (since \(\pi/b=2\) on each taken step), while a return of 1 occurs after \(k\) loops
+with probability \(0.1\cdot 0.9^{k}\). The ordinary IS second moment therefore contains
 
-**Explanation (student-friendly).** Visit definition (first vs every) affects estimator details, but it does not
-cure the fundamental tail/ratio explosion that makes ordinary IS variance infinite in Example 5.5.
+\[
+\sum_k \left(2^{k+1}\right)^2 \cdot 0.1\cdot 0.9^{k},
+\tag{5.5.1}
+\]
 
-**Coding pointer.** Figure 5.3 and 5.4 are both scripted in `chapter_05/solution.py`:
-`plot_importance_sampling` (Fig. 5.3) and `plot_ordinary_is_unstable` (Fig. 5.4, Example 5.5
-one-state MDP via `OneStateIsEnv` / vectorized `_one_state_is_samples`). `mc_off_policy_prediction`
-supports `weighted` and `first_visit` flags and is used in
-`TestOffPolicyPrediction::test_weighted_is_infinite_variance_example` and
-`test_ordinary_is_returns_entries`. Tests for the vectorized sampler: `TestOneStateIs`.
-Note: the vectorized run uses 10^6 episodes per run (the book prints to 10^8), so deep-tail
-spikes are smaller here; per-run means (≈0.78–0.92) typically sit below the true value,
-which is itself the infinite-variance phenomenon (rare huge samples dominate in expectation).
+which diverges because \(4\cdot0.9>1\).
 
----
+where \(k\) is the number of self-loops, \(2^{k+1}\) is the importance ratio along that trajectory,
+and \(0.1\cdot0.9^{k}\) is the probability of the corresponding return.
+
+**Reasoning chain.** The example has one nonterminal state \(s\). The target policy \(\pi\) always
+selects the action that may stay in \(s\), so episodes can be long; the behaviour policy \(b\) picks
+that action with probability \(1/2\), giving a ratio of \(2\) per step. Returns of 1 occur with the
+geometric tail \(0.1\cdot0.9^{k}\) after \(k\) self-loops, while \(\rho=2^{k+1}\). The second moment of
+\(\rho G\) scales as \(\sum_k 4^{k+1}\cdot0.1\cdot0.9^{k}\), and since \(4\cdot0.9>1\) the terms grow —
+the variance of ordinary IS is infinite in the once-per-episode sense of the example.
+
+Does every-visit fix this? No. Counting every visit to \(s\) within the same episode adds *more*
+correlated high-variance terms, each carrying the same explosive weights; it does not remove the
+rare long trajectories with huge \(\rho\). Those trajectories still occur with the same
+probabilities, so ordinary IS does not become finite-variance by changing the visit definition.
+Weighted IS, by contrast, normalises the contributions and has finite variance in this setting
+(§5.5).
+
+**Why it makes sense.** The divergence is a race between two exponentials: the ratio grows like
+\(4^k\) in the second moment while the probability of such trajectories decays like \(0.9^k\). When
+the growth wins (\(4\cdot0.9>1\)), the tail has infinite variance — no counting rule can change
+that inequality. If the behaviour policy were closer to the target, say \(\pi/b=1\) on that action,
+the ratio would stay at 1 and the same return distribution would have finite variance. The problem
+is the mismatch between policies, not the definition of a visit.
+
+**Check your understanding.** Prediction: raise the probability of continuing the self-loop so the
+tail decays more slowly. The series in (5.5.1) diverges even faster; conversely, make \(b\) choose
+the loop action with probability close to 1, so \(\pi/b\approx1\), and the variance becomes finite.
+
+**Where this shows up in the code.** `plot_importance_sampling` (Figure 5.3) and
+`plot_ordinary_is_unstable` (Figure 5.4, via `OneStateIsEnv` and `_one_state_is_samples`) in
+`chapter_05/solution.py`; `mc_off_policy_prediction` supports `weighted` and `first_visit` flags,
+used in `TestOffPolicyPrediction.test_weighted_is_infinite_variance_example` and
+`test_ordinary_is_returns_entries`; the vectorized sampler is covered by `TestOneStateIs`. The
+vectorized run uses \(10^6\) episodes per run (the book prints to \(10^8\)), so deep-tail spikes are
+smaller; per-run means (about 0.78–0.92) typically sit below the true value, which is itself the
+infinite-variance phenomenon at work.
 
 ### Exercise 5.6 — Incremental implementation of first-visit MC prediction
 
@@ -226,24 +345,45 @@ which is itself the infinite-variance phenomenon (rare huge samples dominate in 
 **Problem (paraphrased).** Modify first-visit MC policy evaluation (as in §5.1) to use the
 incremental sample-average update from §2.4 instead of storing all returns.
 
-**Solution.** For each state \(s\) keep a count \(N(s)\) and value estimate \(V(s)\). After an episode,
-compute returns \(G_t\) backward as usual, but for the **first** time \(t\) that \(s\) is visited in
-that episode do:
+**Hook.** MC prediction is an average, so it can be maintained incrementally. Let's replace the list
+of returns with two numbers per state: a count and a running estimate.
+
+**Formal bridge.** For each state keep \(N(s)\) and \(V(s)\); after an episode, for the first visit
+only,
+
 \[
-N(s) \leftarrow N(s)+1,\qquad V(s) \leftarrow V(s) + \frac{1}{N(s)}\bigl(G_t - V(s)\bigr),
+N(s)\leftarrow N(s)+1,
+\qquad
+V(s)\leftarrow V(s)+\frac{1}{N(s)}\left(G_t-V(s)\right).
+\tag{5.6.1}
 \]
-and ignore later visits to \(s\) in the same episode (first-visit rule). This is exactly Eq. (2.4) /
-the incremental mean, applied once per first visit. Every-visit would apply the same update on every
-visit. No list of past returns is required, only \((V, N)\).
 
-**Explanation (student-friendly).** It shows MC prediction is averaging; incremental form is memory-efficient and
-generalizes to nonstationary tracking by replacing \(1/N(s)\) with a constant step size \(\alpha\).
+where \(G_t\) is the return following that first visit, \(N(s)\) counts first visits so far, and
+\(V(s)\) is the running average; a constant step size \(\alpha\) may replace \(1/N(s)\) for tracking.
 
-**Coding pointer.** `mc_first_visit_prediction` and `mc_every_visit_prediction` compute correct
-averages (batch mean in this implementation). **Not implemented:** a separate incremental-API variant;
-the math above is the required incremental form.
+**Reasoning chain.** After each episode, compute returns \(G_t\) backwards as usual. When a state is
+encountered for the first time in that episode, increment its count and move its estimate toward
+the new return by a fraction \(1/N(s)\) of the error \(G_t-V(s)\). Ignore any later visits to the
+same state in that episode — that is the first-visit rule. Every-visit MC would apply the same
+update at each visit instead.
 
----
+This is exactly the incremental mean of §2.4, Eq. (2.4), applied once per qualifying visit, so no
+list of past returns is needed: the pair \((V,N)\) carries everything. Replacing \(1/N(s)\) by a
+constant \(\alpha\) turns the estimator into a recency-weighted tracker for nonstationary problems.
+
+**Why it makes sense.** On the first visit, \(N=1\) and the update sets \(V=G_t\) exactly. On the
+second, the new return moves the estimate halfway; on the hundredth, only one percent. That is
+precisely the behaviour of a running average — early data has large influence because little else
+is known, and later data is averaged in gently. If the step size did not shrink, one noisy return
+could keep overturning a well-established estimate.
+
+**Check your understanding.** Prediction: switch from first-visit to every-visit. Each state then
+receives more updates per episode, so \(N(s)\) grows faster and individual returns have less effect;
+the estimates converge to a different (but still valid) average of returns.
+
+**Where this shows up in the code.** `mc_first_visit_prediction` and `mc_every_visit_prediction`
+compute the correct averages (batch mean in this implementation); a separate incremental-API variant
+is **not implemented** — the recurrence above is the required incremental form.
 
 ### Exercise 5.7 — Derive the weighted-average incremental update (Eq. 5.6)
 
@@ -254,27 +394,56 @@ the math above is the required incremental form.
 weighted-average definition (Eq. 5.5-style cumulative form), following the pattern of the unweighted
 derivation in §2.4.
 
-**Solution.** Define cumulative weight and weighted return sum
-\(C_n \doteq \sum_{k=1}^{n} W_k\), \(S_n \doteq \sum_{k=1}^{n} W_k G_k\), with \(V_n = S_n/C_n\)
-(and \(V_n\) arbitrary/unused when \(C_n=0\)). Then
+**Hook.** The weighted average differs from an ordinary mean only by carrying a cumulative weight.
+Let's unfold it and watch the update fall out.
+
+**Formal bridge.** Define the cumulative weight and weighted return sum
+
 \[
-V_{n+1}=\frac{S_{n+1}}{C_{n+1}}=\frac{S_n + W_{n+1}G_{n+1}}{C_n + W_{n+1}}.
+C_n \doteq \sum_{k=1}^{n} W_k,
+\qquad
+S_n \doteq \sum_{k=1}^{n} W_k G_k,
+\qquad
+V_n = \frac{S_n}{C_n}.
+\tag{5.7.1}
 \]
-Substitute \(S_n = C_n V_n\):
+
+where \(W_k\) is the importance weight of the \(k\)-th return \(G_k\), \(C_n\) is their sum, and
+\(V_n\) is the weighted-average estimate (arbitrary/unused when \(C_n=0\)).
+
+**Reasoning chain.** Write the next estimate with the accumulated quantities:
+
 \[
-V_{n+1}=\frac{C_n V_n + W_{n+1}G_{n+1}}{C_{n+1}}
-= V_n + \frac{W_{n+1}}{C_{n+1}}\left(G_{n+1}-V_n\right),
+V_{n+1}=\frac{S_{n+1}}{C_{n+1}}
+       =\frac{S_n+W_{n+1}G_{n+1}}{C_n+W_{n+1}}.
+\tag{5.7.2}
 \]
-which is Eq. (5.6). This reduces to the ordinary sample-average update when \(W_k \equiv 1\)
-(\(C_n=n\)).
 
-**Explanation (student-friendly).** This recurrence is the basis of weighted importance sampling implementations and
-off-policy control with incremental updates (§5.6–§5.7).
+Now substitute \(S_n=C_nV_n\), which follows from the definition in (5.7.1):
 
-**Coding pointer.** Weighted incremental updates appear in `mc_control_off_policy(..., weighted=True)`
-(update `q += (w/C)*(g-q)`). Tests: `TestOffPolicyControl`.
+\[
+V_{n+1}=\frac{C_nV_n+W_{n+1}G_{n+1}}{C_{n+1}}
+       =V_n+\frac{W_{n+1}}{C_{n+1}}\left(G_{n+1}-V_n\right),
+\tag{5.7.3}
+\]
 
----
+which is Eq. (5.6), with the step size \(W_{n+1}/C_{n+1}\). When every weight is \(W_k\equiv1\),
+\(C_n=n\) and (5.7.3) reduces to the ordinary sample-average update
+\(V_{n+1}=V_n+\frac1n(G_{n+1}-V_n)\).
+
+**Why it makes sense.** The step size is the new weight's *share* of all weight seen so far. A large
+new weight means that return is trustworthy, so the estimate moves a lot; a tiny weight means it is
+nearly ignored. If all weights are equal, the share is \(1/n\), recovering the familiar mean. Since
+\(0\le W_{n+1}/C_{n+1}\le1\), the estimate always moves toward the new return, never past it — the
+right direction for an average.
+
+**Check your understanding.** Prediction: let the first ten returns have weight 1 and the eleventh
+have weight 100. The step size for that return is \(100/110\approx0.91\), so the estimate jumps close
+to \(G_{11}\); if the eleventh weight were 0.01, the step size would be about \(0.001\) and almost
+nothing would change.
+
+**Where this shows up in the code.** Weighted incremental updates appear in
+`mc_control_off_policy(..., weighted=True)` via `q += (w/C)*(g-q)`; test `TestOffPolicyControl`.
 
 ### Exercise 5.8 — Racetrack (programming)
 
@@ -287,34 +456,55 @@ per time step until crossing the finish line, and must stay on the track (with a
 rule when it leaves). Apply a Monte Carlo control method to learn a policy to reach the finish from
 start states.
 
-**Solution (implemented).** `RacetrackEnv` in `rl_envs/racetrack.py` implements the book's rules:
-state \((\text{row},\text{col},v_x,v_y)\) with both velocity components clipped to \(\{0,\dots,4\}\);
-velocity may not be \((0,0)\) off the start line; 9 actions (each component increases/stays/decreases
-by 1); reward \(-1\) per step; episodes start at a random starting-line cell with \(v=(0,0)\);
-before a move is applied the straight projected path is checked — if it crosses the finish line the
-episode ends, else if it crosses off-track the car is reset to a random start cell with \(v=(0,0)\)
-and the episode continues (boundary checked *after* the finish); with probability `noise_prob`
-(0.1 in the book) the velocity increments are forced to zero that step; `max_steps` optionally caps
-episode length so control episodes terminate. Tracks are ASCII maps; the default is a small
-right-turn track in the spirit of the book's Fig. 5.5 and is an **illustrative demonstration**, not a
-pixel-identical copy of the printed grid (the exact book grid is edition-specific).
+**Hook.** Racetrack is where Monte Carlo control meets a task too large for a model-based sweep.
+Let's pin down the rules and then the training setup.
 
-Training works with the repo's MC control: `mc_control_epsilon_greedy` on `RacetrackEnv(seed=0,
-noise_prob=0.0, max_steps=100)` runs and returns 9-dimensional ε-soft policies (see
-`TestRacetrackControl`); `mc_exploring_starts` also applies (exploring starts cover every
-(state, action) pair reachable). The state space is \(46 \times 25 = 1150\) cells × 9 actions
-(\(\approx\)10k \(Q\)-entries). A full racetrack solve (competing with the book's tuned runs) is not
-claimed here; the environment and the MC machinery to train it are implemented and tested.
+**Formal bridge.** The agent maximises the return of a trajectory that ends at the finish line,
 
-**Explanation (student-friendly).** It demonstrates MC control on a larger trajectory task where DP is impractical
-without an explicit model.
+\[
+G_t=\sum_{k=0}^{T-t-1}\gamma^k(-1)=-T+t \quad (\gamma=1),
+\tag{5.8.1}
+\]
 
-**Coding pointer.** Implemented: `RacetrackEnv` (`rl_envs/racetrack.py`), exports in
-`rl_envs/__init__.py`; tests `tests/test_rl_envs.py::TestRacetrack` (reset/step/finish/boundary/
-noise/`max_steps`/validation) and `chapter_05/tests/test_solution.py::TestRacetrackControl`
-(ε-greedy MC control runs on the racetrack and returns well-formed 9-dim policies).
+where \(T\) is the step on which the car crosses the finish, so each step costs \(-1\) and the
+shortest completed trajectory has the best return.
 
----
+where the state is \((\text{row},\text{col},v_x,v_y)\) with velocity components clipped to
+\(\{0,\ldots,4\}\), the actions are the 9 acceleration choices (each component up, stay or down by
+1), and \(T\) is the terminal step.
+
+**Reasoning chain.** `RacetrackEnv` in `rl_envs/racetrack.py` implements the book's rules: velocity
+may not be \((0,0)\) off the start line; reward is \(-1\) per step; episodes start at a random
+starting-line cell with \(v=(0,0)\). Before applying a move, the straight projected path is checked:
+if it crosses the finish line the episode ends; otherwise, if it crosses off-track, the car is reset
+to a random start cell with \(v=(0,0)\) and the episode continues — the boundary check is performed
+*after* the finish check. With probability `noise_prob` (0.1 in the book) the velocity increments
+are forced to zero that step; `max_steps` can cap episode length so control episodes terminate. The
+tracks are ASCII maps, and the default is a small right-turn track in the spirit of the book's
+Figure 5.5 — an illustrative demonstration, not a pixel-identical copy of an edition-specific grid.
+
+Training uses the repository's MC control: `mc_control_epsilon_greedy` on
+`RacetrackEnv(seed=0, noise_prob=0.0, max_steps=100)` runs and returns 9-dimensional ε-soft
+policies; `mc_exploring_starts` also applies, covering every reachable \((s,a)\) pair. The state
+space is \(46\times25=1150\) cells times 9 actions, roughly 10k \(Q\)-entries. A full racetrack solve
+rivalling the book's tuned runs is not claimed here; what is implemented and tested is the
+environment and the MC machinery needed to train it.
+
+**Why it makes sense.** Because the reward is \(-1\) per step and zero otherwise, the objective
+(5.8.1) is simply "finish as soon as possible", with off-track resets adding wasted steps. That is
+exactly the kind of objective Monte Carlo control handles well: it needs complete episodes and no
+model, whereas dynamic programming would need the transition probabilities of every acceleration on
+every grid cell. The direction of learning is unambiguous — each reset or detour adds another
+\(-1\), so the learned policy should drive more directly toward the finish.
+
+**Check your understanding.** Prediction: turn on velocity noise. Episodes get longer and more
+variable, so the value of careful, lower-speed control rises and the learned policy becomes more
+conservative; turning noise off should produce faster, riskier trajectories.
+
+**Where this shows up in the code.** `RacetrackEnv` in `rl_envs/racetrack.py` (exported from
+`rl_envs/__init__.py`), with `mc_control_epsilon_greedy` and `mc_exploring_starts` in
+`chapter_05/solution.py`; tests `tests/test_rl_envs.py::TestRacetrack` and
+`chapter_05/tests/test_solution.py::TestRacetrackControl`.
 
 ### Exercise 5.9 — Off-policy MC control with discounted (truncated/discount-aware) weighting
 
@@ -325,24 +515,57 @@ noise/`max_steps`/validation) and `chapter_05/tests/test_solution.py::TestRacetr
 return weighting idea (as introduced for off-policy estimation in §5.6 in the 2nd ed.), converting it
 to action values and combining with greedy-target improvement.
 
-**Solution.** In off-policy control we want \(q_\pi(s,a)\) for a greedy target \(\pi\) while behaving
-under an ε-soft \(b\). For each episode, process steps backward accumulating return \(G\leftarrow \gamma G + R_{t+1}\)
-and update \(Q(S_t,A_t)\) with an importance weight \(W\) (ordinary or weighted incremental form,
-Eq. 5.6 in the weighted case). The book’s discounted/alternative weighting replaces or augments the
-full-trajectory ratio by a factor that accounts for discounting over the remaining horizon (a
-“discount-aware”/truncated contribution in that presentation), reducing the impact of very long-horizon
-ratios while still targeting the desired off-policy return. Concretely: convert the state-value
-weighting expression to \(Q(s,a)\), maintain cumulative weights per \((s,a)\), and after each update do
-\(W \leftarrow W \cdot \frac{\pi(A_t\mid S_t)}{b(A_t\mid S_t)}\) (stopping when \(\pi(A_t\mid S_t)=0\),
-as in standard off-policy MC control). Any such modification must preserve that \(\pi\) is greedy w.r.t.
-current \(Q\) and that \(b\) has coverage.
+**Hook.** Off-policy control already combines importance ratios with backward returns. The question
+is how to fold a discount-aware weighting into that loop without breaking the target.
 
-**Explanation (student-friendly).** Variants of weighting/discounting trade bias and variance in off-policy control;
-all rely on importance ratios (Eq. 5.3) and incremental averaging (Eq. 5.6).
+**Formal bridge.** The update targets \(q_\pi(s,a)\) for a greedy target \(\pi\) while behaving under
+an ε-soft \(b\), using the ratio
 
-**Coding pointer.** **Not implemented:** the specific discounted weighting variant requested by Ex. 5.9.
-Implemented off-policy control: `mc_control_off_policy(env, ..., weighted=True|False, ...)` using
-standard greedy-target IS with backward accumulation. Tests: `TestOffPolicyControl`.
+\[
+W \leftarrow W\cdot\frac{\pi(A_t\mid S_t)}{b(A_t\mid S_t)},
+\qquad
+G\leftarrow \gamma G+R_{t+1},
+\tag{5.9.1}
+\]
+
+with cumulative-weight updates such as Eq. 5.6 in the weighted case, and \(W=0\) stopping the
+truncation when \(\pi(A_t\mid S_t)=0\).
+
+where \(b\) is the behaviour policy with coverage of all actions, \(\pi\) is greedy with respect to
+the current \(Q\), \(G\) is the backward-accumulated return, and \(W\) is the running importance
+weight.
+
+**Reasoning chain.** For each episode, process steps backward: accumulate the return with
+\(G\leftarrow\gamma G+R_{t+1}\) and update \(Q(S_t,A_t)\) using the accumulated weight \(W\), either in
+ordinary form or with the weighted incremental recurrence of Eq. 5.6. The book's discounted or flat
+partial-return weighting replaces or augments the full-trajectory ratio by a factor that accounts
+for discounting over the remaining horizon — a "discount-aware" or truncated contribution in that
+presentation — reducing the impact of very long-horizon ratios while still targeting the desired
+off-policy return.
+
+Concretely, convert the state-value weighting expression to an action-value one, maintain cumulative
+weights per \((s,a)\), and after each update apply (5.9.1), stopping when
+\(\pi(A_t\mid S_t)=0\), as in standard off-policy MC control. Any such modification must preserve
+two invariants: \(\pi\) remains greedy with respect to the current \(Q\), and \(b\) retains coverage
+of the actions \(\pi\) might choose. Without coverage the ratio is undefined; without greediness the
+target policy is not the one being improved.
+
+**Why it makes sense.** Long trajectories multiply many ratios, so their weights can explode even
+when their returns are heavily discounted — the same tail problem seen in Exercise 5.5. A
+discount-aware or truncated weighting dampens that multiplication by recognising that rewards far in
+the future contribute little to \(G\) anyway. The direction is right: reduce variance from distant
+steps while keeping the one-step correction exact; pushing the truncation too far, however, biases
+the estimate by discarding real returns.
+
+**Check your understanding.** Prediction: shorten the truncation horizon further. Variance drops
+because fewer long products of ratios enter, but the estimate becomes more biased toward short-term
+returns; if behaviour \(b\) stops covering an action that \(\pi\) prefers, the ratio in (5.9.1)
+cannot correct for it at all.
+
+**Where this shows up in the code.** The specific discounted weighting variant is **not
+implemented**. The available API is `mc_control_off_policy(env, ..., weighted=True|False, ...)`,
+using standard greedy-target importance sampling with backward accumulation; test
+`TestOffPolicyControl`.
 
 ---
 
