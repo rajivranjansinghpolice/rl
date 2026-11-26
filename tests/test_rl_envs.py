@@ -3,10 +3,9 @@ import math
 import numpy as np
 import pytest
 
-from rl_envs.random_walk import RandomWalkEnv, random_walk_true_values
 from rl_envs.blackjack import BlackjackEnv
-from rl_envs.windy_gridworld import WindyGridWorld
-from rl_envs.mountain_car import MountainCarEnv
+from rl_envs.four_rooms import GridWorld as FourRoomsGridWorld
+from rl_envs.four_rooms import default_options, make_subgoal_option, run_option
 from rl_envs.gridworld import (
     Example41GridWorld,
     GridWorld,
@@ -14,22 +13,30 @@ from rl_envs.gridworld import (
     run_episode,
     run_multiple_episodes,
 )
-from rl_envs.tictactoe import TicTacToe, MCTSPlayer, GreedyPlayer, play_game, random_rollout, uct_score
+from rl_envs.mountain_car import MountainCarEnv
 from rl_envs.pip_race import (
-    MAX_TURNS,
     N_FEATURES,
-    PIP_RACE_FEATURES,
     PIECES_PER_PLAYER,
+    PIP_RACE_FEATURES,
     TRACK_LENGTH,
     WHITE,
     PipRaceEnv,
     TDGammonAgent,
+    evaluate_match,
     pip_race_features,
     semi_gradient_td_lambda_update,
     simulate_game,
-    evaluate_match,
 )
-from rl_envs.four_rooms import GridWorld as FourRoomsGridWorld, make_subgoal_option, run_option, default_options
+from rl_envs.random_walk import RandomWalkEnv, random_walk_true_values
+from rl_envs.tictactoe import (
+    GreedyPlayer,
+    MCTSPlayer,
+    TicTacToe,
+    play_game,
+    random_rollout,
+    uct_score,
+)
+from rl_envs.windy_gridworld import WindyGridWorld
 
 
 def test_random_walk_basic():
@@ -442,7 +449,7 @@ class TestRacetrack:
         assert env.state == start
 
     def test_action_tuple_equivalent_to_index(self):
-        from rl_envs.racetrack import RacetrackEnv, ACTIONS
+        from rl_envs.racetrack import ACTIONS, RacetrackEnv
 
         env1 = RacetrackEnv(seed=0, noise_prob=0.0)
         env2 = RacetrackEnv(seed=0, noise_prob=0.0)
