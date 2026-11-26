@@ -34,6 +34,11 @@ import numpy as np
 from chapter_09.solution import TileCoder
 from rl_envs.mountain_car import MountainCarEnv
 
+# Example 10.1 uses 8 tilings of 8x8 tiles. The step size is divided by the
+# number of tilings because every step activates one feature per tiling.
+_N_TILINGS = 8
+_TILES_PER_TILING = 8
+
 # ---------------------------------------------------------------------------
 # Mountain Car features (Section 10.1, Example 10.1)
 # ---------------------------------------------------------------------------
@@ -41,7 +46,8 @@ from rl_envs.mountain_car import MountainCarEnv
 
 def mountain_car_features(position: float, velocity: float) -> np.ndarray:
     """Tile-coded features for (position, velocity)."""
-    coder = TileCoder((-1.2, 0.5), (-0.07, 0.07), tiles_per_tiling=8, n_tilings=8)
+    coder = TileCoder((-1.2, 0.5), (-0.07, 0.07),
+                      tiles_per_tiling=_TILES_PER_TILING, n_tilings=_N_TILINGS)
     return coder.features(position, velocity)
 
 
@@ -88,7 +94,7 @@ class EpisodicSemiGradientSarsaAgent:
         q_next = 0.0 if next_x is None else float(self.q_values(next_x)[next_action])
         target = reward + self.gamma * q_next
         delta = target - float(self.q_values(x)[action])
-        self.weights[action] += (self.alpha / 8.0) * delta * x
+        self.weights[action] += (self.alpha / _N_TILINGS) * delta * x
 
 
 def run_mountain_car(
@@ -107,7 +113,7 @@ def run_mountain_car(
     (a greedy policy from zero weights never escapes the valley).
     """
     env = MountainCarEnv(seed=seed)
-    dim = 8 * 8 * 8
+    dim = _N_TILINGS * _TILES_PER_TILING**2
     agent = EpisodicSemiGradientSarsaAgent(dim, n_actions=3, alpha=alpha,
                                            gamma=gamma, epsilon=epsilon, seed=seed)
     episode_lengths: list[int] = []

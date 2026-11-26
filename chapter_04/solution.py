@@ -284,18 +284,16 @@ def gamblers_problem(
         raise ValueError("theta must be positive")
 
     values = np.zeros(goal + 1, dtype=np.float64)
+    # The +1 for reaching the goal lives entirely in this terminal value.
     values[goal] = 1.0
 
     for _ in range(max_iter):
         delta = 0.0
         for s in range(1, goal):
             best = -np.inf
+            # Only stakes the gambler can afford and that fit under the goal.
             for stake in range(1, min(s, goal - s) + 1):
-                win_state = s + stake
-                lose_state = s - stake
-                q = p_h * gamma * values[win_state] + (1.0 - p_h) * gamma * values[
-                    lose_state
-                ]
+                q = _stake_action_value(s, stake, values, p_h, gamma)
                 best = max(best, q)
             delta = max(delta, abs(values[s] - best))
             values[s] = best
@@ -307,14 +305,26 @@ def gamblers_problem(
         best_stake = 0
         best_value = -np.inf
         for stake in range(1, min(s, goal - s) + 1):
-            win_state = s + stake
-            lose_state = s - stake
-            q = p_h * gamma * values[win_state] + (1.0 - p_h) * gamma * values[lose_state]
+            q = _stake_action_value(s, stake, values, p_h, gamma)
+            # Strict > keeps the smallest stake on ties (the book's staircase).
             if q > best_value:
                 best_value = q
                 best_stake = stake
         policy[s] = best_stake
     return values, policy
+
+
+def _stake_action_value(
+    capital: int, stake: int, values: np.ndarray, p_h: float, gamma: float
+) -> float:
+    """Expected value of staking `stake` from `capital`.
+
+    Every reward is zero: reaching the goal is represented by the terminal
+    value 1 at `goal`, and ruin by the terminal value 0 at capital 0.
+    """
+    win_state = capital + stake
+    lose_state = capital - stake
+    return p_h * gamma * values[win_state] + (1.0 - p_h) * gamma * values[lose_state]
 
 
 # ---------------------------------------------------------------------------
@@ -638,6 +648,53 @@ class JacksCarRentalMDP:
         return v, policy.reshape(_JCR_N, _JCR_N), history
 
 
+# Leave room for both value panels even when policy iteration converges early.
+_JCR_MIN_COLUMNS = 3
+
+
+def _draw_policy_grid_panels(fig, history, ncols: int) -> None:
+    """Top row: one policy grid per policy-iteration snapshot."""
+    for idx, (pi_grid, v_grid) in enumerate(history):
+        ax = fig.add_subplot(2, ncols, idx + 1)
+        ax.imshow(
+            pi_grid,
+            origin="lower",
+            cmap="RdBu",
+            vmin=-_JCR_MAX_MOVE,
+            vmax=_JCR_MAX_MOVE,
+        )
+        ax.set_title(rf"$\pi_{idx}$ (moves)")
+        ax.set_xlabel("j (cars at loc 2)")
+        if idx == 0:
+            ax.set_ylabel("i (cars at loc 1)")
+        else:
+            ax.set_yticks([])
+    # Blank the unused slots so the two-row layout stays rectangular.
+    for k in range(len(history), ncols):
+        ax = fig.add_subplot(2, ncols, k + 1)
+        ax.axis("off")
+
+
+def _draw_value_panels(fig, v: np.ndarray, ncols: int) -> None:
+    """Bottom row: the final value function as a heatmap and a 3D surface."""
+    ax_val = fig.add_subplot(2, ncols, ncols + 1)
+    im2 = ax_val.imshow(v.reshape(_JCR_N, _JCR_N), origin="lower", cmap="viridis")
+    ax_val.set_title("v* heatmap")
+    ax_val.set_xlabel("j (cars at loc 2)")
+    ax_val.set_ylabel("i (cars at loc 1)")
+    fig.colorbar(im2, ax=ax_val, shrink=0.8)
+
+    ax_surf = fig.add_subplot(2, ncols, ncols + 2, projection="3d")
+    xs = np.arange(_JCR_N)
+    ys = np.arange(_JCR_N)
+    xs, ys = np.meshgrid(xs, ys, indexing="ij")
+    ax_surf.plot_surface(xs, ys, v.reshape(_JCR_N, _JCR_N), cmap="viridis", alpha=0.95)
+    ax_surf.set_xlabel("i (loc 1)")
+    ax_surf.set_ylabel("j (loc 2)")
+    ax_surf.set_zlabel("v*")
+    ax_surf.set_title("v* surface")
+
+
 def plot_jacks_car_rental(
     save_path: str | None = None,
     show: bool = False,
@@ -676,46 +733,10 @@ def plot_jacks_car_rental(
     )
     v, policy, history = mdp.policy_iteration()
 
-    n = len(history)
-    ncols = max(3, n + 1)
+    ncols = max(_JCR_MIN_COLUMNS, len(history) + 1)
     fig = plt.figure(figsize=(4.2 * ncols, 8.6))
-
-    for idx, (pi_grid, v_grid) in enumerate(history):
-        ax = fig.add_subplot(2, ncols, idx + 1)
-        ax.imshow(
-            pi_grid,
-            origin="lower",
-            cmap="RdBu",
-            vmin=-_JCR_MAX_MOVE,
-            vmax=_JCR_MAX_MOVE,
-        )
-        ax.set_title(rf"$\pi_{idx}$ (moves)")
-        ax.set_xlabel("j (cars at loc 2)")
-        if idx == 0:
-            ax.set_ylabel("i (cars at loc 1)")
-        else:
-            ax.set_yticks([])
-    # Hide unused first-row slots.
-    for k in range(n, ncols):
-        ax = fig.add_subplot(2, ncols, k + 1)
-        ax.axis("off")
-    # Value heatmap panel.
-    ax_val = fig.add_subplot(2, ncols, ncols + 1)
-    im2 = ax_val.imshow(v.reshape(_JCR_N, _JCR_N), origin="lower", cmap="viridis")
-    ax_val.set_title("v* heatmap")
-    ax_val.set_xlabel("j (cars at loc 2)")
-    ax_val.set_ylabel("i (cars at loc 1)")
-    fig.colorbar(im2, ax=ax_val, shrink=0.8)
-    # Value surface panel.
-    ax_surf = fig.add_subplot(2, ncols, ncols + 2, projection="3d")
-    xs = np.arange(_JCR_N)
-    ys = np.arange(_JCR_N)
-    xs, ys = np.meshgrid(xs, ys, indexing="ij")
-    ax_surf.plot_surface(xs, ys, v.reshape(_JCR_N, _JCR_N), cmap="viridis", alpha=0.95)
-    ax_surf.set_xlabel("i (loc 1)")
-    ax_surf.set_ylabel("j (loc 2)")
-    ax_surf.set_zlabel("v*")
-    ax_surf.set_title("v* surface")
+    _draw_policy_grid_panels(fig, history, ncols)
+    _draw_value_panels(fig, v, ncols)
     fig.suptitle(
         "S&B (2nd ed.), Example 4.2 / Fig. 4.2: Jack's car rental "
         "(policy improvement; illustrative demonstration)"

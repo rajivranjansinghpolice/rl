@@ -531,26 +531,72 @@ def example_3_5_gridworld_random_policy_values(gamma: float = 0.9) -> np.ndarray
 # Figure reproduction (Sutton & Barto, 2nd ed., Ch. 3)
 # ---------------------------------------------------------------------------
 
-def _optimal_values_and_policy(mdp: FiniteMDP, tolerance: float = 1e-10, max_iter: int = 10000):
+# Value iteration for the figure panels: stop once the largest value change is
+# below tolerance; the iteration cap only guards against a non-converging MDP.
+_VI_TOLERANCE = 1e-10
+_VI_MAX_ITER = 10_000
+
+
+def _greedy_policy_from_values(mdp: FiniteMDP, values: np.ndarray) -> np.ndarray:
+    """Uniform-over-argmax policy with respect to the given state values."""
+    policy = np.zeros((mdp.n_states, mdp.n_actions), dtype=np.float64)
+    for i, s in enumerate(mdp.states):
+        if s in mdp.terminal_states:
+            continue
+        # One backup scores every action; ties split the probability evenly.
+        q_vals = np.array(
+            [
+                mdp.expected_reward(s, a) + mdp.gamma * mdp._expected_next_value(s, a, values)
+                for a in mdp.actions
+            ]
+        )
+        best = np.flatnonzero(np.isclose(q_vals, q_vals.max()))
+        policy[i, best] = 1.0 / len(best)
+    return policy
+
+
+def _optimal_values_and_policy(
+    mdp: FiniteMDP, tolerance: float = _VI_TOLERANCE, max_iter: int = _VI_MAX_ITER
+):
     values = np.zeros(mdp.n_states, dtype=np.float64)
     for _ in range(max_iter):
+        # Reapply the optimality backup so value news propagates across states
+        # without needing a new episode of experience.
         updated = bellman_backup_optimality(mdp, values)
         if np.max(np.abs(updated - values)) < tolerance:
             values = updated
             break
         values = updated
-    policy = np.zeros((mdp.n_states, mdp.n_actions), dtype=np.float64)
-    for i, s in enumerate(mdp.states):
-        if s in mdp.terminal_states:
-            continue
-        q_vals = []
-        for a in mdp.actions:
-            q = mdp.expected_reward(s, a) + mdp.gamma * mdp._expected_next_value(s, a, values)
-            q_vals.append(q)
-        q_vals = np.array(q_vals)
-        best = np.flatnonzero(np.isclose(q_vals, q_vals.max()))
-        policy[i, best] = 1.0 / len(best)
-    return values, policy
+    return values, _greedy_policy_from_values(mdp, values)
+
+
+# Three action bars share one state group; the width also sets their spacing.
+_POLICY_BAR_WIDTH = 0.25
+
+
+def _draw_state_values(ax, states: list, v: list[float]) -> None:
+    """Left panel: the converged optimal value of each state."""
+    ax.bar(states, v, color=["#4c78a8", "#f58518"])
+    ax.set_ylabel("State value v*(s)")
+    ax.set_title("Optimal state values (Bellman optimality)")
+    for idx, val in enumerate(v):
+        ax.text(idx, val, f"{val:.2f}", ha="center", va="bottom", fontsize=9)
+
+
+def _draw_greedy_policy(
+    ax, states: list, actions: list, policy: np.ndarray, mdp: FiniteMDP
+) -> None:
+    """Right panel: one bar per action, showing its greedy-policy probability."""
+    x = np.arange(len(states))
+    for j, a in enumerate(actions):
+        probs = [policy[mdp.state_index[s], j] for s in states]
+        ax.bar(x + (j - 1) * _POLICY_BAR_WIDTH, probs, _POLICY_BAR_WIDTH, label=a)
+    ax.set_xticks(x)
+    ax.set_xticklabels(states)
+    ax.set_ylim(0, 1.1)
+    ax.set_ylabel("Greedy probability")
+    ax.set_title("Greedy action(s) w.r.t. v*")
+    ax.legend()
 
 
 def plot_recycling_robot_example(
@@ -582,24 +628,8 @@ def plot_recycling_robot_example(
 
     states = list(mdp.states)
     v = [values[mdp.state_index[s]] for s in states]
-    ax1.bar(states, v, color=["#4c78a8", "#f58518"])
-    ax1.set_ylabel("State value v*(s)")
-    ax1.set_title("Optimal state values (Bellman optimality)")
-    for idx, val in enumerate(v):
-        ax1.text(idx, val, f"{val:.2f}", ha="center", va="bottom", fontsize=9)
-
-    actions = list(mdp.actions)
-    x = np.arange(len(states))
-    width = 0.25
-    for j, a in enumerate(actions):
-        probs = [policy[mdp.state_index[s], j] for s in states]
-        ax2.bar(x + (j - 1) * width, probs, width, label=a)
-    ax2.set_xticks(x)
-    ax2.set_xticklabels(states)
-    ax2.set_ylim(0, 1.1)
-    ax2.set_ylabel("Greedy probability")
-    ax2.set_title("Greedy action(s) w.r.t. v*")
-    ax2.legend()
+    _draw_state_values(ax1, states, v)
+    _draw_greedy_policy(ax2, states, list(mdp.actions), policy, mdp)
 
     fig.suptitle(
         "S&B (2nd ed.), Example 3.3 Recycling Robot (Sec. 3.4-3.6)\n"

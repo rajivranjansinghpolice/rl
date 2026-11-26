@@ -65,6 +65,41 @@ __all__ = [
 ]
 
 
+def _epsilon_greedy_probs(
+    q_table: dict, state: int, n_actions: int, epsilon: float,
+) -> np.ndarray:
+    """Return epsilon-greedy action probabilities, splitting greedy ties evenly.
+
+    Primitive and option indices share the same tie rule, so extending the
+    action space does not change how exploratory or greedy choices are made.
+    """
+    q_values = np.array([q_table[(state, a)] for a in range(n_actions)])
+    best = np.flatnonzero(q_values == q_values.max())
+    probs = np.full(n_actions, epsilon / n_actions, dtype=np.float64)
+    probs[best] += (1.0 - epsilon) / len(best)
+    return probs
+
+
+def _smdp_transition(
+    env: GridWorld,
+    option_list: list[Option],
+    action: int,
+    gamma: float,
+    max_option_steps: int,
+) -> tuple[int, float, int, bool]:
+    """Unroll one primitive action or option into (state, return, tau, done).
+
+    An option's tau is the number of primitive steps it took; it drives both
+    the gamma**tau backup and the outer episode's safety budget.
+    """
+    if action < len(GridWorld.ACTIONS):
+        next_state, reward, done = env.step(action)
+        return next_state, reward, 1, done
+    option = option_list[action - len(GridWorld.ACTIONS)]
+    result = run_option(env, option, gamma=gamma, max_steps=max_option_steps)
+    return env.state, result.discounted_return, result.steps, result.done
+
+
 def smdp_q_learning(
     n_episodes: int = 300,
     alpha: float = 0.1,
@@ -102,32 +137,17 @@ def smdp_q_learning(
     rng = np.random.default_rng(seed)
     q_table = {(s, a): 0.0 for s in range(env.n_states) for a in range(n_actions)}
 
-    def behavior_probs(state: int) -> np.ndarray:
-        q_values = np.array([q_table[(state, a)] for a in range(n_actions)])
-        best = np.flatnonzero(q_values == q_values.max())
-        probs = np.full(n_actions, epsilon / n_actions, dtype=np.float64)
-        probs[best] += (1.0 - epsilon) / len(best)
-        return probs
-
     for _ in range(n_episodes):
         state = env.reset()
         done = False
         primitive_steps = 0
         while not done and primitive_steps < max_primitive_steps:
-            action = int(rng.choice(n_actions, p=behavior_probs(state)))
-            if action < len(GridWorld.ACTIONS):
-                next_state, reward, done = env.step(action)
-                tau = 1
-                cumulative = reward
-                primitive_steps += 1
-            else:
-                option = option_list[action - len(GridWorld.ACTIONS)]
-                result = run_option(env, option, gamma=gamma, max_steps=max_option_steps)
-                next_state = env.state
-                tau = result.steps
-                cumulative = result.discounted_return
-                done = result.done
-                primitive_steps += tau
+            probs = _epsilon_greedy_probs(q_table, state, n_actions, epsilon)
+            action = int(rng.choice(n_actions, p=probs))
+            next_state, cumulative, tau, done = _smdp_transition(
+                env, option_list, action, gamma, max_option_steps
+            )
+            primitive_steps += tau
             next_q = (
                 0.0
                 if done
@@ -202,6 +222,11 @@ def rollout_smdp(
     }
 
 
+# Safety bound on an episode, not a book parameter: this GridWorld terminates
+# on its own, but a pathological policy must not be able to loop forever.
+_PRIMITIVE_EPISODE_STEP_CAP = 200
+
+
 def primitive_q_learning(
     n_episodes: int = 300,
     alpha: float = 0.1,
@@ -212,7 +237,8 @@ def primitive_q_learning(
     """Tabular Q-learning over the 4 primitive actions (Chapter 6 flavor).
 
     Baseline for the options comparison: the agent acts only at primitive
-    one-step granularity.
+    one-step granularity. The loop exists to bound a runaway episode; it is a
+    safety cap, not part of the algorithm.
     """
     if alpha <= 0.0:
         raise ValueError("alpha must be positive")
@@ -223,19 +249,13 @@ def primitive_q_learning(
     rng = np.random.default_rng(seed)
     q_table = {(s, a): 0.0 for s in range(env.n_states) for a in range(n_actions)}
 
-    def behavior_probs(state: int) -> np.ndarray:
-        q_values = np.array([q_table[(state, a)] for a in range(n_actions)])
-        best = np.flatnonzero(q_values == q_values.max())
-        probs = np.full(n_actions, epsilon / n_actions, dtype=np.float64)
-        probs[best] += (1.0 - epsilon) / len(best)
-        return probs
-
     for _ in range(n_episodes):
         state = env.reset()
         done = False
         steps = 0
-        while not done and steps < 200:
-            action = int(rng.choice(n_actions, p=behavior_probs(state)))
+        while not done and steps < _PRIMITIVE_EPISODE_STEP_CAP:
+            probs = _epsilon_greedy_probs(q_table, state, n_actions, epsilon)
+            action = int(rng.choice(n_actions, p=probs))
             next_state, reward, done = env.step(action)
             next_q = (
                 0.0
@@ -291,6 +311,40 @@ def novelty_bonus(visits: int, beta: float) -> float:
     return float(beta / math.sqrt(visits + 1))
 
 
+def _build_gridworld(
+    grid: list[str] | None,
+    start: tuple[int, int] | None,
+    goal: tuple[int, int] | None,
+) -> GridWorld:
+    """Build the experiment world, overriding only the fields that were supplied.
+
+    The kwargs are inserted in a fixed order so every subset of overrides gives
+    the same environment the original inline construction produced.
+    """
+    env_kwargs: dict = {}
+    if grid is not None:
+        env_kwargs["grid"] = grid
+    if start is not None:
+        env_kwargs["start"] = start
+    if goal is not None:
+        env_kwargs["goal"] = goal
+    return GridWorld(**env_kwargs)
+
+
+def _novelty_step_bonus(
+    counts: np.ndarray, state: int, next_state: int, beta: float,
+) -> float:
+    """Return the intrinsic bonus for a transition, zero for a no-op.
+
+    A bump against a wall reveals nothing new, and rewarding it would make
+    wall-hugging an endless reward source. The count is read before it is
+    incremented, so a first visit gets the full beta / sqrt(1) bonus.
+    """
+    if next_state == state:
+        return 0.0
+    return novelty_bonus(int(counts[next_state]), beta)
+
+
 def q_learning_novelty(
     n_episodes: int = 20,
     beta: float = 0.5,
@@ -335,14 +389,7 @@ def q_learning_novelty(
         raise ValueError("epsilon must be in (0, 1]")
     if not 0.0 <= gamma <= 1.0:
         raise ValueError("gamma must be in [0, 1]")
-    env_kwargs: dict = {}
-    if grid is not None:
-        env_kwargs["grid"] = grid
-    if start is not None:
-        env_kwargs["start"] = start
-    if goal is not None:
-        env_kwargs["goal"] = goal
-    env = GridWorld(**env_kwargs)
+    env = _build_gridworld(grid, start, goal)
     rng = np.random.default_rng(seed)
     n_actions = len(GridWorld.ACTIONS)
     q_table = {(s, a): q_init for s in range(env.n_states) for a in range(n_actions)}
@@ -350,28 +397,17 @@ def q_learning_novelty(
     total_intrinsic = 0.0
     total_steps = 0
 
-    def behavior_probs(state: int) -> np.ndarray:
-        q_values = np.array([q_table[(state, a)] for a in range(n_actions)])
-        best = np.flatnonzero(q_values == q_values.max())
-        probs = np.full(n_actions, epsilon / n_actions, dtype=np.float64)
-        probs[best] += (1.0 - epsilon) / len(best)
-        return probs
-
     for _ in range(n_episodes):
         state = env.reset()
         counts[state] += 1
         done = False
         steps = 0
         while not done and steps < max_steps:
-            action = int(rng.choice(n_actions, p=behavior_probs(state)))
+            probs = _epsilon_greedy_probs(q_table, state, n_actions, epsilon)
+            action = int(rng.choice(n_actions, p=probs))
             next_state, reward, done = env.step(action)
-            if next_state == state:
-                # No-op (bump) transition: no novel information, and a
-                # non-zero bonus would make wall-hugging an infinite
-                # reward source. Track counts normally but grant no bonus.
-                bonus = 0.0
-            else:
-                bonus = novelty_bonus(int(counts[next_state]), beta)
+            # No-op bumps still update their count, but earn no bonus.
+            bonus = _novelty_step_bonus(counts, state, next_state, beta)
             total_intrinsic += bonus
             shaped_reward = reward + bonus
             next_q = (
@@ -400,6 +436,67 @@ def q_learning_novelty(
 # Figure reproduction (Sutton & Barto, 2nd ed., Ch. 17)
 # ---------------------------------------------------------------------------
 
+# Fixed demo settings; the algorithms' own defaults are left untouched.
+_PLOT_TRAIN_EPISODES = 200
+_PLOT_ROLLOUTS = 20
+_PLOT_ROLLOUT_MAX_STEPS = 200
+_PLOT_ROLLOUT_MAX_DECISIONS = 100
+_PLOT_OPTION_MAX_STEPS = 50
+_PLOT_NOVELTY_EPISODES = 12
+_PLOT_UNKNOWN_Q = -1e9
+
+
+def _greedy_primitive_rollout_steps(q: dict, env: GridWorld, max_steps: int) -> int:
+    """Count primitive steps to goal under a greedy policy, or cap the attempt.
+
+    A cap is needed because a failed policy would otherwise roll out forever.
+    """
+    s = env.reset()
+    for steps in range(1, max_steps + 1):
+        qs = [q.get((s, a), 0.0) for a in range(len(GridWorld.ACTIONS))]
+        a = int(np.argmax(qs))
+        s, _, done = env.step(a)
+        if done:
+            return steps
+    return max_steps
+
+
+def _greedy_smdp_rollout_steps(
+    q: dict,
+    env: GridWorld,
+    options: list[Option],
+    n_actions: int,
+    max_steps: int,
+) -> int:
+    """Count primitive steps to goal under greedy SMDP (option) play.
+
+    Options are unrolled with their own subgoal policy until termination; the
+    decision budget is separate from the primitive-step budget.
+    """
+    n_prim_actions = len(GridWorld.ACTIONS)
+    s = env.reset()
+    total_steps = 0
+    decisions = 0
+    while total_steps < max_steps and decisions < _PLOT_ROLLOUT_MAX_DECISIONS:
+        vals = [q.get((s, a), _PLOT_UNKNOWN_Q) for a in range(n_actions)]
+        a = int(np.argmax(vals))
+        if a < n_prim_actions:
+            s, _, done = env.step(a)
+            total_steps += 1
+        else:
+            opt = options[a - n_prim_actions]
+            for _ in range(_PLOT_OPTION_MAX_STEPS):
+                act = opt.policy(env)
+                s, _, done = env.step(act)
+                total_steps += 1
+                if opt.terminates(env) or done or total_steps >= max_steps:
+                    break
+        decisions += 1
+        if env.done:
+            return total_steps
+    return max_steps
+
+
 def plot_options_and_novelty_demos(
     save_path: str | None = None,
     show: bool = False,
@@ -422,51 +519,28 @@ def plot_options_and_novelty_demos(
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    q_smdp, options = smdp_q_learning(n_episodes=200, alpha=0.1, gamma=0.99, epsilon=0.1, seed=seed)
-    q_prim = primitive_q_learning(n_episodes=200, alpha=0.1, gamma=0.99, epsilon=0.1, seed=seed)
-    n_prim_actions = len(GridWorld.ACTIONS)
-    n_actions = n_prim_actions + len(options)
+    q_smdp, options = smdp_q_learning(
+        n_episodes=_PLOT_TRAIN_EPISODES, alpha=0.1, gamma=0.99, epsilon=0.1, seed=seed,
+    )
+    q_prim = primitive_q_learning(
+        n_episodes=_PLOT_TRAIN_EPISODES, alpha=0.1, gamma=0.99, epsilon=0.1, seed=seed,
+    )
+    n_actions = len(GridWorld.ACTIONS) + len(options)
 
-    def rollout_primitive(q, max_steps=200):
-        env = GridWorld()
-        s = env.reset()
-        for steps in range(1, max_steps + 1):
-            qs = [q.get((s, a), 0.0) for a in range(n_prim_actions)]
-            a = int(np.argmax(qs))
-            s, _, done = env.step(a)
-            if done:
-                return steps
-        return max_steps
+    # Each rollout starts from a fresh world; average over repeated greedy runs.
+    prim_steps = float(np.mean([
+        _greedy_primitive_rollout_steps(q_prim, GridWorld(), _PLOT_ROLLOUT_MAX_STEPS)
+        for _ in range(_PLOT_ROLLOUTS)
+    ]))
+    smdp_steps = float(np.mean([
+        _greedy_smdp_rollout_steps(
+            q_smdp, GridWorld(), options, n_actions, _PLOT_ROLLOUT_MAX_STEPS
+        )
+        for _ in range(_PLOT_ROLLOUTS)
+    ]))
 
-    def rollout_smdp(q, max_steps=200):
-        env = GridWorld()
-        s = env.reset()
-        total_steps = 0
-        decisions = 0
-        while total_steps < max_steps and decisions < 100:
-            vals = [q.get((s, a), -1e9) for a in range(n_actions)]
-            a = int(np.argmax(vals))
-            if a < n_prim_actions:
-                s, _, done = env.step(a)
-                total_steps += 1
-            else:
-                opt = options[a - n_prim_actions]
-                for _ in range(50):
-                    act = opt.policy(env)
-                    s, _, done = env.step(act)
-                    total_steps += 1
-                    if opt.terminates(env) or done or total_steps >= max_steps:
-                        break
-            decisions += 1
-            if env.done:
-                return total_steps
-        return max_steps
-
-    prim_steps = float(np.mean([rollout_primitive(q_prim) for _ in range(20)]))
-    smdp_steps = float(np.mean([rollout_smdp(q_smdp) for _ in range(20)]))
-
-    res_nov = q_learning_novelty(n_episodes=12, beta=0.5, seed=seed)
-    res_plain = q_learning_novelty(n_episodes=12, beta=0.0, seed=seed)
+    res_nov = q_learning_novelty(n_episodes=_PLOT_NOVELTY_EPISODES, beta=0.5, seed=seed)
+    res_plain = q_learning_novelty(n_episodes=_PLOT_NOVELTY_EPISODES, beta=0.0, seed=seed)
     nov_count = int(res_nov.get("unique_states", 0))
     plain_count = int(res_plain.get("unique_states", 0))
 

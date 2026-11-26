@@ -13,6 +13,8 @@ shared `RandomWalkEnv(n_states=19, left_reward=-1.0, right_reward=1.0)`.
 
 from __future__ import annotations
 
+from typing import NamedTuple
+
 import numpy as np
 
 from rl_envs.random_walk import RandomWalkEnv
@@ -42,7 +44,75 @@ def _check_n(n: int) -> None:
         raise ValueError("n must be >= 1")
 
 
+def _action_probs(
+    env: RandomWalkEnv, q_table: dict, state, epsilon: float
+) -> np.ndarray:
+    """Epsilon-greedy probabilities in `state` under the current Q values."""
+    return _epsilon_greedy_probs(
+        np.array([q_table[(state, a)] for a in env.ACTIONS]), epsilon
+    )
 
+
+def _epsilon_greedy_policy(env: RandomWalkEnv, q_table: dict, epsilon: float) -> dict:
+    """Read the final policy off the learned action values."""
+    return {s: _action_probs(env, q_table, s, epsilon) for s in env.STATES}
+
+
+def _n_step_sarsa_rollout(
+    env: RandomWalkEnv,
+    q_table: dict,
+    epsilon: float,
+    rng: np.random.Generator,
+) -> tuple[list, list[int], list[float]]:
+    """Collect one episode: states, chosen action indices, and rewards.
+
+    The action at each state is sampled when that state is first visited, so
+    the n-step backups below can reuse it without drawing new random numbers.
+    """
+    states = [env.reset()]
+    action_indexes: list[int] = []
+    rewards: list[float] = []
+
+    action_indexes.append(_action_index(_action_probs(env, q_table, states[0], epsilon), rng))
+
+    done = False
+    while not done:
+        action = env.ACTIONS[action_indexes[-1]]
+        reward, next_state, done = env.step(action)
+        rewards.append(float(reward))
+        if done:
+            states.append(None)
+            break
+        states.append(next_state)
+        action_indexes.append(_action_index(_action_probs(env, q_table, next_state, epsilon), rng))
+
+    return states, action_indexes, rewards
+
+
+def _n_step_sarsa_sweep(
+    env: RandomWalkEnv,
+    q_table: dict,
+    states: list,
+    action_indexes: list[int],
+    rewards: list[float],
+    n: int,
+    alpha: float,
+    gamma: float,
+) -> None:
+    """Back up every decision time in the episode with its n-step Sarsa target."""
+    total_steps = len(rewards)
+    for tau in range(total_steps):
+        target = 0.0
+        for k in range(n):
+            if tau + k >= total_steps:
+                break
+            target += gamma**k * rewards[tau + k]
+        if tau + n < total_steps and states[tau + n] is not None:
+            next_s = states[tau + n]
+            target += gamma**n * q_table[(next_s, env.ACTIONS[action_indexes[tau + n]])]
+        tau_state = states[tau]
+        tau_action = env.ACTIONS[action_indexes[tau]]
+        q_table[(tau_state, tau_action)] += alpha * (target - q_table[(tau_state, tau_action)])
 
 
 def n_step_sarsa(
@@ -77,48 +147,89 @@ def n_step_sarsa(
     q_table = {(s, a): 0.0 for s in env.STATES for a in env.ACTIONS}
 
     for _ in range(n_episodes):
-        states = [env.reset()]
-        action_indexes: list[int] = []
-        rewards: list[float] = []
+        # Each episode supplies its own trajectory; the backups follow it.
+        states, action_indexes, rewards = _n_step_sarsa_rollout(env, q_table, epsilon, rng)
+        _n_step_sarsa_sweep(env, q_table, states, action_indexes, rewards, n, alpha, gamma)
 
-        probs0 = _epsilon_greedy_probs(
-            np.array([q_table[(states[0], a)] for a in env.ACTIONS]), epsilon
+    return _epsilon_greedy_policy(env, q_table, epsilon), q_table
+
+
+class _TreeRollout(NamedTuple):
+    """The per-step quantities needed by the n-step tree-backup target."""
+
+    states: list
+    action_indexes: list[int]
+    rewards: list[float]
+    deltas: list[float]
+    pis: list[float]
+    q_stored: list[float]
+
+
+def _tree_backup_rollout(
+    env: RandomWalkEnv,
+    q_table: dict,
+    epsilon: float,
+    gamma: float,
+    rng: np.random.Generator,
+) -> _TreeRollout:
+    """Collect one episode plus the TD errors and behaviour probabilities.
+
+    `pis` and `q_stored` are recorded alongside the action indices so the
+    expected (off-policy) target can be reconstructed later without re-sampling.
+    """
+    states = [env.reset()]
+    rewards: list[float] = []
+    deltas: list[float] = []
+    pis: list[float] = []
+    q_stored: list[float] = []
+
+    probs0 = _action_probs(env, q_table, states[0], epsilon)
+    action_indexes = [_action_index(probs0, rng)]
+    q_stored.append(q_table[(states[0], env.ACTIONS[action_indexes[0]])])
+
+    done = False
+    while not done:
+        action = env.ACTIONS[action_indexes[-1]]
+        reward, next_state, done = env.step(action)
+        rewards.append(float(reward))
+        if done:
+            deltas.append(rewards[-1] - q_stored[-1])
+            break
+
+        q_next = np.array([q_table[(next_state, a)] for a in env.ACTIONS])
+        probs_next = _epsilon_greedy_probs(q_next, epsilon)
+        deltas.append(
+            rewards[-1] + gamma * float(np.dot(probs_next, q_next)) - q_stored[-1]
         )
-        action_indexes.append(_action_index(probs0, rng))
+        states.append(next_state)
+        a_next = _action_index(probs_next, rng)
+        action_indexes.append(a_next)
+        pis.append(float(probs_next[a_next]))
+        q_stored.append(q_table[(next_state, env.ACTIONS[a_next])])
 
-        done = False
-        while not done:
-            action = env.ACTIONS[action_indexes[-1]]
-            reward, next_state, done = env.step(action)
-            rewards.append(float(reward))
-            if done:
-                states.append(None)
-                break
-            states.append(next_state)
-            probs_next = _epsilon_greedy_probs(
-                np.array([q_table[(next_state, a)] for a in env.ACTIONS]), epsilon
-            )
-            action_indexes.append(_action_index(probs_next, rng))
+    return _TreeRollout(states, action_indexes, rewards, deltas, pis, q_stored)
 
-        total_steps = len(rewards)
-        for tau in range(total_steps):
-            target = 0.0
-            for k in range(n):
-                if tau + k >= total_steps:
-                    break
-                target += gamma**k * rewards[tau + k]
-            if tau + n < total_steps and states[tau + n] is not None:
-                next_s = states[tau + n]
-                target += gamma**n * q_table[(next_s, env.ACTIONS[action_indexes[tau + n]])]
-            tau_state = states[tau]
-            tau_action = env.ACTIONS[action_indexes[tau]]
-            q_table[(tau_state, tau_action)] += alpha * (target - q_table[(tau_state, tau_action)])
 
-    policy = {
-        s: _epsilon_greedy_probs(np.array([q_table[(s, a)] for a in env.ACTIONS]), epsilon)
-        for s in env.STATES
-    }
-    return policy, q_table
+def _tree_backup_sweep(
+    env: RandomWalkEnv,
+    q_table: dict,
+    rollout: _TreeRollout,
+    n: int,
+    alpha: float,
+    gamma: float,
+) -> None:
+    """Back up every decision time with the n-step expected (tree) target."""
+    total_steps = len(rollout.rewards)
+    for tau in range(total_steps):
+        target = rollout.q_stored[tau]
+        z = 1.0
+        for k in range(tau, min(tau + n, total_steps)):
+            target += z * rollout.deltas[k]
+            if k < len(rollout.pis):
+                z *= gamma * rollout.pis[k]
+        s_tau = rollout.states[tau]
+        a_tau = env.ACTIONS[rollout.action_indexes[tau]]
+        q_table[(s_tau, a_tau)] += alpha * (target - q_table[(s_tau, a_tau)])
 
 
 def tree_backup(
@@ -148,55 +259,48 @@ def tree_backup(
     q_table = {(s, a): 0.0 for s in env.STATES for a in env.ACTIONS}
 
     for _ in range(n_episodes):
-        states = [env.reset()]
-        rewards: list[float] = []
-        deltas: list[float] = []
-        pis: list[float] = []
-        q_stored: list[float] = []
+        # The expected target needs the behaviour probability of each step, so
+        # it is recorded while the trajectory is generated, not afterwards.
+        rollout = _tree_backup_rollout(env, q_table, epsilon, gamma, rng)
+        _tree_backup_sweep(env, q_table, rollout, n, alpha, gamma)
 
-        probs0 = _epsilon_greedy_probs(
-            np.array([q_table[(states[0], a)] for a in env.ACTIONS]), epsilon
-        )
-        action_indexes = [_action_index(probs0, rng)]
-        q_stored.append(q_table[(states[0], env.ACTIONS[action_indexes[0]])])
+    return _epsilon_greedy_policy(env, q_table, epsilon), q_table
 
-        done = False
-        while not done:
-            action = env.ACTIONS[action_indexes[-1]]
-            reward, next_state, done = env.step(action)
-            rewards.append(float(reward))
-            if done:
-                deltas.append(rewards[-1] - q_stored[-1])
-                break
 
-            q_next = np.array([q_table[(next_state, a)] for a in env.ACTIONS])
-            probs_next = _epsilon_greedy_probs(q_next, epsilon)
-            deltas.append(
-                rewards[-1] + gamma * float(np.dot(probs_next, q_next)) - q_stored[-1]
+def _sarsa_lambda_episode(
+    env: RandomWalkEnv,
+    q_table: dict,
+    alpha: float,
+    epsilon: float,
+    gamma: float,
+    lam: float,
+    rng: np.random.Generator,
+) -> None:
+    """Run one episode: traces carry each TD error back to earlier visits."""
+    traces = {pair: 0.0 for pair in q_table}
+    state = env.reset()
+    a_idx = _action_index(_action_probs(env, q_table, state, epsilon), rng)
+    done = False
+    while not done:
+        action = env.ACTIONS[a_idx]
+        reward, next_state, done = env.step(action)
+        if done:
+            delta = reward - q_table[(state, action)]
+            next_a_idx = a_idx
+        else:
+            next_a_idx = _action_index(_action_probs(env, q_table, next_state, epsilon), rng)
+            delta = (
+                reward
+                + gamma * q_table[(next_state, env.ACTIONS[next_a_idx])]
+                - q_table[(state, action)]
             )
-            states.append(next_state)
-            a_next = _action_index(probs_next, rng)
-            action_indexes.append(a_next)
-            pis.append(float(probs_next[a_next]))
-            q_stored.append(q_table[(next_state, env.ACTIONS[a_next])])
 
-        total_steps = len(rewards)
-        for tau in range(total_steps):
-            target = q_stored[tau]
-            z = 1.0
-            for k in range(tau, min(tau + n, total_steps)):
-                target += z * deltas[k]
-                if k < len(pis):
-                    z *= gamma * pis[k]
-            s_tau = states[tau]
-            a_tau = env.ACTIONS[action_indexes[tau]]
-            q_table[(s_tau, a_tau)] += alpha * (target - q_table[(s_tau, a_tau)])
-
-    policy = {
-        s: _epsilon_greedy_probs(np.array([q_table[(s, a)] for a in env.ACTIONS]), epsilon)
-        for s in env.STATES
-    }
-    return policy, q_table
+        traces[(state, action)] += 1.0
+        for pair in q_table:
+            q_table[pair] += alpha * delta * traces[pair]
+            traces[pair] *= gamma * lam
+        state = next_state if not done else state
+        a_idx = next_a_idx
 
 
 def sarsa_lambda(
@@ -226,46 +330,9 @@ def sarsa_lambda(
     q_table = {(s, a): 0.0 for s in env.STATES for a in env.ACTIONS}
 
     for _ in range(n_episodes):
-        traces = {pair: 0.0 for pair in q_table}
-        state = env.reset()
-        a_idx = _action_index(
-            _epsilon_greedy_probs(
-                np.array([q_table[(state, a)] for a in env.ACTIONS]), epsilon
-            ),
-            rng,
-        )
-        done = False
-        while not done:
-            action = env.ACTIONS[a_idx]
-            reward, next_state, done = env.step(action)
-            if done:
-                delta = reward - q_table[(state, action)]
-                next_a_idx = a_idx
-            else:
-                next_a_idx = _action_index(
-                    _epsilon_greedy_probs(
-                        np.array([q_table[(next_state, a)] for a in env.ACTIONS]), epsilon
-                    ),
-                    rng,
-                )
-                delta = (
-                    reward
-                    + gamma * q_table[(next_state, env.ACTIONS[next_a_idx])]
-                    - q_table[(state, action)]
-                )
+        _sarsa_lambda_episode(env, q_table, alpha, epsilon, gamma, lam, rng)
 
-            traces[(state, action)] += 1.0
-            for pair in q_table:
-                q_table[pair] += alpha * delta * traces[pair]
-                traces[pair] *= gamma * lam
-            state = next_state if not done else state
-            a_idx = next_a_idx
-
-    policy = {
-        s: _epsilon_greedy_probs(np.array([q_table[(s, a)] for a in env.ACTIONS]), epsilon)
-        for s in env.STATES
-    }
-    return policy, q_table
+    return _epsilon_greedy_policy(env, q_table, epsilon), q_table
 
 
 # ---------------------------------------------------------------------------

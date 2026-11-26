@@ -162,5 +162,23 @@ collection is noisy.
 
 ---
 
-*House style for `chapter_XX/exercises.md`; linked from the repository README.*
-*Kept at the repository root because the public snapshot ignores `docs/`.*
+## Code standard for `chapter_XX/solution.py`
+
+The same house style applies to implementations:
+
+- **One algorithm = one readable function.** Each public algorithm is an
+  orchestrator; coherent phases (action selection, model update, planning
+  backup, statistics recording) live in small private helpers with descriptive
+  names and type hints.
+- **Comments explain why loops exist**, e.g. "replay the model so value news
+  spreads without new environment steps" — not what each line does.
+- **Named constants replace magic numbers** that encode task settings, defined
+  near use with the same value they had before. A safety cap is labelled as a
+  cap, not smuggled in as an algorithm parameter.
+- **No semantic changes.** Public names, signatures, defaults, return shapes,
+  numeric values, tie-breaking, and the order and count of random draws are
+  preserved. Every chapter's tests and the full suite must stay green.
+
+*House style for `chapter_XX/exercises.md` and `chapter_XX/solution.py`; linked
+from the repository README. Kept at the repository root because the public
+snapshot ignores `docs/`.*

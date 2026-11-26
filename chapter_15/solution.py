@@ -19,6 +19,8 @@ the book compares TD errors to dopamine neuron activity.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 
 # ============================================================================
@@ -146,6 +148,23 @@ class PhasicDopamineModel:
         return float(deltas[us_index - 1])
 
 
+def _run_and_summarize_trial(
+    model: PhasicDopamineModel, us_index: int, reward: float,
+) -> tuple[np.ndarray, float, float, int]:
+    """Run one trial and collect the four summaries recorded in the history.
+
+    The peak is taken over |delta| because the early US response and the later
+    dip at an omitted US are both large, but opposite in sign.
+    """
+    deltas = model.run_trial(us_index, reward)
+    return (
+        deltas,
+        model.cs_delta(deltas),
+        model.us_delta(deltas, us_index),
+        int(np.argmax(np.abs(deltas))),
+    )
+
+
 def simulate_conditioning(
     n_trials: int = 60,
     n_states: int = 20,
@@ -191,11 +210,11 @@ def simulate_conditioning(
 
     for trial in range(n_trials):
         r = 0.0 if trial in omit_trials else float(reward)
-        deltas = model.run_trial(us_index, r)
+        deltas, cs, us, peak = _run_and_summarize_trial(model, us_index, r)
         deltas_history[trial] = deltas
-        cs_deltas[trial] = model.cs_delta(deltas)
-        us_deltas[trial] = model.us_delta(deltas, us_index)
-        peaks[trial] = int(np.argmax(np.abs(deltas)))
+        cs_deltas[trial] = cs
+        us_deltas[trial] = us
+        peaks[trial] = peak
 
     return {
         "deltas": deltas_history,
@@ -272,6 +291,56 @@ def simulate_conditioning_trace(
 # Figure reproduction (Sutton & Barto, 2nd ed., Ch. 15)
 # ---------------------------------------------------------------------------
 
+# Fixed demo settings for the Fig. 15.5-like panels. The simulation API's own
+# defaults stay untouched; these name the values the demo has always used.
+_DEMO_ALPHA = 0.1
+_DEMO_GAMMA = 1.0
+_DEMO_LAM = 0.95
+_DEMO_ACQUISITION_TRIALS = 50
+_DEMO_OMITTED_TRIAL = 50
+_DEMO_TOTAL_TRIALS = 51
+
+
+def _run_demo_conditioning(
+    n_trials: int,
+    n_states: int,
+    us_index: int,
+    omit_trials: tuple[int, ...] = (),
+) -> dict:
+    """Run the demo's fixed-parameter conditioning simulation.
+
+    The omission panel needs the same learned values as acquisition plus one
+    extra trial, hence a fresh run with the last trial's reward removed.
+    """
+    return simulate_conditioning(
+        n_trials=n_trials,
+        n_states=n_states,
+        us_index=us_index,
+        reward=1.0,
+        alpha=_DEMO_ALPHA,
+        gamma=_DEMO_GAMMA,
+        lam=_DEMO_LAM,
+        omit_trials=omit_trials,
+    )
+
+
+def _draw_delta_panel(
+    ax: Any, deltas: np.ndarray, t: np.ndarray, us_index: int, title: str,
+) -> None:
+    """Draw one within-trial delta trace with the CS and expected-US markers.
+
+    The two vertical lines are reference times, not data, so every panel uses
+    the same styling and the US line is clamped to the plotted range.
+    """
+    ax.plot(t, deltas, color="#2c7fb8")
+    ax.axhline(0.0, color="#999999", linewidth=0.8)
+    ax.axvline(0, color="#55a868", linestyle="--", linewidth=1, alpha=0.7, label="CS onset")
+    ax.axvline(min(us_index, len(deltas) - 1), color="#c44e52", linestyle="--",
+               linewidth=1, alpha=0.7, label="US time")
+    ax.set_ylabel("TD error (delta)")
+    ax.set_title(title)
+
+
 def plot_phasic_dopamine_conditioning(
     save_path: str | None = None,
     show: bool = False,
@@ -295,17 +364,13 @@ def plot_phasic_dopamine_conditioning(
     import matplotlib.pyplot as plt
 
     # Acquisition run: early vs late trial deltas
-    acq = simulate_conditioning(
-        n_trials=50, n_states=n_states, us_index=us_index, reward=1.0,
-        alpha=0.1, gamma=1.0, lam=0.95,
-    )
+    acq = _run_demo_conditioning(_DEMO_ACQUISITION_TRIALS, n_states, us_index)
     early = np.asarray(acq["deltas"][0], dtype=np.float64)
     late = np.asarray(acq["deltas"][-1], dtype=np.float64)
 
     # Train then omit reward to show dip at expected US time
-    omit = simulate_conditioning(
-        n_trials=51, n_states=n_states, us_index=us_index, reward=1.0,
-        alpha=0.1, gamma=1.0, lam=0.95, omit_trials=(50,),
+    omit = _run_demo_conditioning(
+        _DEMO_TOTAL_TRIALS, n_states, us_index, omit_trials=(_DEMO_OMITTED_TRIAL,),
     )
     omission = np.asarray(omit["deltas"][-1], dtype=np.float64)
 
@@ -317,12 +382,7 @@ def plot_phasic_dopamine_conditioning(
         (axes[2], omission, "Omission after learning: dip at omitted US"),
     ]
     for ax, d, title in panels:
-        ax.plot(t, d, color="#2c7fb8")
-        ax.axhline(0.0, color="#999999", linewidth=0.8)
-        ax.axvline(0, color="#55a868", linestyle="--", linewidth=1, alpha=0.7, label="CS onset")
-        ax.axvline(min(us_index, len(d)-1), color="#c44e52", linestyle="--", linewidth=1, alpha=0.7, label="US time")
-        ax.set_ylabel("TD error (delta)")
-        ax.set_title(title)
+        _draw_delta_panel(ax, d, t, us_index, title)
     axes[0].legend(loc="upper right", fontsize=8)
     axes[-1].set_xlabel("Time step within trial")
     fig.suptitle("S&B (2nd ed.), Sec. 15.6 (Fig. 15.5-like): Phasic dopamine / TD error")

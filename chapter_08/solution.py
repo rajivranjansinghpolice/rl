@@ -22,6 +22,50 @@ from chapter_03.solution import FiniteMDP, bellman_backup_optimality
 
 ACTIONS = ("up", "down", "left", "right")
 
+# Grid geometry, shared by the world builder and the maze experiments.
+_GRID_DELTAS = {"up": (-1, 0), "down": (1, 0), "left": (0, -1), "right": (0, 1)}
+_GRID_PERPENDICULARS = {
+    "up": ("left", "right"),
+    "down": ("left", "right"),
+    "left": ("up", "down"),
+    "right": ("up", "down"),
+}
+# Independent runs use well-separated seeds; the offset must stay fixed so
+# published results remain reproducible.
+_SEED_STRIDE = 1009
+
+
+def _grid_move(state: str, action: str, rows: int, cols: int, wall_set: set) -> str:
+    """Destination of `action`; walls and boundaries keep the agent in place."""
+    r, c = (int(x) for x in state.split(","))
+    dr, dc = _GRID_DELTAS[action]
+    nr, nc = r + dr, c + dc
+    if 0 <= nr < rows and 0 <= nc < cols and f"{nr},{nc}" not in wall_set:
+        return f"{nr},{nc}"
+    return state
+
+
+def _grid_outcome_probs(
+    state: str,
+    action: str,
+    rows: int,
+    cols: int,
+    wall_set: set,
+    slip: float,
+    goal: str,
+) -> dict:
+    """Distribution over (reward, next_state) for one pair; +1 only at `goal`."""
+
+    def add(probs: dict, p: float, next_state: str) -> None:
+        reward = 1.0 if next_state == goal else 0.0
+        probs[(reward, next_state)] = probs.get((reward, next_state), 0.0) + p
+
+    probs: dict = {}
+    add(probs, 1.0 - slip, _grid_move(state, action, rows, cols, wall_set))
+    for perp in _GRID_PERPENDICULARS[action]:
+        add(probs, slip / 2.0, _grid_move(state, perp, rows, cols, wall_set))
+    return probs
+
 
 def _max_q(q_table: dict, state, actions: list, terminal_states: set) -> float:
     """Max over actions of Q(state, a); 0.0 for terminal states."""
@@ -86,42 +130,20 @@ def make_gridworld(
     if not 0.0 <= slip < 1.0:
         raise ValueError("slip must be in [0, 1)")
     walls = list(walls) if walls else []
-    states = [f"{r},{c}" for r in range(rows) for c in range(cols) if f"{r},{c}" not in set(walls)]
+    wall_set = set(walls)
+    states = [f"{r},{c}" for r in range(rows) for c in range(cols) if f"{r},{c}" not in wall_set]
     goal = goal if goal is not None else f"{rows - 1},{cols - 1}"
     if goal not in states:
         raise ValueError(f"goal {goal!r} not in grid")
-    deltas = {"up": (-1, 0), "down": (1, 0), "left": (0, -1), "right": (0, 1)}
-    perpendiculars = {
-        "up": ("left", "right"),
-        "down": ("left", "right"),
-        "left": ("up", "down"),
-        "right": ("up", "down"),
-    }
-
-    wall_set = set(walls)
-
-    def move(state: str, action: str) -> str:
-        r, c = (int(x) for x in state.split(","))
-        dr, dc = deltas[action]
-        nr, nc = r + dr, c + dc
-        if 0 <= nr < rows and 0 <= nc < cols and f"{nr},{nc}" not in wall_set:
-            return f"{nr},{nc}"
-        return state  # blocked by wall or boundary: stay in place
 
     transitions: dict = {}
     for state in states:
         if state == goal:
             continue
         for action in ACTIONS:
-            probs: dict = {}
-
-            def add(p: float, ns: str) -> None:
-                reward = 1.0 if ns == goal else 0.0
-                probs[(reward, ns)] = probs.get((reward, ns), 0.0) + p
-
-            add(1.0 - slip, move(state, action))
-            for perp in perpendiculars[action]:
-                add(slip / 2.0, move(state, perp))
+            # Slip splits the remaining probability between the two moves
+            # perpendicular to the intended one (deterministic when slip = 0).
+            probs = _grid_outcome_probs(state, action, rows, cols, wall_set, slip, goal)
             transitions[(state, action)] = [
                 (p, r, ns) for (r, ns), p in probs.items() if p > 0.0
             ]
@@ -259,6 +281,110 @@ def _init_q(env: FiniteMDP, q_init: float = 0.0) -> dict:
     return {(s, a): q_init for s in env.states for a in env.actions}
 
 
+def _check_dyna_params(
+    alpha: float, epsilon: float, gamma: float, kappa: float | None
+) -> None:
+    """Validate the hyperparameters shared by the Dyna variants."""
+    if alpha <= 0.0:
+        raise ValueError("alpha must be positive")
+    if not 0.0 < epsilon <= 1.0:
+        raise ValueError("epsilon must be in (0, 1]")
+    if not 0.0 <= gamma <= 1.0:
+        raise ValueError("gamma must be in [0, 1]")
+    if kappa is not None and kappa < 0.0:
+        raise ValueError("kappa must be >= 0 when set")
+
+
+def _observe_real_transition(
+    model: TabularModel,
+    visited_states: list,
+    visited_set: set,
+    last_tried: dict,
+    state,
+    action,
+    reward: float,
+    next_state,
+    time_steps: int,
+) -> None:
+    """Store the real transition, remember the visit, and date the pair."""
+    model.observe(state, action, reward, next_state)
+    if state not in visited_set:
+        visited_set.add(state)
+        visited_states.append(state)
+    last_tried[(state, action)] = time_steps
+
+
+def _dyna_planning_updates(
+    model: TabularModel,
+    q_table: dict,
+    stats: dict,
+    actions: list,
+    terminal_states: set,
+    visited_states: list,
+    last_tried: dict,
+    time_steps: int,
+    planner: str,
+    kappa: float | None,
+    rng: np.random.Generator,
+    alpha: float,
+    gamma: float,
+    n_planning: int,
+) -> int:
+    """Replay the model so value news spreads without new environment steps.
+
+    Each replay picks a pair, simulates its outcome, and backs it up. With
+    `kappa` set (Dyna-Q+) never-tried pairs are considered as well, using a
+    default self-loop model.
+    """
+    pops = 0
+    for _ in range(n_planning):
+        if not model.has_pairs():
+            break
+        if kappa is None:
+            ps, pa = model.sample_known_pair(rng)
+            untried = False
+        else:
+            # Sec. 8.3 / Dyna-Q+: also consider never-tried pairs with the
+            # default model (zero reward, self-loop); stale modelled pairs get
+            # the kappa*sqrt(tau) bonus. Sampling a uniform visited state and
+            # a uniform action is equivalent to sampling uniformly from all
+            # (s, a) pairs without materialising a potentially large list.
+            ps = visited_states[int(rng.integers(len(visited_states)))]
+            pa = actions[int(rng.integers(len(actions)))]
+            untried = not model.is_known(ps, pa)
+        if untried:
+            sim_reward, sim_next = 0.0, ps
+        elif planner == "sample":
+            sim_reward, sim_next = model.sample(ps, pa, rng)
+        else:  # "expected": book eq. (8.1), direct assignment
+            sim_reward, sim_next = None, None
+        # Never-tried pairs get NO bonus: their default self-loop model is not
+        # a stale modelled transition, and the book's kappa*sqrt(tau) reward is
+        # defined only for pairs whose model exists but has gone untried. A
+        # bonus on unmodelled self-loops would make every frontier action look
+        # better than reaching the goal.
+        bonus = (
+            kappa * (time_steps - last_tried.get((ps, pa), 0)) ** 0.5
+            if (kappa is not None and not untried)
+            else 0.0
+        )
+        if planner == "sample" or untried:
+            _q_learning_update(q_table, ps, pa,
+                               (sim_reward if sim_reward is not None else 0.0) + bonus,
+                               sim_next, alpha, gamma, actions, terminal_states)
+        else:
+            target = expected_q_target(model, q_table, ps, pa, gamma,
+                                       actions, terminal_states)
+            # Sec. 8.3 bonus: add it to the modelled reward component (exact
+            # for the deterministic mazes of Examples 8.2/8.3; a reward bonus
+            # on stochastic models is not a book algorithm).
+            target += bonus
+            q_table[(ps, pa)] = target
+        stats["planning_updates"] += 1
+        pops += 1
+    return pops
+
+
 def _dyna_loop(
     env: FiniteMDP,
     planner: str,
@@ -273,14 +399,7 @@ def _dyna_loop(
     kappa: float | None = None,
     step_callback=None,
 ):
-    if alpha <= 0.0:
-        raise ValueError("alpha must be positive")
-    if not 0.0 < epsilon <= 1.0:
-        raise ValueError("epsilon must be in (0, 1]")
-    if not 0.0 <= gamma <= 1.0:
-        raise ValueError("gamma must be in [0, 1]")
-    if kappa is not None and kappa < 0.0:
-        raise ValueError("kappa must be >= 0 when set")
+    _check_dyna_params(alpha, epsilon, gamma, kappa)
     rng = np.random.default_rng(seed)
     actions = list(env.actions)
     terminal_states = set(env.terminal_states)
@@ -299,64 +418,18 @@ def _dyna_loop(
         while not done and steps < max_steps:
             action = _epsilon_greedy_action(q_table, state, actions, epsilon, rng)
             reward, next_state, done = env.step(action)
-            # (d) direct RL: one-step tabular Q-learning
+            # (d) direct RL: one-step tabular Q-learning on real experience
             _q_learning_update(q_table, state, action, reward, next_state,
                                alpha, gamma, actions, terminal_states)
-            # (e) model-learning
-            model.observe(state, action, reward, next_state)
-            if state not in visited_set:
-                visited_set.add(state)
-                visited_states.append(state)
-            last_tried[(state, action)] = time_steps
+            # (e) model-learning, plus the visit/staleness bookkeeping
+            _observe_real_transition(model, visited_states, visited_set, last_tried,
+                                     state, action, reward, next_state, time_steps)
             time_steps += 1
-            # (f) planning: n iterations of one-step tabular Q-planning
-            pops = 0
-            for _ in range(n_planning):
-                if not model.has_pairs():
-                    break
-                if kappa is None:
-                    ps, pa = model.sample_known_pair(rng)
-                    untried = False
-                else:
-                    # Sec. 8.3 / Dyna-Q+: also consider never-tried pairs with the
-                    # default model (zero reward, self-loop); stale modelled
-                    # pairs get the kappa*sqrt(tau) bonus.
-                    # Sampling a uniform visited state and a uniform action is
-                    # equivalent to sampling uniformly from all (s, a) pairs,
-                    # without materialising the (potentially large) pair list.
-                    ps = visited_states[int(rng.integers(len(visited_states)))]
-                    pa = actions[int(rng.integers(len(actions)))]
-                    untried = not model.is_known(ps, pa)
-                if untried:
-                    sim_reward, sim_next = 0.0, ps
-                elif planner == "sample":
-                    sim_reward, sim_next = model.sample(ps, pa, rng)
-                else:  # "expected": book eq. (8.1), direct assignment
-                    sim_reward, sim_next = None, None
-                # Never-tried pairs use the default (zero-reward, self-loop)
-                # model with *no* bonus: the bonus in the book is defined for
-                # transitions whose model exists but has gone stale. Giving a
-                # large sqrt(tau) bonus to unmodelled self-loops makes every
-                # frontier action look better than reaching the goal.
-                bonus = (
-                    kappa * (time_steps - last_tried.get((ps, pa), 0)) ** 0.5
-                    if (kappa is not None and not untried)
-                    else 0.0
-                )
-                if planner == "sample" or untried:
-                    _q_learning_update(q_table, ps, pa,
-                                       (sim_reward if sim_reward is not None else 0.0) + bonus,
-                                       sim_next, alpha, gamma, actions, terminal_states)
-                else:
-                    target = expected_q_target(model, q_table, ps, pa, gamma,
-                                               actions, terminal_states)
-                    # Sec. 8.3 bonus: add to the modeled reward component
-                    # (exact for the deterministic mazes of Examples 8.2/8.3;
-                    # stochastic models with a reward bonus are not a book algorithm)
-                    target += bonus
-                    q_table[(ps, pa)] = target
-                stats["planning_updates"] += 1
-                pops += 1
+            # (f) planning: replay the learned model n_planning times
+            pops = _dyna_planning_updates(
+                model, q_table, stats, actions, terminal_states, visited_states,
+                last_tried, time_steps, planner, kappa, rng, alpha, gamma, n_planning,
+            )
             state = next_state
             steps += 1
             episode_reward += reward
@@ -497,6 +570,83 @@ class PriorityQueue:
         return not self._best
 
 
+def _check_sweep_params(
+    alpha: float, epsilon: float, theta: float, gamma: float
+) -> None:
+    """Validate the prioritized-sweeping hyperparameters."""
+    if alpha <= 0.0:
+        raise ValueError("alpha must be positive")
+    if not 0.0 < epsilon <= 1.0:
+        raise ValueError("epsilon must be in (0, 1]")
+    if theta <= 0.0:
+        raise ValueError("theta must be positive")
+    if not 0.0 <= gamma <= 1.0:
+        raise ValueError("gamma must be in [0, 1]")
+
+
+def _queue_real_transition(
+    model: TabularModel,
+    q_table: dict,
+    queue: PriorityQueue,
+    stats: dict,
+    state,
+    action,
+    reward: float,
+    next_state,
+    gamma: float,
+    actions: list,
+    terminal_states: set,
+    theta: float,
+) -> None:
+    """Learn the real transition and queue it only if its change is nontrivial."""
+    model.observe(state, action, reward, next_state)
+    target = reward + gamma * _max_q(q_table, next_state, actions, terminal_states)
+    priority = abs(target - q_table[(state, action)])
+    if priority > theta:
+        queue.push((state, action), priority)
+        stats["queue_pushes"] += 1
+
+
+def _priority_planning_updates(
+    model: TabularModel,
+    q_table: dict,
+    queue: PriorityQueue,
+    stats: dict,
+    gamma: float,
+    actions: list,
+    terminal_states: set,
+    theta: float,
+    alpha: float,
+    n_planning: int,
+) -> int:
+    """Back up queued pairs in priority order, re-queuing their predecessors.
+
+    A change to Q(s, a) can change the expected targets of every pair that
+    leads into s, so those predecessors are the only ones worth reconsidering.
+    """
+    budget = n_planning
+    pops = 0
+    while budget > 0 and not queue.empty():
+        pair, _ = queue.pop()
+        ps, pa = pair
+        new_q = expected_q_target(model, q_table, ps, pa, gamma,
+                                  actions, terminal_states)
+        q_table[pair] += alpha * (new_q - q_table[pair])
+        stats["updates"] += 1
+        stats["planning_updates"] += 1
+        budget -= 1
+        pops += 1
+        for pred_pair in model.predecessors(ps):
+            pred_target = expected_q_target(model, q_table, pred_pair[0],
+                                            pred_pair[1], gamma,
+                                            actions, terminal_states)
+            pred_priority = abs(pred_target - q_table[pred_pair])
+            if pred_priority > theta:
+                queue.push(pred_pair, pred_priority)
+                stats["queue_pushes"] += 1
+    return pops
+
+
 def prioritized_sweeping(
     env: FiniteMDP,
     theta: float = 1e-3,
@@ -537,15 +687,8 @@ def prioritized_sweeping(
         (q_table, model, stats) with the same layout as dyna_q plus
         stats['queue_pushes'] and stats['updates'].
     """
-    if alpha <= 0.0:
-        raise ValueError("alpha must be positive")
-    if not 0.0 < epsilon <= 1.0:
-        raise ValueError("epsilon must be in (0, 1]")
-    if theta <= 0.0:
-        raise ValueError("theta must be positive")
     gamma = env.gamma if gamma is None else gamma
-    if not 0.0 <= gamma <= 1.0:
-        raise ValueError("gamma must be in [0, 1]")
+    _check_sweep_params(alpha, epsilon, theta, gamma)
     rng = np.random.default_rng(seed)
     actions = list(env.actions)
     terminal_states = set(env.terminal_states)
@@ -568,35 +711,14 @@ def prioritized_sweeping(
         while not done and steps < max_steps:
             action = _epsilon_greedy_action(q_table, state, actions, epsilon, rng)
             reward, next_state, done = env.step(action)
-            # (d) model(S, A) <- R, S'  (distribution model records the counts)
-            model.observe(state, action, reward, next_state)
-            # (e)/(f): queue the real transition if its update is nontrivial
-            target = reward + gamma * _max_q(q_table, next_state, actions, terminal_states)
-            priority = abs(target - q_table[(state, action)])
-            if priority > theta:
-                queue.push((state, action), priority)
-                stats["queue_pushes"] += 1
-            # (g): propagate backward in priority order
-            budget = n_planning
-            pops = 0
-            while budget > 0 and not queue.empty():
-                pair, _ = queue.pop()
-                ps, pa = pair
-                new_q = expected_q_target(model, q_table, ps, pa, gamma,
-                                          actions, terminal_states)
-                q_table[pair] += alpha * (new_q - q_table[pair])
-                stats["updates"] += 1
-                stats["planning_updates"] += 1
-                budget -= 1
-                pops += 1
-                for pred_pair in model.predecessors(ps):
-                    pred_target = expected_q_target(model, q_table, pred_pair[0],
-                                                    pred_pair[1], gamma,
-                                                    actions, terminal_states)
-                    pred_priority = abs(pred_target - q_table[pred_pair])
-                    if pred_priority > theta:
-                        queue.push(pred_pair, pred_priority)
-                        stats["queue_pushes"] += 1
+            # (d)-(f) record the real transition and queue it if its change matters
+            _queue_real_transition(model, q_table, queue, stats, state, action,
+                                   reward, next_state, gamma, actions,
+                                   terminal_states, theta)
+            # (g) propagate backward in priority order
+            pops = _priority_planning_updates(model, q_table, queue, stats, gamma,
+                                              actions, terminal_states, theta,
+                                              alpha, n_planning)
             state = next_state
             steps += 1
             episode_reward += reward
@@ -864,6 +986,62 @@ def changing_maze_layouts():
     return start, goal, barrier, blocking_alt, shortcut_base, shortcut_alt
 
 
+def _maze_experiment_env(
+    layout: str, change_step: int, gamma: float, seed: int
+) -> tuple[ChangingGridworld, str, list[str], list[str]]:
+    """Build the layout pair and the maze whose barrier swaps mid-run."""
+    start, goal, barrier, blocking_alt, shortcut_base, shortcut_alt = changing_maze_layouts()
+    if layout == "blocking":
+        base_walls, alt_walls = barrier, blocking_alt
+    else:
+        base_walls, alt_walls = shortcut_base, shortcut_alt
+    env = ChangingGridworld(6, 10, start, goal, base_walls, alt_walls,
+                            change_step=change_step, gamma=gamma, seed=seed)
+    return env, start, base_walls, alt_walls
+
+
+def _maze_planning_updates(
+    model: TabularModel,
+    q_table: dict,
+    agent: str,
+    actions: list,
+    terminal_states: set,
+    visited_states: list,
+    last_tried: dict,
+    time_steps: int,
+    kappa: float,
+    rng: np.random.Generator,
+    alpha: float,
+    gamma: float,
+    n_planning: int,
+) -> None:
+    """Replay the model after each real step (identical to _dyna_loop)."""
+    for _ in range(n_planning):
+        if not model.has_pairs():
+            break
+        if agent in ("dyna_q", "selection_bonus"):
+            ps, pa = model.sample_known_pair(rng)
+            sim_reward, sim_next = model.sample(ps, pa, rng)
+            bonus = 0.0
+        else:  # dyna_q_plus
+            ps = visited_states[int(rng.integers(len(visited_states)))]
+            pa = actions[int(rng.integers(len(actions)))]
+            if not model.is_known(ps, pa):
+                sim_reward, sim_next = 0.0, ps
+            else:
+                sim_reward, sim_next = model.sample(ps, pa, rng)
+            tried = model.is_known(ps, pa)
+            # Only a modelled pair can be stale. A never-tried pair uses the
+            # default self-loop model and gets no sqrt(tau) bonus, otherwise
+            # every frontier action would outrank reaching the goal.
+            bonus = (
+                kappa * (time_steps - last_tried.get((ps, pa), 0)) ** 0.5
+                if tried else 0.0
+            )
+        _q_learning_update(q_table, ps, pa, sim_reward + bonus, sim_next,
+                           alpha, gamma, actions, terminal_states)
+
+
 def changing_maze_experiment(
     layout: str,
     agent: str,
@@ -894,13 +1072,7 @@ def changing_maze_experiment(
     if agent not in ("dyna_q", "dyna_q_plus", "selection_bonus"):
         raise ValueError(
             "agent must be 'dyna_q', 'dyna_q_plus' or 'selection_bonus'")
-    start, goal, barrier, blocking_alt, shortcut_base, shortcut_alt = changing_maze_layouts()
-    if layout == "blocking":
-        base_walls, alt_walls = barrier, blocking_alt
-    else:
-        base_walls, alt_walls = shortcut_base, shortcut_alt
-    env = ChangingGridworld(6, 10, start, goal, base_walls, alt_walls,
-                            change_step=change_step, gamma=gamma, seed=seed)
+    env, start, base_walls, alt_walls = _maze_experiment_env(layout, change_step, gamma, seed)
     rng = np.random.default_rng(seed)
     # Q-table covers the union of both barrier phases (a cell that becomes
     # walkable after the swap must have actions)
@@ -946,28 +1118,11 @@ def changing_maze_experiment(
             episode_reward += reward
             total_steps += 1
             cumulative_reward.append(cumulative_reward[-1] + reward)
-            # (f) planning: identical to _dyna_loop
-            for _ in range(n_planning):
-                if not model.has_pairs():
-                    break
-                if agent in ("dyna_q", "selection_bonus"):
-                    ps, pa = model.sample_known_pair(rng)
-                    sim_reward, sim_next = model.sample(ps, pa, rng)
-                    bonus = 0.0
-                else:  # dyna_q_plus
-                    ps = visited_states[int(rng.integers(len(visited_states)))]
-                    pa = actions[int(rng.integers(len(actions)))]
-                    if not model.is_known(ps, pa):
-                        sim_reward, sim_next = 0.0, ps
-                    else:
-                        sim_reward, sim_next = model.sample(ps, pa, rng)
-                    tried = model.is_known(ps, pa)
-                    bonus = (
-                        kappa * (time_steps - last_tried.get((ps, pa), 0)) ** 0.5
-                        if tried else 0.0
-                    )
-                _q_learning_update(q_table, ps, pa, sim_reward + bonus, sim_next,
-                                   alpha, gamma, actions, terminal_states)
+            # (f) planning: replay the model so the new reward information
+            # reaches earlier states without further environment interaction
+            _maze_planning_updates(model, q_table, agent, actions, terminal_states,
+                                   visited_states, last_tried, time_steps, kappa,
+                                   rng, alpha, gamma, n_planning)
             state = next_state
             steps += 1
         if steps == 0:
@@ -1006,7 +1161,7 @@ def plot_figure_8_3_dyna_maze(
     curves = {n: np.zeros(n_episodes, dtype=np.float64) for n in planning_steps}
     for n in planning_steps:
         for r in range(runs):
-            rs = seed + r * 1009
+            rs = seed + r * _SEED_STRIDE
             env = make_gridworld(rows=6, cols=9, start="2,0", goal="0,8",
                                  gamma=0.95, seed=rs, walls=book_walls)
             _, _, stats = dyna_q(
@@ -1143,6 +1298,31 @@ def plot_figure_8_4_policies(save_path: str | None = None, show: bool = False,
     return fig, axes
 
 
+def _average_maze_curves(
+    layout: str,
+    change_step: int,
+    steps_cap: int,
+    runs: int,
+    n_episodes: int,
+    seed: int,
+    agents: tuple[str, ...],
+) -> dict:
+    """Average the cumulative-reward curves over independent maze runs."""
+    curves = {}
+    for agent in agents:
+        acc = np.zeros(steps_cap + 1, dtype=np.float64)
+        for r in range(runs):
+            rs = seed + r * _SEED_STRIDE
+            cum, _ = changing_maze_experiment(
+                layout=layout, agent=agent, change_step=change_step,
+                n_episodes=n_episodes, n_planning=5, alpha=0.1, epsilon=0.1,
+                gamma=0.95, kappa=1e-4, seed=rs, max_steps=400,
+                steps_cap=steps_cap)
+            acc[:len(cum)] += np.array(cum, dtype=np.float64)
+        curves[agent] = acc / runs
+    return curves
+
+
 def plot_changing_maze(layout: str, change_step: int, steps_cap: int,
                        save_path: str | None = None, show: bool = False,
                        runs: int = 20, n_episodes: int = 3000,
@@ -1168,18 +1348,8 @@ def plot_changing_maze(layout: str, change_step: int, steps_cap: int,
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    curves = {}
-    for agent in agents:
-        acc = np.zeros(steps_cap + 1, dtype=np.float64)
-        for r in range(runs):
-            rs = seed + r * 1009
-            cum, _ = changing_maze_experiment(
-                layout=layout, agent=agent, change_step=change_step,
-                n_episodes=n_episodes, n_planning=5, alpha=0.1, epsilon=0.1,
-                gamma=0.95, kappa=1e-4, seed=rs, max_steps=400,
-                steps_cap=steps_cap)
-            acc[:len(cum)] += np.array(cum, dtype=np.float64)
-        curves[agent] = acc / runs
+    curves = _average_maze_curves(layout, change_step, steps_cap, runs,
+                                  n_episodes, seed, agents)
 
     fig, ax = plt.subplots(figsize=(8, 4.5))
     x = np.arange(steps_cap + 1)
@@ -1420,10 +1590,83 @@ def _greedy_value_start(succ: np.ndarray, rewards: np.ndarray, q: np.ndarray) ->
     return float(q[0].max())
 
 
+# Every transition in the Fig. 8.9 task can terminate with this probability;
+# being action-independent, it keeps expected episode length policy-free.
+_TERMINATION_PROB = 0.1
+_POLICY_SEED_OFFSET = 100003
+
+
 def _expected_update(succ: np.ndarray, rewards: np.ndarray, q: np.ndarray,
                      s: int, a: int) -> float:
     nxt = succ[s, a]
     return rewards[s, a] + 0.9 * q[nxt].max(axis=1).mean()
+
+
+def _uniform_backup_values(
+    succ: np.ndarray,
+    rewards: np.ndarray,
+    checkpoints: np.ndarray,
+    n_states: int,
+) -> list[float]:
+    """Cycle through all pairs in place, recording values at checkpoints."""
+    q = np.zeros((n_states, 2), dtype=np.float64)
+    updates = 0
+    vals: list[float] = []
+    ck_idx = 0
+    s, a = 0, 0
+    while ck_idx < len(checkpoints):
+        q[s, a] = _expected_update(succ, rewards, q, s, a)
+        updates += 1
+        if updates >= checkpoints[ck_idx]:
+            vals.append(_greedy_value_start(succ, rewards, q))
+            ck_idx += 1
+        a += 1
+        if a == 2:
+            a = 0
+            s += 1
+            if s == n_states:
+                s = 0
+    return vals
+
+
+def _onpolicy_backup_values(
+    succ: np.ndarray,
+    rewards: np.ndarray,
+    checkpoints: np.ndarray,
+    n_states: int,
+    b: int,
+    policy_seed: int,
+    epsilon: float,
+) -> list[float]:
+    """Follow episodes from state 0, updating only the pairs actually taken."""
+    rng = np.random.default_rng(policy_seed)
+    q = np.zeros((n_states, 2), dtype=np.float64)
+    updates = 0
+    vals: list[float] = []
+    ck_idx = 0
+    while ck_idx < len(checkpoints):
+        s = 0
+        while True:
+            vals_q = q[s]
+            if rng.random() < epsilon:
+                a = int(rng.integers(0, 2))
+            else:
+                best = vals_q.max()
+                if (vals_q == best).sum() == 2:
+                    a = int(rng.integers(0, 2))
+                else:
+                    a = int(np.argmax(vals_q))
+            q[s, a] = _expected_update(succ, rewards, q, s, a)
+            updates += 1
+            if updates >= checkpoints[ck_idx]:
+                vals.append(_greedy_value_start(succ, rewards, q))
+                ck_idx += 1
+                if ck_idx == len(checkpoints):
+                    break
+            if rng.random() < _TERMINATION_PROB:
+                break
+            s = int(succ[s, a, rng.integers(0, b)])
+    return vals
 
 
 def trajectory_sampling_experiment(
@@ -1457,50 +1700,12 @@ def trajectory_sampling_experiment(
         rng = np.random.default_rng(seed + t)
         succ, rewards = _make_random_task(n_states, b, rng)
         for dist in ("uniform", "onpolicy"):
-            q = np.zeros((n_states, 2), dtype=np.float64)
-            updates = 0
-            vals = []
-            ck_idx = 0
             if dist == "uniform":
-                # cycle through all pairs in place, wrap-around
-                s, a = 0, 0
-                while ck_idx < len(checkpoints):
-                    q[s, a] = _expected_update(succ, rewards, q, s, a)
-                    updates += 1
-                    if updates >= checkpoints[ck_idx]:
-                        vals.append(_greedy_value_start(succ, rewards, q))
-                        ck_idx += 1
-                    a += 1
-                    if a == 2:
-                        a = 0
-                        s += 1
-                        if s == n_states:
-                            s = 0
+                vals = _uniform_backup_values(succ, rewards, checkpoints, n_states)
             else:
-                rng2 = np.random.default_rng(seed + 100003 + t)
-                while ck_idx < len(checkpoints):
-                    s = 0
-                    # one episode from state 0
-                    while True:
-                        vals_q = q[s]
-                        if rng2.random() < epsilon:
-                            a = int(rng2.integers(0, 2))
-                        else:
-                            best = vals_q.max()
-                            if (vals_q == best).sum() == 2:
-                                a = int(rng2.integers(0, 2))
-                            else:
-                                a = int(np.argmax(vals_q))
-                        q[s, a] = _expected_update(succ, rewards, q, s, a)
-                        updates += 1
-                        if updates >= checkpoints[ck_idx]:
-                            vals.append(_greedy_value_start(succ, rewards, q))
-                            ck_idx += 1
-                            if ck_idx == len(checkpoints):
-                                break
-                        if rng2.random() < 0.1:
-                            break
-                        s = int(succ[s, a, rng2.integers(0, b)])
+                vals = _onpolicy_backup_values(succ, rewards, checkpoints, n_states,
+                                               b, seed + _POLICY_SEED_OFFSET + t,
+                                               epsilon)
             (uniform_vals if dist == "uniform" else onpolicy_vals).append(vals)
     uniform_arr = np.array(uniform_vals)
     onpolicy_arr = np.array(onpolicy_vals)
@@ -1772,6 +1977,28 @@ def scaling_maze_experiment(
     return results
 
 
+def _scaling_plot_series(
+    results: dict,
+    agent: str,
+    scale_levels: tuple[int, ...],
+) -> tuple[list, list, list, list]:
+    """Reduce raw run outcomes to means, error bars, and censored runs."""
+    xs, means, stds, censored = [], [], [], []
+    for k in scale_levels:
+        n_states, runs = results[(agent, k)]
+        solved = [u for u in runs if u is not None]
+        if solved:
+            xs.append(n_states)
+            means.append(np.mean(solved))
+            stds.append(np.std(solved) if len(solved) > 1 else 0.0)
+        n_unsolved = len(runs) - len(solved)
+        if n_unsolved:
+            # Show censored runs explicitly rather than silently dropping
+            # them: the downward triangle marks the computation budget.
+            censored.append((n_states, n_unsolved))
+    return xs, means, stds, censored
+
+
 def plot_example_8_4_scaling(
     save_path: str | None = None, show: bool = False,
     scale_levels: tuple[int, ...] = (1, 2, 3),
@@ -1793,20 +2020,7 @@ def plot_example_8_4_scaling(
     fig, ax = plt.subplots(figsize=(8, 5.2))
     colors = {"dyna_q": "tab:blue", "prioritized_sweeping": "tab:orange"}
     for agent, marker in (("dyna_q", "o"), ("prioritized_sweeping", "s")):
-        xs, means, stds = [], [], []
-        censored = []
-        for k in scale_levels:
-            n_states, runs = results[(agent, k)]
-            solved = [u for u in runs if u is not None]
-            if solved:
-                xs.append(n_states)
-                means.append(np.mean(solved))
-                stds.append(np.std(solved) if len(solved) > 1 else 0.0)
-            n_unsolved = len(runs) - len(solved)
-            if n_unsolved:
-                # Show censored runs explicitly instead of silently dropping
-                # them: the downward triangle marks the computation budget.
-                censored.append((n_states, n_unsolved))
+        xs, means, stds, censored = _scaling_plot_series(results, agent, scale_levels)
         if xs:
             ax.errorbar(xs, means, yerr=stds, marker=marker, capsize=5,
                         color=colors[agent],

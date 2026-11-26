@@ -71,6 +71,31 @@ def _returns_from_rewards(rewards: list[float], gamma: float) -> list[float]:
     return returns
 
 
+def _accumulate_first_visit_q(
+    trajectory: list[tuple],
+    gamma: float,
+    n_actions: int,
+    returns_by_pair: dict,
+    q_table: dict,
+) -> None:
+    """Add each first-visited (state, action)'s return to its Q average.
+
+    A pair seen twice in one episode contributes only once: first-visit MC
+    avoids counting the same reward stream from the same starting point.
+    """
+    rewards = [r for _, _, r in trajectory]
+    returns = _returns_from_rewards(rewards, gamma)
+    seen: set = set()
+    for t, (state, action, _) in enumerate(trajectory):
+        if (state, action) in seen:
+            continue
+        seen.add((state, action))
+        pair = (state, action)
+        returns_by_pair.setdefault(pair, []).append(returns[t])
+        q_table.setdefault(state, np.zeros(n_actions))
+        q_table[state][action] = float(np.mean(returns_by_pair[pair]))
+
+
 def mc_first_visit_prediction(
     env,
     policy_fn: Callable,
@@ -167,16 +192,9 @@ def mc_control_epsilon_greedy(
         trajectory = _run_episode(env, behavior_probs, rng)
         rewards = [r for _, _, r in trajectory]
         episode_rewards.append(float(sum(rewards)))
-        returns = _returns_from_rewards(rewards, gamma)
-        seen: set = set()
-        for t, (state, action, _) in enumerate(trajectory):
-            if (state, action) in seen:
-                continue
-            seen.add((state, action))
-            pair = (state, action)
-            returns_by_pair.setdefault(pair, []).append(returns[t])
-            q_table.setdefault(state, np.zeros(n_actions))
-            q_table[state][action] = float(np.mean(returns_by_pair[pair]))
+        _accumulate_first_visit_q(
+            trajectory, gamma, n_actions, returns_by_pair, q_table
+        )
 
     policy = {s: _epsilon_greedy_probs(q, epsilon) for s, q in q_table.items()}
     return policy, q_table, episode_rewards
@@ -259,6 +277,60 @@ def mc_off_policy_prediction(
     return estimates
 
 
+# Floor on the weighted-IS visit counter, keeping its denominator finite.
+_MIN_WEIGHTED_COUNT = 1e-8
+
+
+def _backward_off_policy_update(
+    trajectory: list[tuple],
+    gamma: float,
+    weighted: bool,
+    n_actions: int,
+    q_table: dict,
+    counts: dict,
+    behavior_probs,
+    greedy_action,
+) -> None:
+    """Sweep one episode backwards, updating Q with importance ratios.
+
+    The return G and the ratio w are built from the tail back to t=0, so the
+    update order is fixed by the trajectory rather than by visit order.
+    """
+    g = 0.0
+    w = 1.0
+    for t in range(len(trajectory) - 1, -1, -1):
+        state, action, reward = trajectory[t]
+        g = gamma * g + reward
+        q_table.setdefault(state, np.zeros(n_actions))
+        pair_counts = counts.setdefault(state, np.zeros(n_actions))
+
+        if weighted:
+            pair_counts[action] += w
+            pair_counts[action] = max(pair_counts[action], _MIN_WEIGHTED_COUNT)
+            q_table[state][action] += (w / pair_counts[action]) * (g - q_table[state][action])
+        else:
+            # ordinary IS: simple average of w*g over visits
+            pair_counts[action] += 1.0
+            q_table[state][action] += (w * g - q_table[state][action]) / pair_counts[action]
+
+        # target is greedy; stop bootstrapping from non-greedy suffixes
+        if action != greedy_action(state):
+            break
+        b_prob = behavior_probs(state)[action]
+        w = w * (1.0 / b_prob) if b_prob > 0.0 else 0.0
+
+
+def _uniform_greedy_policy(q_table: dict, n_actions: int) -> dict:
+    """Greedy policy with probability split evenly among maximizing actions."""
+    policy = {}
+    for state in q_table:
+        probs = np.zeros(n_actions)
+        greedy = np.flatnonzero(q_table[state] == q_table[state].max())
+        probs[greedy] = 1.0 / len(greedy)
+        policy[state] = probs
+    return policy
+
+
 def mc_control_off_policy(
     env,
     n_episodes: int = 20_000,
@@ -301,37 +373,12 @@ def mc_control_off_policy(
         trajectory = _run_episode(env, behavior_probs, rng)
         rewards = [r for _, _, r in trajectory]
         episode_rewards.append(float(sum(rewards)))
+        _backward_off_policy_update(
+            trajectory, gamma, weighted, n_actions, q_table, counts,
+            behavior_probs, greedy_action,
+        )
 
-        g = 0.0
-        w = 1.0
-        for t in range(len(trajectory) - 1, -1, -1):
-            state, action, reward = trajectory[t]
-            g = gamma * g + reward
-            q_table.setdefault(state, np.zeros(n_actions))
-            pair_counts = counts.setdefault(state, np.zeros(n_actions))
-
-            if weighted:
-                pair_counts[action] += w
-                pair_counts[action] = max(pair_counts[action], 1e-8)
-                q_table[state][action] += (w / pair_counts[action]) * (g - q_table[state][action])
-            else:
-                # ordinary IS: simple average of w*g over visits
-                pair_counts[action] += 1.0
-                q_table[state][action] += (w * g - q_table[state][action]) / pair_counts[action]
-
-            # target is greedy; stop bootstrapping from non-greedy suffixes
-            if action != greedy_action(state):
-                break
-            b_prob = behavior_probs(state)[action]
-            w = w * (1.0 / b_prob) if b_prob > 0.0 else 0.0
-
-    policy = {}
-    for state in q_table:
-        probs = np.zeros(n_actions)
-        greedy = np.flatnonzero(q_table[state] == q_table[state].max())
-        probs[greedy] = 1.0 / len(greedy)
-        policy[state] = probs
-    return policy, q_table, episode_rewards
+    return _uniform_greedy_policy(q_table, n_actions), q_table, episode_rewards
 
 
 def blackjack_stick_on_threshold(stick_threshold: int = 20) -> Callable:
@@ -353,14 +400,36 @@ def blackjack_stick_on_threshold(stick_threshold: int = 20) -> Callable:
 # Figure reproduction (Sutton & Barto, 2nd ed., Ch. 5)
 # ---------------------------------------------------------------------------
 
+# Blackjack figure grids span player sums 12-21 and dealer cards 1-10.
+_BJ_PLAYER_SUM_MIN = 12
+_BJ_PLAYER_SUM_MAX = 21
+_BJ_DEALER_MIN = 1
+_BJ_DEALER_MAX = 10
+_BJ_GRID_SIDE = 10
+_BJ_ACE_VARIANTS = ((True, "Usable ace"), (False, "No usable ace"))
+
+
 def _blackjack_value_grid(values: dict, usable_ace: bool):
     """Build a (player_sum 12-21) x (dealer_showing 1-10) grid from MC values."""
-    grid = np.full((10, 10), np.nan, dtype=np.float64)
-    for player_sum in range(12, 22):
-        for dealer in range(1, 11):
+    grid = np.full((_BJ_GRID_SIDE, _BJ_GRID_SIDE), np.nan, dtype=np.float64)
+    for player_sum in range(_BJ_PLAYER_SUM_MIN, _BJ_PLAYER_SUM_MAX + 1):
+        for dealer in range(_BJ_DEALER_MIN, _BJ_DEALER_MAX + 1):
             state = (player_sum, dealer, usable_ace)
             if state in values:
-                grid[player_sum - 12, dealer - 1] = values[state]
+                grid[player_sum - _BJ_PLAYER_SUM_MIN, dealer - _BJ_DEALER_MIN] = values[state]
+    return grid
+
+
+def _blackjack_q_grid(q_table: dict, usable: bool, reducer: Callable[[np.ndarray], float]):
+    """Apply `reducer` to each state's action values on the blackjack grid."""
+    grid = np.full((_BJ_GRID_SIDE, _BJ_GRID_SIDE), np.nan, dtype=np.float64)
+    for player_sum in range(_BJ_PLAYER_SUM_MIN, _BJ_PLAYER_SUM_MAX + 1):
+        for dealer in range(_BJ_DEALER_MIN, _BJ_DEALER_MAX + 1):
+            state = (player_sum, dealer, usable)
+            if state in q_table:
+                grid[player_sum - _BJ_PLAYER_SUM_MIN, dealer - _BJ_DEALER_MIN] = reducer(
+                    q_table[state]
+                )
     return grid
 
 
@@ -390,10 +459,13 @@ def plot_blackjack_value_functions(
     policy = blackjack_stick_on_threshold(20)
     values = mc_first_visit_prediction(env, policy, n_episodes=n_episodes, seed=seed)
 
-    X, Y = np.meshgrid(np.arange(1, 11), np.arange(12, 22))
+    X, Y = np.meshgrid(
+        np.arange(_BJ_DEALER_MIN, _BJ_DEALER_MAX + 1),
+        np.arange(_BJ_PLAYER_SUM_MIN, _BJ_PLAYER_SUM_MAX + 1),
+    )
 
     fig = plt.figure(figsize=(11, 4.8))
-    for idx, (usable, title) in enumerate(((True, "Usable ace"), (False, "No usable ace")), start=1):
+    for idx, (usable, title) in enumerate(_BJ_ACE_VARIANTS, start=1):
         ax = fig.add_subplot(1, 2, idx, projection="3d")
         Z = _blackjack_value_grid(values, usable)
         Z_plot = np.where(np.isnan(Z), 0.0, Z)
@@ -428,6 +500,27 @@ def plot_figure_5_1(save_path: str | None = None, show: bool = False, n_episodes
 # ---------------------------------------------------------------------------
 # Monte Carlo ES (Algorithm 5.3) — Figure 5.2
 # ---------------------------------------------------------------------------
+
+def _run_exploring_starts_episode(env, actions: tuple, greedy_probs, rng) -> list[tuple]:
+    """Generate one episode whose first action is chosen uniformly at random.
+
+    The exploring start is what makes every action in every reachable state
+    sampled eventually, even while later actions follow the greedy policy.
+    """
+    n_actions = len(actions)
+    state = env.reset()
+    a_idx = int(rng.integers(n_actions))  # exploring starts
+    trajectory: list[tuple] = []
+    reward, observation, done = env.step(actions[a_idx])
+    trajectory.append((state, a_idx, reward))
+    state = observation
+    while not done:
+        a_idx = _sample_action(state, greedy_probs, rng, actions)
+        reward, observation, done = env.step(actions[a_idx])
+        trajectory.append((state, a_idx, reward))
+        state = observation
+    return trajectory
+
 
 def mc_exploring_starts(
     env,
@@ -465,29 +558,12 @@ def mc_exploring_starts(
 
     episode_rewards: list[float] = []
     for _ in range(n_episodes):
-        state = env.reset()
-        a_idx = int(rng.integers(n_actions))  # exploring starts
-        trajectory: list[tuple] = []
-        reward, observation, done = env.step(actions[a_idx])
-        trajectory.append((state, a_idx, reward))
-        state = observation
-        while not done:
-            a_idx = _sample_action(state, greedy_probs, rng, actions)
-            reward, observation, done = env.step(actions[a_idx])
-            trajectory.append((state, a_idx, reward))
-            state = observation
+        trajectory = _run_exploring_starts_episode(env, actions, greedy_probs, rng)
         rewards = [r for _, _, r in trajectory]
         episode_rewards.append(float(sum(rewards)))
-        returns = _returns_from_rewards(rewards, gamma)
-        seen: set = set()
-        for t, (s, a, _) in enumerate(trajectory):
-            if (s, a) in seen:
-                continue
-            seen.add((s, a))
-            pair = (s, a)
-            returns_by_pair.setdefault(pair, []).append(returns[t])
-            q_table.setdefault(s, np.zeros(n_actions))
-            q_table[s][a] = float(np.mean(returns_by_pair[pair]))
+        _accumulate_first_visit_q(
+            trajectory, gamma, n_actions, returns_by_pair, q_table
+        )
 
     policy = {s: pd_greedy(q) for s, q in q_table.items()}
     return policy, q_table, episode_rewards
@@ -541,6 +617,37 @@ class OneStateIsEnv:
         raise ValueError(f"unknown action {action!r}")
 
 
+def _draw_blackjack_policy_panel(fig, idx: int, usable: bool, title: str, q_table: dict) -> None:
+    """Top panel: the greedy action (stick=0, hit=1) at each visible state."""
+    ax = fig.add_subplot(2, 2, idx)
+    policy_map = _blackjack_q_grid(q_table, usable, lambda q: int(np.argmax(q) == 0))  # 1 = hit
+    im = ax.imshow(policy_map, origin="lower", cmap="gray_r", vmin=0, vmax=1)
+    ax.set_xticks(range(10))
+    ax.set_xticklabels(range(_BJ_DEALER_MIN, _BJ_DEALER_MAX + 1))
+    ax.set_yticks(range(10))
+    ax.set_yticklabels(range(_BJ_PLAYER_SUM_MIN, _BJ_PLAYER_SUM_MAX + 1))
+    ax.set_xlabel("Dealer showing")
+    ax.set_ylabel("Player sum")
+    ax.set_title(f"Optimal policy ({title.lower()})")
+    cbar = fig.colorbar(im, ax=ax, ticks=[0, 1], shrink=0.85)
+    cbar.ax.set_yticklabels(["stick", "hit"])
+
+
+def _draw_blackjack_value_panel(fig, idx: int, usable: bool, title: str, q_table: dict, X, Y) -> None:
+    """Bottom panel: v*(s) = max_a q(s, a) as a 3D surface."""
+    ax = fig.add_subplot(2, 2, idx, projection="3d")
+    Z = _blackjack_q_grid(q_table, usable, lambda q: float(np.max(q)))
+    Z_plot = np.where(np.isnan(Z), 0.0, Z)
+    ax.plot_surface(X, Y, Z_plot, cmap="viridis", edgecolor="none", alpha=0.9)
+    ax.set_xlabel("Dealer showing")
+    ax.set_ylabel("Player sum")
+    ax.set_zlabel("Value")
+    ax.set_zlim(-1, 1)
+    ax.set_title(f"v* ({title.lower()})")
+    ax.set_xticks(range(_BJ_DEALER_MIN, _BJ_DEALER_MAX + 1))
+    ax.set_yticks(range(_BJ_PLAYER_SUM_MIN, _BJ_PLAYER_SUM_MAX + 1, 2))
+
+
 def plot_blackjack_optimal(
     save_path: str | None = None,
     show: bool = False,
@@ -569,44 +676,16 @@ def plot_blackjack_optimal(
     env = BlackjackEnv(seed=seed)
     _, q_table, episode_rewards = mc_exploring_starts(env, n_episodes=n_episodes, seed=seed)
 
-    def q_grid(usable: bool, reducer: Callable[[np.ndarray], float]) -> np.ndarray:
-        grid = np.full((10, 10), np.nan, dtype=np.float64)
-        for player_sum in range(12, 22):
-            for dealer in range(1, 11):
-                state = (player_sum, dealer, usable)
-                if state in q_table:
-                    grid[player_sum - 12, dealer - 1] = reducer(q_table[state])
-        return grid
-
-    X, Y = np.meshgrid(np.arange(1, 11), np.arange(12, 22))
+    X, Y = np.meshgrid(
+        np.arange(_BJ_DEALER_MIN, _BJ_DEALER_MAX + 1),
+        np.arange(_BJ_PLAYER_SUM_MIN, _BJ_PLAYER_SUM_MAX + 1),
+    )
 
     fig = plt.figure(figsize=(12, 9))
-    for idx, (usable, title) in enumerate(((True, "Usable ace"), (False, "No usable ace")), start=1):
-        ax = fig.add_subplot(2, 2, idx)
-        policy_map = q_grid(usable, lambda q: int(np.argmax(q) == 0))  # 1 = hit
-        im = ax.imshow(policy_map, origin="lower", cmap="gray_r", vmin=0, vmax=1)
-        ax.set_xticks(range(10))
-        ax.set_xticklabels(range(1, 11))
-        ax.set_yticks(range(10))
-        ax.set_yticklabels(range(12, 22))
-        ax.set_xlabel("Dealer showing")
-        ax.set_ylabel("Player sum")
-        ax.set_title(f"Optimal policy ({title.lower()})")
-        cbar = fig.colorbar(im, ax=ax, ticks=[0, 1], shrink=0.85)
-        cbar.ax.set_yticklabels(["stick", "hit"])
-
-    for idx, (usable, title) in enumerate(((True, "Usable ace"), (False, "No usable ace")), start=3):
-        ax = fig.add_subplot(2, 2, idx, projection="3d")
-        Z = q_grid(usable, lambda q: float(np.max(q)))
-        Z_plot = np.where(np.isnan(Z), 0.0, Z)
-        ax.plot_surface(X, Y, Z_plot, cmap="viridis", edgecolor="none", alpha=0.9)
-        ax.set_xlabel("Dealer showing")
-        ax.set_ylabel("Player sum")
-        ax.set_zlabel("Value")
-        ax.set_zlim(-1, 1)
-        ax.set_title(f"v* ({title.lower()})")
-        ax.set_xticks(range(1, 11))
-        ax.set_yticks(range(12, 22, 2))
+    for idx, (usable, title) in enumerate(_BJ_ACE_VARIANTS, start=1):
+        _draw_blackjack_policy_panel(fig, idx, usable, title, q_table)
+    for idx, (usable, title) in enumerate(_BJ_ACE_VARIANTS, start=3):
+        _draw_blackjack_value_panel(fig, idx, usable, title, q_table, X, Y)
 
     fig.suptitle(
         "S&B (2nd ed.), Sec. 5.3, Fig. 5.2: optimal blackjack policy and value\n"
@@ -633,6 +712,56 @@ def _log_step_list(max_episodes: int) -> list[int]:
     if steps[-1] != max_episodes:
         steps.append(max_episodes)
     return steps
+
+
+# Distinct run seeds keep the repeated curves independent but reproducible.
+_IS_RUN_SEED_STRIDE = 1_000_003
+_IS_STATE_OF_INTEREST = (13, 2, True)
+_IS_TARGET_STICK_THRESHOLD = 20
+
+
+def _importance_sampling_errors(
+    env,
+    behavior,
+    target,
+    state0: tuple,
+    v_ref: float,
+    step_list: list[int],
+    max_episodes: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return one run's squared errors at each checkpoint, for both IS rules.
+
+    Ordinary IS accumulates rho*G, weighted IS accumulates rho and rho*G; both
+    are updated only on the first visit to `state0` in an episode.
+    """
+    rng = env.rng
+    sum_ord, count, sum_w, sum_wG = 0.0, 0, 0.0, 0.0
+    err_o = np.full(len(step_list), np.nan)
+    err_w = np.full(len(step_list), np.nan)
+    ck = 0
+    for ep in range(1, max_episodes + 1):
+        traj = _run_episode(env, behavior, rng)
+        rewards = [r for _, _, r in traj]
+        returns = _returns_from_rewards(rewards, 1.0)
+        ratios = _importance_ratios(traj, target, behavior)
+        for t, (s, _, _) in enumerate(traj):
+            if s != state0:
+                continue
+            g, rho = returns[t], ratios[t]
+            sum_ord += rho * g
+            count += 1
+            sum_w += rho
+            sum_wG += rho * g
+            break  # first-visit only
+        if ep == step_list[ck]:
+            ord_est = sum_ord / count if count else 0.0
+            wtd_est = sum_wG / sum_w if sum_w else 0.0
+            err_o[ck] = (ord_est - v_ref) ** 2
+            err_w[ck] = (wtd_est - v_ref) ** 2
+            ck += 1
+            if ck >= len(step_list):
+                break
+    return err_o, err_w
 
 
 def plot_importance_sampling(
@@ -663,8 +792,8 @@ def plot_importance_sampling(
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    state0 = (13, 2, True)
-    target = blackjack_stick_on_threshold(20)
+    state0 = _IS_STATE_OF_INTEREST
+    target = blackjack_stick_on_threshold(_IS_TARGET_STICK_THRESHOLD)
     behavior = lambda s: np.full(2, 0.5)  # noqa: E731
 
     env_ref = BlackjackEnv(seed=seed)
@@ -676,34 +805,10 @@ def plot_importance_sampling(
     mse_ord = np.zeros(len(step_list))
     mse_wtd = np.zeros(len(step_list))
     for run in range(n_runs):
-        env = BlackjackEnv(seed=seed * 1_000_003 + run)
-        rng = env.rng
-        sum_ord, count, sum_w, sum_wG = 0.0, 0, 0.0, 0.0
-        err_o = np.full(len(step_list), np.nan)
-        err_w = np.full(len(step_list), np.nan)
-        ck = 0
-        for ep in range(1, max_episodes + 1):
-            traj = _run_episode(env, behavior, rng)
-            rewards = [r for _, _, r in traj]
-            returns = _returns_from_rewards(rewards, 1.0)
-            ratios = _importance_ratios(traj, target, behavior)
-            for t, (s, _, _) in enumerate(traj):
-                if s != state0:
-                    continue
-                g, rho = returns[t], ratios[t]
-                sum_ord += rho * g
-                count += 1
-                sum_w += rho
-                sum_wG += rho * g
-                break  # first-visit only
-            if ep == step_list[ck]:
-                ord_est = sum_ord / count if count else 0.0
-                wtd_est = sum_wG / sum_w if sum_w else 0.0
-                err_o[ck] = (ord_est - v_ref) ** 2
-                err_w[ck] = (wtd_est - v_ref) ** 2
-                ck += 1
-                if ck >= len(step_list):
-                    break
+        env = BlackjackEnv(seed=seed * _IS_RUN_SEED_STRIDE + run)
+        err_o, err_w = _importance_sampling_errors(
+            env, behavior, target, state0, v_ref, step_list, max_episodes
+        )
         mse_ord += err_o
         mse_wtd += err_w
     mse_ord /= n_runs
@@ -786,7 +891,7 @@ def plot_ordinary_is_unstable(
     run_curves = []
     for run in range(n_runs):
         samples = _one_state_is_samples(
-            max_episodes, seed * 1_000_003 + run, p_stay=0.9
+            max_episodes, seed * _IS_RUN_SEED_STRIDE + run, p_stay=0.9
         )
         cumulative = np.cumsum(samples)
         indices = np.array(step_list, dtype=np.int64) - 1

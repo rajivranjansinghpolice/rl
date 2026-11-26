@@ -137,19 +137,31 @@ class TileCoder:
         feat = np.zeros(self.n_features, dtype=np.float64)
         width = (self.x_range[1] - self.x_range[0]) / self.tiles_per_tiling
         height = (self.y_range[1] - self.y_range[0]) / self.tiles_per_tiling
-        offset_x = width / self.n_tilings
-        offset_y = height / self.n_tilings
         for tiling in range(self.n_tilings):
-            ox = tiling * offset_x
-            oy = tiling * offset_y
-            ix = int(np.floor((x - self.x_range[0] + ox) / width))
-            iy = int(np.floor((y - self.y_range[0] + oy) / height))
-            ix = int(np.clip(ix, 0, self.tiles_per_tiling - 1))
-            iy = int(np.clip(iy, 0, self.tiles_per_tiling - 1))
-            base = tiling * self.tiles_per_tiling * self.tiles_per_tiling
-            idx = base + iy * self.tiles_per_tiling + ix
+            # Overlapping tilings are why a single point lights up several
+            # features instead of one hard-coded bucket.
+            idx = _tiling_feature_index(self, tiling, x, y, width, height)
             feat[idx] = 1.0
         return feat
+
+
+def _tiling_feature_index(
+    coder: TileCoder, tiling: int, x: float, y: float, width: float, height: float
+) -> int:
+    """Index of the one active tile in a shifted tiling.
+
+    Each tiling is offset by a fraction of a tile width so the same point falls
+    into different tiles across tilings; that overlap is what makes tile coding
+    generalise between nearby states.
+    """
+    ox = tiling * (width / coder.n_tilings)
+    oy = tiling * (height / coder.n_tilings)
+    ix = int(np.floor((x - coder.x_range[0] + ox) / width))
+    iy = int(np.floor((y - coder.y_range[0] + oy) / height))
+    ix = int(np.clip(ix, 0, coder.tiles_per_tiling - 1))
+    iy = int(np.clip(iy, 0, coder.tiles_per_tiling - 1))
+    base = tiling * coder.tiles_per_tiling * coder.tiles_per_tiling
+    return base + iy * coder.tiles_per_tiling + ix
 
 
 # ---------------------------------------------------------------------------
@@ -265,6 +277,13 @@ def evaluate_approximation(
     return rms_error(weights, states, task.v_true(xs))
 
 
+# Fixed settings for the illustrative figure: the fit is deliberately short
+# and evaluated on a dense grid so the curves are easy to read.
+_PLOT_FIT_ALPHA = 0.05
+_PLOT_FIT_STEPS = 20000
+_PLOT_GRID_POINTS = 200
+
+
 def plot_figure_9_wavelength(
     save_path: str | None = None,
     show: bool = False,
@@ -285,13 +304,14 @@ def plot_figure_9_wavelength(
     import matplotlib.pyplot as plt
 
     task = WavelengthTask()
-    xs = np.linspace(0.0, 1.0, 200)
+    xs = np.linspace(0.0, 1.0, _PLOT_GRID_POINTS)
     true_ys = task.v_true(xs)
 
     fig, axes = plt.subplots(2, 3, figsize=(12, 7), sharex=True)
     for ax, order in zip(axes.flat, orders):
         w, _ = run_wavelength_prediction(
-            alpha=0.05, n_steps=20000, seed=seed, order=order, like="fourier"
+            alpha=_PLOT_FIT_ALPHA, n_steps=_PLOT_FIT_STEPS, seed=seed,
+            order=order, like="fourier"
         )
         feats = np.array([task.features(float(x), order, "fourier") for x in xs])
         preds = np.array([linear_value(w, f) for f in feats])

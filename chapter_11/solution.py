@@ -80,18 +80,28 @@ def baird_transition_probs() -> dict[tuple[int, int], list[tuple[int, float]]]:
     return t
 
 
-def behavior_stationary() -> np.ndarray:
-    """Stationary distribution mu of the behavior chain (exact eigen-solve).
+def _transition_matrix(action_probs: np.ndarray) -> np.ndarray:
+    """Mix the per-action transitions by a policy to get P(s' | s).
 
-    Enumerates the 7-state behaviour Markov chain and returns its stationary
-    distribution via the left eigenvector of eigenvalue 1.
+    Both the behaviour and target matrices enumerate the same star MDP; only
+    the weights on A and B differ.
     """
     t = baird_transition_probs()
     P = np.zeros((N_STATES, N_STATES), dtype=np.float64)
     for s in range(N_STATES):
         for a in (ACTION_A, ACTION_B):
             for sp, p in t[(s, a)]:
-                P[s, sp] += BEHAVIOR[a] * p
+                P[s, sp] += action_probs[a] * p
+    return P
+
+
+def behavior_stationary() -> np.ndarray:
+    """Stationary distribution mu of the behavior chain (exact eigen-solve).
+
+    Enumerates the 7-state behaviour Markov chain and returns its stationary
+    distribution via the left eigenvector of eigenvalue 1.
+    """
+    P = _transition_matrix(BEHAVIOR)
     # stationary distribution: solve mu P = mu, sum(mu) = 1
     A = np.vstack([P.T - np.eye(N_STATES), np.ones(N_STATES)])
     b = np.concatenate([np.zeros(N_STATES), [1.0]])
@@ -102,12 +112,7 @@ def behavior_stationary() -> np.ndarray:
 
 def target_transition_matrix() -> np.ndarray:
     """7x7 transition matrix under the target policy (always A)."""
-    t = baird_transition_probs()
-    P = np.zeros((N_STATES, N_STATES), dtype=np.float64)
-    for s in range(N_STATES):
-        for sp, p in t[(s, ACTION_A)]:
-            P[s, sp] = p
-    return P
+    return _transition_matrix(TARGET)
 
 
 def _projector_matrices(gamma: float = 0.99):

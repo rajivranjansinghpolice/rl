@@ -377,6 +377,62 @@ def train_presence(
 # Book Sections 14.2.1-14.2.2 (Kamin blocking paradigm)
 # ============================================================================
 
+# Two-component RW model: index 0 is the pretrained blocker A, index 1 is the
+# cue B whose conditioning is measured at test.
+_STIMULUS_B = 1
+_CS_A_ONLY: list[float] = [1.0, 0.0]
+_CS_A_PLUS_B: list[float] = [1.0, 1.0]
+
+
+def _draw_us_magnitude(lambda_us: float, us_noise: float, rng: np.random.Generator) -> float:
+    """Return one trial's US magnitude, drawing noise only when it is enabled.
+
+    The noiseless case must not touch `rng`: skipping the draw keeps a seeded
+    replicate identical to the deterministic experiment.
+    """
+    return lambda_us if us_noise == 0.0 else float(lambda_us + rng.normal(0.0, us_noise))
+
+
+def _run_blocking_phase1(
+    blocking: RescorlaWagnerModel,
+    control: RescorlaWagnerModel,
+    n_trials: int,
+    lambda_us: float,
+    us_noise: float,
+    rng: np.random.Generator,
+) -> None:
+    """Pretrain A->US in the blocking group and A-alone in the control group.
+
+    One US draw per trial is shared by both groups, so they differ only in
+    whether A actually predicts the US.
+    """
+    for _ in range(n_trials):
+        us = _draw_us_magnitude(lambda_us, us_noise, rng)
+        blocking.trial(_CS_A_ONLY, us)
+        control.trial(_CS_A_ONLY, 0.0)
+
+
+def _run_blocking_phase2(
+    blocking: RescorlaWagnerModel,
+    control: RescorlaWagnerModel,
+    n_trials: int,
+    lambda_us: float,
+    us_noise: float,
+    rng: np.random.Generator,
+) -> tuple[float, float]:
+    """Give both groups compound A+B->US; return B's strength before training.
+
+    The before-values are read first so the reported change isolates what the
+    compound trials add to B, not what phase 1 already gave it.
+    """
+    blocking_b_before = blocking.strength(_STIMULUS_B)
+    control_b_before = control.strength(_STIMULUS_B)
+    for _ in range(n_trials):
+        us = _draw_us_magnitude(lambda_us, us_noise, rng)
+        blocking.trial(_CS_A_PLUS_B, us)
+        control.trial(_CS_A_PLUS_B, us)
+    return blocking_b_before, control_b_before
+
 
 def run_blocking_experiment(
     phase1_trials: int = 40,
@@ -433,28 +489,21 @@ def run_blocking_experiment(
         blocking = RescorlaWagnerModel(2, alpha=alpha, lambda_us=lambda_us)
         control = RescorlaWagnerModel(2, alpha=alpha, lambda_us=lambda_us)
 
-        # Phase 1: blocking group gets A -> US; control group gets A alone.
-        for _ in range(phase1_trials):
-            noisy_us = lambda_us if us_noise == 0.0 else float(
-                lambda_us + rng.normal(0.0, us_noise)
-            )
-            blocking.trial([1.0, 0.0], noisy_us)
-            control.trial([1.0, 0.0], 0.0)
+        _run_blocking_phase1(blocking, control, phase1_trials, lambda_us, us_noise, rng)
+        blocking_b_before, control_b_before = _run_blocking_phase2(
+            blocking, control, phase2_trials, lambda_us, us_noise, rng
+        )
 
-        # Phase 2: both groups get A + B -> US.
-        blocking_b_before = blocking.strength(1)
-        control_b_before = control.strength(1)
-        for _ in range(phase2_trials):
-            noisy_us = lambda_us if us_noise == 0.0 else float(
-                lambda_us + rng.normal(0.0, us_noise)
-            )
-            blocking.trial([1.0, 1.0], noisy_us)
-            control.trial([1.0, 1.0], noisy_us)
-
-        record["blocking_delta_b"].append(blocking.strength(1) - blocking_b_before)
-        record["control_delta_b"].append(control.strength(1) - control_b_before)
-        record["blocking_final_b"].append(blocking.strength(1))
-        record["control_final_b"].append(control.strength(1))
+        # Phase 3 is a test of B alone: no further learning, just read out the
+        # strength the compound trials left behind.
+        record["blocking_delta_b"].append(
+            blocking.strength(_STIMULUS_B) - blocking_b_before
+        )
+        record["control_delta_b"].append(
+            control.strength(_STIMULUS_B) - control_b_before
+        )
+        record["blocking_final_b"].append(blocking.strength(_STIMULUS_B))
+        record["control_final_b"].append(control.strength(_STIMULUS_B))
 
     return {
         "blocking_delta_b": record["blocking_delta_b"],
@@ -472,6 +521,48 @@ def run_blocking_experiment(
 # ---------------------------------------------------------------------------
 # Figure reproduction (Sutton & Barto, 2nd ed., Ch. 14)
 # ---------------------------------------------------------------------------
+
+# Fixed settings for the demonstration figure, kept separate from the
+# experiment's defaults so the plot stays reproducible without changing the API.
+_PLOT_ACQUISITION_ALPHA = 0.1
+_PLOT_LAMBDA_US = 1.0
+_PLOT_BLOCKING_TRIALS = 40
+_PLOT_BLOCKING_REPLICATES = 30
+
+
+def _acquisition_strengths(n_trials: int) -> list[float]:
+    """Return V(CS) after each pairing, one trial at a time.
+
+    The curve needs the strength *after* every trial, so step the model
+    explicitly rather than recording only its final asymptote.
+    """
+    model = RescorlaWagnerModel(
+        n_stimuli=1, alpha=_PLOT_ACQUISITION_ALPHA, lambda_us=_PLOT_LAMBDA_US,
+    )
+    strengths = []
+    for _ in range(n_trials):
+        model.trial(np.array([1.0]), target=_PLOT_LAMBDA_US)
+        strengths.append(model.weights[0])
+    return strengths
+
+
+def _blocking_bar_data(result: dict) -> tuple[list[str], list[float], list[float]]:
+    """Assemble control-first labels, means and standard deviations for the bars.
+
+    The experiment reports the means; the deviations come from the per-replicate
+    lists, so the error bars show the spread across independent replicates.
+    """
+    labels = ["Control B", "Blocked B"]
+    vals = [
+        float(result.get("mean_control_delta", np.mean(result["control_delta_b"]))),
+        float(result.get("mean_blocking_delta", np.mean(result["blocking_delta_b"]))),
+    ]
+    errs = [
+        float(np.std(np.asarray(result["control_delta_b"], dtype=float))),
+        float(np.std(np.asarray(result["blocking_delta_b"], dtype=float))),
+    ]
+    return labels, vals, errs
+
 
 def plot_conditioning_and_blocking(
     save_path: str | None = None,
@@ -498,16 +589,17 @@ def plot_conditioning_and_blocking(
     import matplotlib.pyplot as plt
 
     # Acquisition (RW), Sec. 14.2.2
-    model = RescorlaWagnerModel(n_stimuli=1, alpha=0.1, lambda_us=1.0)
-    strengths = []
-    for _ in range(n_trials):
-        model.trial(np.array([1.0]), target=1.0)
-        strengths.append(model.weights[0])
+    strengths = _acquisition_strengths(n_trials)
 
     # Blocking (RW experiment), Sec. 14.2.1-14.2.2
     blk = run_blocking_experiment(
-        phase1_trials=40, phase2_trials=40, alpha=0.1, lambda_us=1.0,
-        replicates=30, us_noise=0.0, seed=seed,
+        phase1_trials=_PLOT_BLOCKING_TRIALS,
+        phase2_trials=_PLOT_BLOCKING_TRIALS,
+        alpha=_PLOT_ACQUISITION_ALPHA,
+        lambda_us=_PLOT_LAMBDA_US,
+        replicates=_PLOT_BLOCKING_REPLICATES,
+        us_noise=0.0,
+        seed=seed,
     )
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4.2))
@@ -517,12 +609,7 @@ def plot_conditioning_and_blocking(
     ax1.set_ylim(0, 1.05)
     ax1.set_title("Acquisition (Rescorla-Wagner)")
 
-    labels = ["Control B", "Blocked B"]
-    vals = [float(blk.get("mean_control_delta", np.mean(blk["control_delta_b"]))),
-            float(blk.get("mean_blocking_delta", np.mean(blk["blocking_delta_b"])))]
-    ctrl_arr = np.asarray(blk["control_delta_b"], dtype=float)
-    blk_arr = np.asarray(blk["blocking_delta_b"], dtype=float)
-    errs = [float(np.std(ctrl_arr)), float(np.std(blk_arr))]
+    labels, vals, errs = _blocking_bar_data(blk)
     ax2.bar(labels, vals, yerr=errs, capsize=5, color=["#4c78a8", "#f58518"], alpha=0.9)
     ax2.set_ylabel("Phase-2 change in V(B)")
     ax2.set_ylim(0, max(1.05, max(vals) + max(errs) + 0.1))

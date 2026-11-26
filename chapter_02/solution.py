@@ -882,6 +882,65 @@ def _run_bandit_bandit_episode(
     return rewards, optimal
 
 
+# Per-run seed offsets give each bandit task its own q* draw and reward noise
+# while keeping the figure averages reproducible (Figs 2.2-2.5).
+_EPSILON_SEED_STRIDE = 9_973
+_EPSILON_SEED_SCALE = 100_000
+_OPTIMISTIC_SEED_STRIDE = 7_919
+_Q_INIT_SEED_SCALE = 100
+_OPTIMISTIC_EPSILON_SCALE = 1_000
+_UCB_SEED_STRIDE = 104_729
+_GRADIENT_SEED_STRIDE = 65_537
+_GRADIENT_ALPHA_SCALE = 100
+_GRADIENT_BASELINE_OFFSET = 10
+# Fig. 2.5's testbed draws q*(a) ~ N(4, 1) rather than the usual N(0, 1).
+_GRADIENT_Q_STAR_MEAN = 4.0
+
+
+def _epsilon_greedy_selector(epsilon: float):
+    """Build an epsilon-greedy selector; greedy ties break uniformly at random."""
+
+    def select_fn(Q, N, t, rng):
+        if rng.random() < epsilon:
+            return int(rng.integers(len(Q)))
+        best_actions = np.flatnonzero(Q == Q.max())
+        return int(rng.choice(best_actions))
+
+    return select_fn
+
+
+def _average_testbed_runs(
+    k: int,
+    steps: int,
+    runs: int,
+    run_seed,
+    select_fn,
+    q_init: float,
+    step_size: float | None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Average reward/optimal-action curves over independent bandit tasks.
+
+    One seed per run keeps the tasks independent; curves are accumulated in run
+    order so the averaged result stays exactly reproducible.
+    """
+    avg_r = np.zeros(steps, dtype=np.float64)
+    avg_o = np.zeros(steps, dtype=np.float64)
+    for r in range(runs):
+        rewards, optimal = _run_bandit_bandit_episode(
+            k,
+            steps,
+            run_seed(r),
+            select_fn,
+            lambda *a: None,
+            q_init=q_init,
+            step_size=step_size,
+        )
+        # Sum first, divide later: the caller owns the final scaling.
+        avg_r += rewards
+        avg_o += optimal
+    return avg_r, avg_o
+
+
 def run_epsilon_greedy_experiment(
     k: int = 10,
     steps: int = 1000,
@@ -901,22 +960,15 @@ def run_epsilon_greedy_experiment(
     """
     results = {}
     for eps in epsilons:
-        avg_r = np.zeros(steps, dtype=np.float64)
-        avg_o = np.zeros(steps, dtype=np.float64)
-        for r in range(runs):
-            rs = seed + r * 9973 + int(eps * 100000)
-
-            def select_fn(Q, N, t, rng, e=eps):
-                if rng.random() < e:
-                    return int(rng.integers(len(Q)))
-                best_actions = np.flatnonzero(Q == Q.max())
-                return int(rng.choice(best_actions))
-
-            rewards, optimal = _run_bandit_bandit_episode(
-                k, steps, rs, select_fn, lambda *a: None, q_init=q_init, step_size=step_size
-            )
-            avg_r += rewards
-            avg_o += optimal
+        avg_r, avg_o = _average_testbed_runs(
+            k,
+            steps,
+            runs,
+            lambda r: seed + r * _EPSILON_SEED_STRIDE + int(eps * _EPSILON_SEED_SCALE),
+            _epsilon_greedy_selector(eps),
+            q_init,
+            step_size,
+        )
         results[eps] = {
             "average_reward": avg_r / runs,
             "optimal_action": (avg_o / runs) * 100.0,
@@ -940,27 +992,42 @@ def run_optimistic_initial_values_experiment(
     results = {}
     for q_init, eps in configs:
         label = f"Q1={q_init:g}, eps={eps:g}"
-        avg_r = np.zeros(steps, dtype=np.float64)
-        avg_o = np.zeros(steps, dtype=np.float64)
-        for r in range(runs):
-            rs = seed + r * 7919 + int(q_init * 100) + int(eps * 1000)
-
-            def select_fn(Q, N, t, rng, e=eps):
-                if rng.random() < e:
-                    return int(rng.integers(len(Q)))
-                best_actions = np.flatnonzero(Q == Q.max())
-                return int(rng.choice(best_actions))
-
-            rewards, optimal = _run_bandit_bandit_episode(
-                k, steps, rs, select_fn, lambda *a: None, q_init=q_init, step_size=0.1
-            )
-            avg_r += rewards
-            avg_o += optimal
+        avg_r, avg_o = _average_testbed_runs(
+            k,
+            steps,
+            runs,
+            lambda r: (
+                seed
+                + r * _OPTIMISTIC_SEED_STRIDE
+                + int(q_init * _Q_INIT_SEED_SCALE)
+                + int(eps * _OPTIMISTIC_EPSILON_SCALE)
+            ),
+            _epsilon_greedy_selector(eps),
+            q_init,
+            0.1,
+        )
         results[label] = {
             "average_reward": avg_r / runs,
             "optimal_action": (avg_o / runs) * 100.0,
         }
     return results
+
+
+def _ucb_experiment_selector(name: str, c: float, epsilon: float):
+    """Pick the action rule being compared in Fig. 2.4 (UCB or epsilon-greedy)."""
+    if name != "ucb":
+        return _epsilon_greedy_selector(epsilon)
+
+    def select_fn(Q, N, t, rng):
+        # Untried arms must be tried before any bonus arithmetic is meaningful.
+        untried = np.flatnonzero(N == 0)
+        if len(untried) > 0:
+            return int(untried[0])
+        ucb = Q + c * np.sqrt(np.log(max(t, 1)) / N)
+        best_actions = np.flatnonzero(ucb == ucb.max())
+        return int(rng.choice(best_actions))
+
+    return select_fn
 
 
 def run_ucb_experiment(
@@ -974,32 +1041,51 @@ def run_ucb_experiment(
     """Compare UCB action selection with epsilon-greedy (Fig. 2.4)."""
     results = {}
     for name in ("ucb", "eps_greedy"):
-        avg_r = np.zeros(steps, dtype=np.float64)
-        avg_o = np.zeros(steps, dtype=np.float64)
-        for r in range(runs):
-            rs = seed + r * 104729 + (1 if name == "ucb" else 2)
-            if name == "ucb":
-                def select_fn(Q, N, t, rng):
-                    untried = np.flatnonzero(N == 0)
-                    if len(untried) > 0:
-                        return int(untried[0])
-                    ucb = Q + c * np.sqrt(np.log(max(t, 1)) / N)
-                    best_actions = np.flatnonzero(ucb == ucb.max())
-                    return int(rng.choice(best_actions))
-            else:
-                def select_fn(Q, N, t, rng, e=epsilon):
-                    if rng.random() < e:
-                        return int(rng.integers(len(Q)))
-                    best_actions = np.flatnonzero(Q == Q.max())
-                    return int(rng.choice(best_actions))
-            rewards, optimal = _run_bandit_bandit_episode(
-                k, steps, rs, select_fn, lambda *a: None, q_init=0.0, step_size=None
-            )
-            avg_r += rewards
-            avg_o += optimal
+        avg_r, avg_o = _average_testbed_runs(
+            k,
+            steps,
+            runs,
+            lambda r: seed + r * _UCB_SEED_STRIDE + (1 if name == "ucb" else 2),
+            _ucb_experiment_selector(name, c, epsilon),
+            0.0,
+            None,
+        )
         label = f"UCB c={c:g}" if name == "ucb" else f"eps-greedy eps={epsilon:g}"
         results[label] = {"average_reward": avg_r / runs, "optimal_action": (avg_o / runs) * 100.0}
     return results
+
+
+def _gradient_bandit_trial(
+    k: int,
+    steps: int,
+    alpha: float,
+    with_baseline: bool,
+    trial_seed: int,
+    avg_r: np.ndarray,
+    avg_o: np.ndarray,
+) -> None:
+    """Run one gradient-bandit task, adding its curves into the running sums."""
+    rng = np.random.default_rng(trial_seed)
+    bandit = BanditProblem(k=k, seed=trial_seed)
+    bandit.q_star = bandit.rng.normal(_GRADIENT_Q_STAR_MEAN, 1.0, k)
+    best = bandit.best_action()
+    H = np.zeros(k, dtype=np.float64)
+    r_bar = 0.0
+    for t in range(steps):
+        # Softmax needs the shifted preferences to avoid overflow; the sample
+        # rule and the preference gradient then share the same probabilities.
+        shifted = H - H.max()
+        exp_vals = np.exp(shifted)
+        probs = exp_vals / exp_vals.sum()
+        action = int(rng.choice(k, p=probs))
+        reward = bandit.step(action)
+        avg_r[t] += reward
+        avg_o[t] += 1.0 if action == best else 0.0
+        baseline = r_bar if with_baseline else 0.0
+        one_hot = np.zeros(k)
+        one_hot[action] = 1.0
+        H += alpha * (reward - baseline) * (one_hot - probs)
+        r_bar += (reward - r_bar) / (t + 1)
 
 
 def run_gradient_bandit_experiment(
@@ -1016,26 +1102,13 @@ def run_gradient_bandit_experiment(
         avg_r = np.zeros(steps, dtype=np.float64)
         avg_o = np.zeros(steps, dtype=np.float64)
         for r in range(runs):
-            rs = seed + r * 65537 + int(alpha * 100) + (10 if with_baseline else 0)
-            rng = np.random.default_rng(rs)
-            bandit = BanditProblem(k=k, seed=rs)
-            bandit.q_star = bandit.rng.normal(4.0, 1.0, k)
-            best = bandit.best_action()
-            H = np.zeros(k, dtype=np.float64)
-            r_bar = 0.0
-            for t in range(steps):
-                shifted = H - H.max()
-                exp_vals = np.exp(shifted)
-                probs = exp_vals / exp_vals.sum()
-                action = int(rng.choice(k, p=probs))
-                reward = bandit.step(action)
-                avg_r[t] += reward
-                avg_o[t] += 1.0 if action == best else 0.0
-                baseline = r_bar if with_baseline else 0.0
-                one_hot = np.zeros(k)
-                one_hot[action] = 1.0
-                H += alpha * (reward - baseline) * (one_hot - probs)
-                r_bar += (reward - r_bar) / (t + 1)
+            rs = (
+                seed
+                + r * _GRADIENT_SEED_STRIDE
+                + int(alpha * _GRADIENT_ALPHA_SCALE)
+                + (_GRADIENT_BASELINE_OFFSET if with_baseline else 0)
+            )
+            _gradient_bandit_trial(k, steps, alpha, with_baseline, rs, avg_r, avg_o)
         results[label] = {"average_reward": avg_r / runs, "optimal_action": (avg_o / runs) * 100.0}
     return results
 

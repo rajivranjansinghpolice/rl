@@ -47,6 +47,19 @@ def _sample_action(state, policy_fn, rng) -> int:
     return int(rng.choice(len(probs), p=probs))
 
 
+def _q_values(env: RandomWalkEnv, q_table: dict, state) -> np.ndarray:
+    """Action values in `state`, in the environment's action order."""
+    return np.array([q_table[(state, a)] for a in env.ACTIONS])
+
+
+def _epsilon_greedy_policy(env: RandomWalkEnv, q_table: dict, epsilon: float) -> dict:
+    """Read the final epsilon-greedy policy off the learned action values."""
+    return {
+        s: _epsilon_greedy_probs(_q_values(env, q_table, s), epsilon)
+        for s in env.STATES
+    }
+
+
 def td_lambda_prediction(
     env: RandomWalkEnv,
     policy_fn: Callable | None = None,
@@ -107,6 +120,56 @@ def td_lambda_prediction(
     return values
 
 
+def _sarsa_lambda_episode(
+    env: RandomWalkEnv,
+    q_table: dict,
+    pairs: list,
+    alpha: float,
+    epsilon: float,
+    gamma: float,
+    lam: float,
+    trace: str,
+    clearing: bool,
+    rng: np.random.Generator,
+) -> None:
+    """Run one episode of backward-view Sarsa(lambda), updating Q in place."""
+    traces = {pair: 0.0 for pair in pairs}
+
+    def behavior_probs(state):
+        return _epsilon_greedy_probs(_q_values(env, q_table, state), epsilon)
+
+    state = env.reset()
+    a_idx = _sample_action(state, behavior_probs, rng)
+    done = False
+    while not done:
+        action = env.ACTIONS[a_idx]
+        pair = (state, action)
+        reward, next_state, done = env.step(action)
+        if done:
+            next_q = 0.0
+            next_a_idx = a_idx  # unused
+        else:
+            next_a_idx = _sample_action(next_state, behavior_probs, rng)
+            next_q = q_table[(next_state, env.ACTIONS[next_a_idx])]
+        delta = reward + gamma * next_q - q_table[pair]
+        if trace == "accumulating":
+            traces[pair] += 1.0
+        else:  # replacing: z(S, A) <- 1 (Section 12.7, Eq. 12.23 alt)
+            traces[pair] = 1.0
+        if clearing:
+            # Clearing variant (Figure 12.11): traces of the non-selected
+            # actions for the visited state are set to zero.
+            for a in env.ACTIONS:
+                if a != action:
+                    traces[(state, a)] = 0.0
+        # The TD error is applied to all eligible pairs before the traces
+        # decay, so recent visits receive the largest share of the update.
+        for p in pairs:
+            q_table[p] += alpha * delta * traces[p]
+            traces[p] *= gamma * lam
+        state, a_idx = (next_state if not done else state), next_a_idx
+
+
 def _sarsa_lambda(
     env: RandomWalkEnv,
     n_episodes: int,
@@ -137,46 +200,11 @@ def _sarsa_lambda(
     pairs = [(s, a) for s in env.STATES for a in env.ACTIONS]
     q_table = {pair: 0.0 for pair in pairs}
 
-    def behavior_probs(state):
-        q = np.array([q_table[(state, a)] for a in env.ACTIONS])
-        return _epsilon_greedy_probs(q, epsilon)
-
     for _ in range(n_episodes):
-        traces = {pair: 0.0 for pair in pairs}
-        state = env.reset()
-        a_idx = _sample_action(state, behavior_probs, rng)
-        done = False
-        while not done:
-            action = env.ACTIONS[a_idx]
-            pair = (state, action)
-            reward, next_state, done = env.step(action)
-            if done:
-                next_q = 0.0
-                next_a_idx = a_idx  # unused
-            else:
-                next_a_idx = _sample_action(next_state, behavior_probs, rng)
-                next_q = q_table[(next_state, env.ACTIONS[next_a_idx])]
-            delta = reward + gamma * next_q - q_table[pair]
-            if trace == "accumulating":
-                traces[pair] += 1.0
-            else:  # replacing: z(S, A) <- 1 (Section 12.7, Eq. 12.23 alt)
-                traces[pair] = 1.0
-            if clearing:
-                # Clearing variant (Figure 12.11): traces of the non-selected
-                # actions for the visited state are set to zero.
-                for a in env.ACTIONS:
-                    if a != action:
-                        traces[(state, a)] = 0.0
-            for p in pairs:
-                q_table[p] += alpha * delta * traces[p]
-                traces[p] *= gamma * lam
-            state, a_idx = (next_state if not done else state), next_a_idx
+        _sarsa_lambda_episode(env, q_table, pairs, alpha, epsilon, gamma, lam,
+                              trace, clearing, rng)
 
-    policy = {
-        s: _epsilon_greedy_probs(np.array([q_table[(s, a)] for a in env.ACTIONS]), epsilon)
-        for s in env.STATES
-    }
-    return policy, q_table
+    return _epsilon_greedy_policy(env, q_table, epsilon), q_table
 
 
 def sarsa_lambda_replacing(
@@ -293,6 +321,56 @@ def _is_greedy(q_values: np.ndarray, action_index: int) -> bool:
     return bool(q_values[action_index] == q_values.max())
 
 
+def _watkins_q_episode(
+    env: RandomWalkEnv,
+    q_table: dict,
+    pairs: list,
+    alpha: float,
+    epsilon: float,
+    gamma: float,
+    lam: float,
+    trace: str,
+    rng: np.random.Generator,
+) -> None:
+    """Run one episode of Watkins's Q(lambda), updating Q in place."""
+    traces = {pair: 0.0 for pair in pairs}
+
+    def behavior_probs(state):
+        return _epsilon_greedy_probs(_q_values(env, q_table, state), epsilon)
+
+    state = env.reset()
+    done = False
+    while not done:
+        q_before = _q_values(env, q_table, state)
+        action_index = _sample_action(state, behavior_probs, rng)
+        # Greediness is judged on the pre-update values; ties count as greedy.
+        greedy = _is_greedy(q_before, action_index)
+        action = env.ACTIONS[action_index]
+        pair = (state, action)
+        reward, next_state, done = env.step(action)
+        best_next = (
+            0.0
+            if done
+            else max(q_table[(next_state, a)] for a in env.ACTIONS)
+        )
+        delta = reward + gamma * best_next - q_table[pair]
+        if trace == "accumulating":
+            traces[pair] += 1.0
+        else:  # replacing: z(S, A) <- 1 for the visited pair
+            traces[pair] = 1.0
+        for p in pairs:
+            q_table[p] += alpha * delta * traces[p]
+        for p in pairs:
+            traces[p] *= gamma * lam
+        if not greedy:
+            # Watkins's cut (Section 12.10, Figure 12.12): after a non-greedy
+            # action, all traces are zeroed. Its own TD error has already been
+            # applied; only propagation further back is stopped.
+            for p in pairs:
+                traces[p] = 0.0
+        state = next_state if not done else state
+
+
 def watkins_q_lambda(
     env: RandomWalkEnv,
     n_episodes: int = 5000,
@@ -361,49 +439,30 @@ def watkins_q_lambda(
     pairs = [(s, a) for s in env.STATES for a in env.ACTIONS]
     q_table = {pair: 0.0 for pair in pairs}
 
-    def behavior_probs(state):
-        q = np.array([q_table[(state, a)] for a in env.ACTIONS])
-        return _epsilon_greedy_probs(q, epsilon)
-
     for _ in range(n_episodes):
-        traces = {pair: 0.0 for pair in pairs}
-        state = env.reset()
-        done = False
-        while not done:
-            q_before = np.array([q_table[(state, a)] for a in env.ACTIONS])
-            action_index = _sample_action(state, behavior_probs, rng)
-            greedy = _is_greedy(q_before, action_index)
-            action = env.ACTIONS[action_index]
-            pair = (state, action)
-            reward, next_state, done = env.step(action)
-            best_next = (
-                0.0
-                if done
-                else max(q_table[(next_state, a)] for a in env.ACTIONS)
-            )
-            delta = reward + gamma * best_next - q_table[pair]
-            if trace == "accumulating":
-                traces[pair] += 1.0
-            else:  # replacing: z(S, A) <- 1 for the visited pair
-                traces[pair] = 1.0
-            for p in pairs:
-                q_table[p] += alpha * delta * traces[p]
-            for p in pairs:
-                traces[p] *= gamma * lam
-            if not greedy:
-                # Watkins's cut (Section 12.10, Figure 12.12): after a
-                # non-greedy action, all traces are zeroed.
-                for p in pairs:
-                    traces[p] = 0.0
-            state = next_state if not done else state
+        _watkins_q_episode(env, q_table, pairs, alpha, epsilon, gamma, lam, trace, rng)
 
-    policy = {
-        s: _epsilon_greedy_probs(
-            np.array([q_table[(s, a)] for a in env.ACTIONS]), epsilon
-        )
-        for s in env.STATES
-    }
-    return policy, q_table
+    return _epsilon_greedy_policy(env, q_table, epsilon), q_table
+
+
+def _n_step_return(
+    rewards: list, bootstrap_values: list, gamma: float, t: int, u: int
+) -> float:
+    """G_{t:u}: discounted rewards through u-1, then the bootstrap at u."""
+    total = 0.0
+    for i in range(t, u):
+        total += (gamma ** (i - t)) * rewards[i]
+    total += (gamma ** (u - t)) * bootstrap_values[u - 1]
+    return total
+
+
+def _trace_cut_horizon(greedy: list, t: int, n_steps: int) -> int:
+    """Steps carried from t before Watkins's cut at the first non-greedy action."""
+    first_nongreedy = next((j for j in range(t, n_steps)
+                            if not greedy[j]), None)
+    if first_nongreedy is None:
+        return n_steps - t
+    return first_nongreedy - t + 1
 
 
 def watkins_lambda_return(
@@ -449,25 +508,17 @@ def watkins_lambda_return(
     if len(greedy) != len(rewards):
         raise ValueError("greedy must have the same length as rewards")
     n_steps = len(rewards)
-
-    def n_step_return(t: int, u: int) -> float:
-        total = 0.0
-        for i in range(t, u):
-            total += (gamma ** (i - t)) * rewards[i]
-        total += (gamma ** (u - t)) * bootstrap_values[u - 1]
-        return total
-
     returns = []
     for t in range(n_steps):
-        first_nongreedy = next((j for j in range(t, n_steps)
-                                if not greedy[j]), None)
-        if first_nongreedy is None:
-            n_max = n_steps - t
-        else:
-            n_max = first_nongreedy - t + 1
+        # Component updates stop at the first non-greedy action, or at the
+        # episode's end if every action along the way was greedy.
+        n_max = _trace_cut_horizon(greedy, t, n_steps)
         g_lambda = (1.0 - lam) * sum(
-            (lam ** (n - 1)) * n_step_return(t, t + n) for n in range(1, n_max + 1)
-        ) + (lam ** n_max) * n_step_return(t, t + n_max)
+            (lam ** (n - 1))
+            * _n_step_return(rewards, bootstrap_values, gamma, t, t + n)
+            for n in range(1, n_max + 1)
+        ) + (lam ** n_max) * _n_step_return(rewards, bootstrap_values, gamma,
+                                            t, t + n_max)
         returns.append(g_lambda)
     return returns
 
@@ -480,6 +531,51 @@ def _rms_error(values: dict, true_values: dict) -> float:
     states = list(true_values)
     errs = [values[s] - true_values[s] for s in states]
     return float(np.sqrt(np.mean(np.square(errs))))
+
+
+# Random-walk demos: fixed initialisation and well-separated per-run seeds.
+_TD_INIT_VALUE = 0.5
+_TD_SEED_STRIDE = 101
+_WATKINS_SEED_STRIDE = 1009
+
+
+def _td_lambda_curves(
+    true_values: dict,
+    lambdas: tuple[float, ...],
+    alpha: float,
+    n_episodes: int,
+    runs: int,
+    seed: int | None,
+) -> dict:
+    """Average the RMS error over runs for each lambda, episode by episode."""
+    curves = {lam: np.zeros(n_episodes, dtype=np.float64) for lam in lambdas}
+    for lam in lambdas:
+        for r in range(runs):
+            rs = None if seed is None else seed + r * _TD_SEED_STRIDE + int(lam * 1000)
+            env = RandomWalkEnv(seed=rs)
+            rng = np.random.default_rng(rs)
+            values = {s: _TD_INIT_VALUE for s in env.STATES}
+            traces = {s: 0.0 for s in env.STATES}
+            for ep in range(n_episodes):
+                # One accumulating-trace episode. Traces are cleared first so
+                # eligibility cannot leak in from the previous episode.
+                for s in env.STATES:
+                    traces[s] = 0.0
+                state = env.reset()
+                done = False
+                while not done:
+                    a_idx = int(rng.integers(0, 2))
+                    reward, next_state, done = env.step(env.ACTIONS[a_idx])
+                    next_v = 0.0 if next_state.endswith("_end") else values[next_state]
+                    delta = reward + 1.0 * next_v - values[state]
+                    traces[state] += 1.0
+                    for s in env.STATES:
+                        values[s] += alpha * delta * traces[s]
+                        traces[s] *= 1.0 * lam
+                    state = next_state
+                curves[lam][ep] += _rms_error(values, true_values)
+        curves[lam] /= runs
+    return curves
 
 
 def plot_td_lambda_random_walk(
@@ -506,37 +602,11 @@ def plot_td_lambda_random_walk(
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    from rl_envs.random_walk import RandomWalkEnv, random_walk_true_values
+    from rl_envs.random_walk import random_walk_true_values
 
     true_values = random_walk_true_values()
     episodes_axis = np.arange(1, n_episodes + 1)
-    curves = {lam: np.zeros(n_episodes, dtype=np.float64) for lam in lambdas}
-
-    for lam in lambdas:
-        for r in range(runs):
-            rs = None if seed is None else seed + r * 101 + int(lam * 1000)
-            env = RandomWalkEnv(seed=rs)
-            rng = np.random.default_rng(rs)
-            values = {s: 0.5 for s in env.STATES}
-            traces = {s: 0.0 for s in env.STATES}
-            for ep in range(n_episodes):
-                # one episode of accumulating-trace TD(lambda) prediction
-                for s in env.STATES:
-                    traces[s] = 0.0
-                state = env.reset()
-                done = False
-                while not done:
-                    a_idx = int(rng.integers(0, 2))
-                    reward, next_state, done = env.step(env.ACTIONS[a_idx])
-                    next_v = 0.0 if next_state.endswith("_end") else values[next_state]
-                    delta = reward + 1.0 * next_v - values[state]
-                    traces[state] += 1.0
-                    for s in env.STATES:
-                        values[s] += alpha * delta * traces[s]
-                        traces[s] *= 1.0 * lam
-                    state = next_state
-                curves[lam][ep] += _rms_error(values, true_values)
-        curves[lam] /= runs
+    curves = _td_lambda_curves(true_values, lambdas, alpha, n_episodes, runs, seed)
 
     fig, ax = plt.subplots(figsize=(7.5, 4.5))
     for lam in lambdas:
@@ -553,6 +623,34 @@ def plot_td_lambda_random_walk(
     else:
         plt.close(fig)
     return fig, ax
+
+
+def _watkins_q_curves(
+    true_values: dict,
+    lambdas: tuple[float, ...],
+    alpha: float,
+    epsilon: float,
+    gamma: float,
+    n_episodes: int,
+    runs: int,
+    seed: int,
+    checkpoints: list[int],
+) -> dict:
+    """Average RMS error at selected episode counts for each lambda."""
+    curves = {lam: np.zeros(len(checkpoints), dtype=np.float64) for lam in lambdas}
+    for lam in lambdas:
+        for r in range(runs):
+            rs = seed + r * _WATKINS_SEED_STRIDE + int(lam * 1000)
+            for ci, ep in enumerate(checkpoints):
+                env = RandomWalkEnv(seed=rs)
+                _, q = watkins_q_lambda(
+                    env, n_episodes=ep, alpha=alpha, lam=lam, epsilon=epsilon,
+                    gamma=gamma, seed=rs,
+                )
+                values = {s: max(q[(s, a)] for a in env.ACTIONS) for s in env.STATES}
+                curves[lam][ci] += _rms_error(values, true_values)
+        curves[lam] /= runs
+    return curves
 
 
 def plot_watkins_q_lambda_random_walk(
@@ -580,25 +678,12 @@ def plot_watkins_q_lambda_random_walk(
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-
     true_values = random_walk_true_values()
     checkpoints = list(range(1, n_episodes + 1, max(1, n_episodes // 40)))
     if checkpoints[-1] != n_episodes:
         checkpoints.append(n_episodes)
-    curves = {lam: np.zeros(len(checkpoints), dtype=np.float64) for lam in lambdas}
-
-    for lam in lambdas:
-        for r in range(runs):
-            rs = seed + r * 1009 + int(lam * 1000)
-            for ci, ep in enumerate(checkpoints):
-                env = RandomWalkEnv(seed=rs)
-                _, q = watkins_q_lambda(
-                    env, n_episodes=ep, alpha=alpha, lam=lam, epsilon=epsilon,
-                    gamma=gamma, seed=rs,
-                )
-                values = {s: max(q[(s, a)] for a in env.ACTIONS) for s in env.STATES}
-                curves[lam][ci] += _rms_error(values, true_values)
-        curves[lam] /= runs
+    curves = _watkins_q_curves(true_values, lambdas, alpha, epsilon, gamma,
+                               n_episodes, runs, seed, checkpoints)
 
     fig, ax = plt.subplots(figsize=(7.5, 4.5))
     for lam in lambdas:

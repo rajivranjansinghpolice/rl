@@ -37,6 +37,22 @@ from rl_envs.pip_race import (
     semi_gradient_td_lambda_update,
 )
 
+
+def _epsilon_greedy_probs(
+    q_table: dict, state: int, n_actions: int, epsilon: float,
+) -> np.ndarray:
+    """Return epsilon-greedy action probabilities, splitting greedy ties evenly.
+
+    Every maximising action is treated as greedy, so ties keep the same uniform
+    split as the original per-algorithm implementation.
+    """
+    q_values = np.array([q_table[(state, a)] for a in range(n_actions)])
+    best = np.flatnonzero(q_values == q_values.max())
+    probs = np.full(n_actions, epsilon / n_actions, dtype=np.float64)
+    probs[best] += (1.0 - epsilon) / len(best)
+    return probs
+
+
 # ============================================================================
 # Algorithm 16.1: Inventory management with Sarsa
 # Classic inventory-control MDP (in the spirit of Chapter 16's perpetually
@@ -160,17 +176,10 @@ def sarsa_inventory(
     rng = np.random.default_rng(seed)
     q_table = {(s, a): 0.0 for s in range(s_max + 1) for a in range(s_max + 1)}
 
-    def behavior_probs(state: int) -> np.ndarray:
-        q = np.array([q_table[(state, a)] for a in range(s_max + 1)])
-        n = len(q)
-        best = np.flatnonzero(q == q.max())
-        probs = np.full(n, epsilon / n, dtype=np.float64)
-        probs[best] += (1.0 - epsilon) / len(best)
-        return probs
-
     for _ in range(n_episodes):
         state = env.reset()
-        action = int(rng.choice(s_max + 1, p=behavior_probs(state)))
+        probs = _epsilon_greedy_probs(q_table, state, s_max + 1, epsilon)
+        action = int(rng.choice(s_max + 1, p=probs))
         done = False
         while not done:
             next_state, reward, done = env.step(action)
@@ -178,7 +187,8 @@ def sarsa_inventory(
                 # Time-limit truncation: bootstrap, do not zero the target.
                 next_q = max(q_table[(next_state, a)] for a in range(s_max + 1))
             else:
-                next_action = int(rng.choice(s_max + 1, p=behavior_probs(next_state)))
+                next_probs = _epsilon_greedy_probs(q_table, next_state, s_max + 1, epsilon)
+                next_action = int(rng.choice(s_max + 1, p=next_probs))
                 next_q = q_table[(next_state, next_action)]
             q_table[(state, action)] += alpha * (
                 reward + gamma * next_q - q_table[(state, action)]
@@ -395,18 +405,12 @@ def q_learning_queue(
     rng = np.random.default_rng(seed)
     q_table = {(q, a): 0.0 for q in range(q_max + 1) for a in (0, 1)}
 
-    def behavior_probs(state: int) -> np.ndarray:
-        q_vals = np.array([q_table[(state, 0)], q_table[(state, 1)]])
-        best = np.flatnonzero(q_vals == q_vals.max())
-        probs = np.full(2, epsilon / 2.0, dtype=np.float64)
-        probs[best] += (1.0 - epsilon) / len(best)
-        return probs
-
     for _ in range(n_episodes):
         state = env.reset()
         done = False
         while not done:
-            action = int(rng.choice(2, p=behavior_probs(state)))
+            probs = _epsilon_greedy_probs(q_table, state, 2, epsilon)
+            action = int(rng.choice(2, p=probs))
             next_state, reward, done = env.step(action)
             next_q_values = np.array(
                 [q_table[(next_state, 0)], q_table[(next_state, 1)]],
@@ -463,6 +467,44 @@ def greedy_queue_action(q_table: dict, state: int) -> int:
 # ---------------------------------------------------------------------------
 # Figure reproduction (Sutton & Barto, 2nd ed., Ch. 16 / repo Ch. 16)
 # ---------------------------------------------------------------------------
+
+# TD-Gammon uses an undiscounted value update; the demo keeps that convention
+# explicit instead of hiding a 1.0 inside the Bellman target and TD update.
+_TD_GAMMON_GAMMA = 1.0
+_WEIGHT_INIT_STD = 0.01
+
+
+def _choose_gammon_play(
+    plays: list[tuple],
+    weights: np.ndarray,
+    player: str,
+    epsilon: float,
+    rng: np.random.Generator,
+) -> tuple:
+    """Pick a legal play, drawing the exploration test and index in that order.
+
+    Keeping both draws on the shared generator preserves the self-play stream;
+    greedy play maximises for WHITE and minimises for its opponent.
+    """
+    if rng.random() < epsilon:
+        return plays[int(rng.integers(0, len(plays)))]
+    scored = [linear_value(weights, pip_race_features(p)) for p in plays]
+    index = int(np.argmax(scored)) if player == WHITE else int(np.argmin(scored))
+    return plays[index]
+
+
+def _gammon_td_target(
+    play: tuple, weights: np.ndarray, next_turns: int,
+) -> tuple[float, float]:
+    """Return (reward, v_next) for a play; a finished game has no successor.
+
+    Bootstrapping from zero on a terminal play is how the sparse terminal
+    reward propagates back through the self-play trace.
+    """
+    if PipRaceEnv.is_over(play, next_turns):
+        return PipRaceEnv.outcome(play, next_turns), 0.0
+    return 0.0, linear_value(weights, pip_race_features(play))
+
 
 def plot_inventory_and_queue_demos(
     save_path: str | None = None,
@@ -549,7 +591,7 @@ def plot_td_gammon_learning(
     import matplotlib.pyplot as plt
 
     rng = np.random.default_rng(seed)
-    weights = rng.normal(0.0, 0.01, N_FEATURES)
+    weights = rng.normal(0.0, _WEIGHT_INIT_STD, N_FEATURES)
     eval_points = []
     scores = []
 
@@ -568,24 +610,14 @@ def plot_td_gammon_learning(
             player = state[2]
             dice = env.roll_dice()
             plays = PipRaceEnv.legal_dice_plays(state, player, dice)
-            if rng.random() < epsilon:
-                play = plays[int(rng.integers(0, len(plays)))]
-            else:
-                scored = [linear_value(weights, pip_race_features(p)) for p in plays]
-                index = int(np.argmax(scored)) if player == WHITE else int(np.argmin(scored))
-                play = plays[index]
+            play = _choose_gammon_play(plays, weights, player, epsilon, rng)
             features = pip_race_features(state)
             v_state = linear_value(weights, features)
             next_turns = env.turn_count + 1
-            if PipRaceEnv.is_over(play, next_turns):
-                reward = PipRaceEnv.outcome(play, next_turns)
-                v_next = 0.0
-            else:
-                reward = 0.0
-                v_next = linear_value(weights, pip_race_features(play))
-            delta = reward + 1.0 * v_next - v_state
+            reward, v_next = _gammon_td_target(play, weights, next_turns)
+            delta = reward + _TD_GAMMON_GAMMA * v_next - v_state
             weights, eligibility = semi_gradient_td_lambda_update(
-                weights, eligibility, features, delta, alpha, 1.0, lam
+                weights, eligibility, features, delta, alpha, _TD_GAMMON_GAMMA, lam
             )
             state = env.play_turn(dice, play)
         maybe_eval(g)

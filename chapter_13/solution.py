@@ -100,6 +100,11 @@ class PolicyEnvironment:
         return float(self.action_count[action])
 
 
+# Central-difference step for the numeric gradient check; the tolerance that
+# judges the result is a separate argument and keeps its own default.
+_FINITE_DIFF_EPS = 1e-6
+
+
 def check_policy_gradient_theorem(
     preferences: np.ndarray,
     q_values: np.ndarray,
@@ -130,13 +135,12 @@ def check_policy_gradient_theorem(
         [q[i] * probs[i] - probs[i] * float(np.dot(q, probs)) for i in range(len(q))]
     )
     numeric = np.zeros_like(theta)
-    eps = 1e-6
     for i in range(len(theta)):
         offset = np.zeros_like(theta)
-        offset[i] = eps
+        offset[i] = _FINITE_DIFF_EPS
         numeric[i] = (
             float(np.dot(_softmax(theta + offset), q)) - float(np.dot(_softmax(theta - offset), q))
-        ) / (2 * eps)
+        ) / (2 * _FINITE_DIFF_EPS)
     return bool(np.max(np.abs(analytic - numeric)) <= tolerance)
 
 
@@ -650,6 +654,13 @@ def short_corridor_value_gradient(p: float) -> float:
     return float(num / den)
 
 
+# Interior clip bounds: V1(p) is only defined for 0 < p < 1, and its gradient
+# blows up near the endpoints, so both the exact-ascent iterate and the learned
+# policy's evaluation stay a small distance inside the open interval.
+_ASCENT_P_CLIP = 1e-4
+_EVAL_P_CLIP = 1e-3
+
+
 def run_short_corridor_value_ascent(start_p: float = 0.5, alpha: float = 0.01,
                                     max_iter: int = 10000, tol: float = 1e-8) -> dict:
     """Exact policy-gradient ascent on V1(p) using the closed-form gradient.
@@ -664,7 +675,7 @@ def run_short_corridor_value_ascent(start_p: float = 0.5, alpha: float = 0.01,
     history: dict = {"iter": [], "p": [], "v1": [], "grad": []}
     for it in range(max_iter):
         grad = short_corridor_value_gradient(p)
-        p = min(max(p + alpha * grad, 1e-4), 1.0 - 1e-4)
+        p = min(max(p + alpha * grad, _ASCENT_P_CLIP), 1.0 - _ASCENT_P_CLIP)
         if abs(grad) < tol:
             break
         history["iter"].append(it)
@@ -774,7 +785,8 @@ def run_short_corridor_reinforce(lr: float = 0.01, gamma: float = 1.0,
             p = agent.right_prob()
             history["episode"].append(ep)
             history["p"].append(p)
-            history["v1"].append(short_corridor_value(min(max(p, 1e-3), 1.0 - 1e-3)))
+            clipped = min(max(p, _EVAL_P_CLIP), 1.0 - _EVAL_P_CLIP)
+            history["v1"].append(short_corridor_value(clipped))
     return agent, history
 
 

@@ -530,6 +530,67 @@ def _eps_greedy_sample(q_row, epsilon: float, rng) -> int:
     return int(rng.choice(len(probs), p=probs))
 
 
+def _validate_td_control_params(alpha: float, epsilon: float, mode: str) -> None:
+    """Check the shared TD-control parameters before any environment step."""
+    if alpha <= 0.0:
+        raise ValueError("alpha must be positive")
+    if not 0.0 < epsilon <= 1.0:
+        raise ValueError("epsilon must be in (0, 1]")
+    if mode not in ("sarsa", "q_learning", "expected_sarsa"):
+        raise ValueError(f"unknown mode {mode!r}")
+
+
+def _td_bootstrap_target(
+    mode: str, reward: float, gamma: float, next_row, next_a_idx, epsilon: float
+) -> float:
+    """One-step backup: sampled action, greedy action, or policy expectation."""
+    if mode == "q_learning":
+        return reward + gamma * max(next_row)
+    if mode == "expected_sarsa":
+        probs = _epsilon_greedy_probs(np.asarray(next_row, dtype=np.float64), epsilon)
+        return reward + gamma * float(np.dot(probs, next_row))
+    return reward + gamma * next_row[next_a_idx]  # sarsa: use the sampled action
+
+
+def _run_td_episode(
+    env,
+    q: dict,
+    rng,
+    alpha: float,
+    epsilon: float,
+    gamma: float,
+    mode: str,
+    max_steps: int,
+) -> tuple[int, float]:
+    """Play one (truncated) episode, updating Q in place; return steps, return."""
+    state = env.reset()
+    n_actions = len(_actions_for(env, state))
+    a_idx = _eps_greedy_sample(_q_row(q, state, n_actions), epsilon, rng)
+    total = 0.0
+    steps = 0
+    for t in range(max_steps):
+        steps = t + 1
+        reward, next_state, done = env.step(a_idx)
+        total += reward
+        if done:
+            target = reward
+            next_a_idx = None
+        else:
+            next_actions = _actions_for(env, next_state)
+            next_row = _q_row(q, next_state, len(next_actions))
+            # Draw the next action in every mode: it is Sarsa's sample, and
+            # drawing it uniformly keeps all three modes' RNG streams aligned.
+            next_a_idx = _eps_greedy_sample(next_row, epsilon, rng)
+            target = _td_bootstrap_target(mode, reward, gamma, next_row, next_a_idx, epsilon)
+        current = q.get((state, a_idx), 0.0)
+        q[(state, a_idx)] = current + alpha * (target - current)
+        if done:
+            break
+        state = next_state
+        a_idx = next_a_idx
+    return steps, total
+
+
 def _td_control(
     env,
     n_episodes: int,
@@ -550,47 +611,18 @@ def _td_control(
 
     Returns (q_table, steps_per_episode, returns_per_episode).
     """
-    if alpha <= 0.0:
-        raise ValueError("alpha must be positive")
-    if not 0.0 < epsilon <= 1.0:
-        raise ValueError("epsilon must be in (0, 1]")
-    if mode not in ("sarsa", "q_learning", "expected_sarsa"):
-        raise ValueError(f"unknown mode {mode!r}")
+    _validate_td_control_params(alpha, epsilon, mode)
     rng = np.random.default_rng(seed)
     q: dict = {}
     steps_per_episode: list[int] = []
     returns_per_episode: list[float] = []
 
     for _ in range(n_episodes):
-        state = env.reset()
-        n_actions = len(_actions_for(env, state))
-        a_idx = _eps_greedy_sample(_q_row(q, state, n_actions), epsilon, rng)
-        total = 0.0
-        steps = 0
-        for t in range(max_steps):
-            steps = t + 1
-            reward, next_state, done = env.step(a_idx)
-            total += reward
-            if done:
-                target = reward
-                next_a_idx = None
-            else:
-                next_actions = _actions_for(env, next_state)
-                next_row = _q_row(q, next_state, len(next_actions))
-                next_a_idx = _eps_greedy_sample(next_row, epsilon, rng)
-                if mode == "q_learning":
-                    target = reward + gamma * max(next_row)
-                elif mode == "expected_sarsa":
-                    probs = _epsilon_greedy_probs(np.asarray(next_row, dtype=np.float64), epsilon)
-                    target = reward + gamma * float(np.dot(probs, next_row))
-                else:  # sarsa: bootstrap with the actually sampled next action
-                    target = reward + gamma * next_row[next_a_idx]
-            current = q.get((state, a_idx), 0.0)
-            q[(state, a_idx)] = current + alpha * (target - current)
-            if done:
-                break
-            state = next_state
-            a_idx = next_a_idx
+        # Each episode starts a fresh trajectory; statistics are recorded in
+        # episode order so the three control modes stay directly comparable.
+        steps, total = _run_td_episode(
+            env, q, rng, alpha, epsilon, gamma, mode, max_steps
+        )
         steps_per_episode.append(steps)
         returns_per_episode.append(total)
     return q, steps_per_episode, returns_per_episode
@@ -622,6 +654,40 @@ def expected_sarsa_control(env, n_episodes: int = 1000, alpha: float = 0.5, epsi
     (q_table, steps_per_episode, returns_per_episode).
     """
     return _td_control(env, n_episodes, alpha, epsilon, gamma, seed, "expected_sarsa", max_steps)
+
+
+def _random_argmax(row: list[float], rng) -> int:
+    """Uniformly pick one maximizer of `row`, as the book's tie-break requires."""
+    return int(
+        np.flatnonzero(row == np.max(row))[
+            rng.integers(0, int(np.sum(row == np.max(row))))
+        ]
+    )
+
+
+def _double_q_targets(
+    next_state, next_actions, q1: dict, q2: dict, reward: float, gamma: float, rng
+) -> tuple[float, float]:
+    """Backup targets for Q1 and Q2, each evaluated with the *other* table."""
+    nr1 = _q_row(q1, next_state, len(next_actions))
+    nr2 = _q_row(q2, next_state, len(next_actions))
+    argmax1 = _random_argmax(nr1, rng)
+    argmax2 = _random_argmax(nr2, rng)
+    target1 = reward + gamma * nr2[argmax1]  # greedy for Q1, evaluated by Q2
+    target2 = reward + gamma * nr1[argmax2]  # greedy for Q2, evaluated by Q1
+    return target1, target2
+
+
+def _update_double_q_table(
+    q1: dict, q2: dict, state, a_idx: int, target1: float, target2: float, alpha: float, rng
+) -> None:
+    """Update just one table per step so the two estimates stay independent."""
+    if rng.random() < 0.5:
+        key = (state, a_idx)
+        q1[key] = q1.get(key, 0.0) + alpha * (target1 - q1.get(key, 0.0))
+    else:
+        key = (state, a_idx)
+        q2[key] = q2.get(key, 0.0) + alpha * (target2 - q2.get(key, 0.0))
 
 
 def double_q_learning(
@@ -673,18 +739,10 @@ def double_q_learning(
                 target1, target2 = reward, reward
             else:
                 next_actions = _actions_for(env, next_state)
-                nr1 = _q_row(q1, next_state, len(next_actions))
-                nr2 = _q_row(q2, next_state, len(next_actions))
-                argmax1 = int(np.flatnonzero(nr1 == np.max(nr1))[rng.integers(0, int(np.sum(nr1 == np.max(nr1))))])
-                argmax2 = int(np.flatnonzero(nr2 == np.max(nr2))[rng.integers(0, int(np.sum(nr2 == np.max(nr2))))])
-                target1 = reward + gamma * nr2[argmax1]  # greedy for Q1, evaluated by Q2
-                target2 = reward + gamma * nr1[argmax2]  # greedy for Q2, evaluated by Q1
-            if rng.random() < 0.5:
-                key = (state, a_idx)
-                q1[key] = q1.get(key, 0.0) + alpha * (target1 - q1.get(key, 0.0))
-            else:
-                key = (state, a_idx)
-                q2[key] = q2.get(key, 0.0) + alpha * (target2 - q2.get(key, 0.0))
+                target1, target2 = _double_q_targets(
+                    next_state, next_actions, q1, q2, reward, gamma, rng
+                )
+            _update_double_q_table(q1, q2, state, a_idx, target1, target2, alpha, rng)
             if not done:
                 state = next_state
                 actions = _actions_for(env, state)
@@ -693,6 +751,41 @@ def double_q_learning(
                 row_sum = [a + b for a, b in zip(row1, row2)]
                 a_idx = _eps_greedy_sample(row_sum, epsilon, rng)
     return q1, q2, first_actions
+
+
+# Guard against an unlucky run of 'left' actions in the toy MDP.
+_MAX_MBIAS_STEPS = 10_000
+
+
+def _q_learning_left_fractions(
+    env, rng, n_episodes: int, alpha: float, epsilon: float, gamma: float, left_idx: int
+) -> np.ndarray:
+    """One Q-learning run: record whether 'left' was taken at state A."""
+    q: dict = {}
+    left = np.zeros(n_episodes)
+    for ep in range(n_episodes):
+        state = env.reset()
+        row = _q_row(q, state, len(env.ACTIONS))
+        a_idx = _eps_greedy_sample(row, epsilon, rng)
+        if state == "A":
+            left[ep] = 1.0 if a_idx == left_idx else 0.0
+        done = False
+        steps = 0
+        while not done and steps < _MAX_MBIAS_STEPS:
+            steps += 1
+            reward, next_state, done = env.step(a_idx)
+            if done:
+                target = reward
+            else:
+                next_row = _q_row(q, next_state, len(env.actions_for(next_state)))
+                target = reward + gamma * max(next_row)
+            key = (state, a_idx)
+            q[key] = q.get(key, 0.0) + alpha * (target - q.get(key, 0.0))
+            if not done:
+                state = next_state
+                row = _q_row(q, state, len(env.actions_for(state)))
+                a_idx = _eps_greedy_sample(row, epsilon, rng)
+    return left
 
 
 def maximization_bias_experiment(
@@ -722,31 +815,10 @@ epeats
     for r in range(repeats):
         rep_seed = None if seed is None else seed + r
         env = MaximizationBiasMDP(seed=rep_seed)
-        # --- Q-learning (same loop shape as Fig. 6.7's setup) ---
         rng = np.random.default_rng(rep_seed)
-        q: dict = {}
-        for ep in range(n_episodes):
-            state = env.reset()
-            row = _q_row(q, state, len(env.ACTIONS))
-            a_idx = _eps_greedy_sample(row, epsilon, rng)
-            if state == "A":
-                left_q[r, ep] = 1.0 if a_idx == env.ACTIONS.index("left") else 0.0
-            done = False
-            steps = 0
-            while not done and steps < 10_000:
-                steps += 1
-                reward, next_state, done = env.step(a_idx)
-                if done:
-                    target = reward
-                else:
-                    next_row = _q_row(q, next_state, len(env.actions_for(next_state)))
-                    target = reward + gamma * max(next_row)
-                key = (state, a_idx)
-                q[key] = q.get(key, 0.0) + alpha * (target - q.get(key, 0.0))
-                if not done:
-                    state = next_state
-                    row = _q_row(q, state, len(env.actions_for(state)))
-                    a_idx = _eps_greedy_sample(row, epsilon, rng)
+        left_q[r] = _q_learning_left_fractions(
+            env, rng, n_episodes, alpha, epsilon, gamma, env.ACTIONS.index("left")
+        )
         # --- Double Q-learning ---
         env = MaximizationBiasMDP(seed=rep_seed)
         _, _, first_actions = double_q_learning(
@@ -991,6 +1063,57 @@ def plot_figure_6_4_cliff_walking(save_path=None, show=False, n_episodes=500, ep
     return fig, ax
 
 
+_TD_CONTROL_ALGOS = {
+    "sarsa": sarsa_control,
+    "q_learning": q_learning_control,
+    "expected_sarsa": expected_sarsa_control,
+}
+
+
+def _td_alpha_sweep(
+    alphas,
+    repeats: int,
+    n_episodes: int,
+    interim_window: int,
+    asymptotic_window: int,
+    epsilon: float,
+    gamma: float,
+    seed: int | None,
+) -> tuple[dict, dict, dict, dict]:
+    """Collect mean/std returns per algorithm and step size (Figure 6.6)."""
+    algos = _TD_CONTROL_ALGOS
+    interim = {name: [] for name in algos}
+    interim_std = {name: [] for name in algos}
+    asympt = {name: [] for name in algos}
+    asympt_std = {name: [] for name in algos}
+    for alpha in alphas:
+        per_algo = {name: [] for name in algos}
+        for rep in range(repeats):
+            # Reuse a seed across algorithms so each alpha is a like-for-like
+            # comparison; only the repeat index changes the environment noise.
+            rep_seed = None if seed is None else seed + rep
+            for name, fn in algos.items():
+                _, _, returns = fn(
+                    CliffWalkingEnv(),
+                    n_episodes=n_episodes,
+                    alpha=alpha,
+                    epsilon=epsilon,
+                    gamma=gamma,
+                    seed=rep_seed,
+                )
+                returns = np.asarray(returns, dtype=float)
+                per_algo[name].append(
+                    (returns[:interim_window].mean(), returns[-asymptotic_window:].mean())
+                )
+        for name in algos:
+            values = np.array(per_algo[name])
+            interim[name].append(values[:, 0].mean())
+            interim_std[name].append(values[:, 0].std())
+            asympt[name].append(values[:, 1].mean())
+            asympt_std[name].append(values[:, 1].std())
+    return interim, interim_std, asympt, asympt_std
+
+
 def plot_figure_6_6_td_control_performance(
     save_path=None,
     show=False,
@@ -1024,31 +1147,16 @@ epeats) and episodes - this reproduces the *shape* of the
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    algos = {
-        "sarsa": sarsa_control,
-        "q_learning": q_learning_control,
-        "expected_sarsa": expected_sarsa_control,
-    }
-    interim = {name: [] for name in algos}
-    interim_std = {name: [] for name in algos}
-    asympt = {name: [] for name in algos}
-    asympt_std = {name: [] for name in algos}
-    for alpha in alphas:
-        per_algo = {name: [] for name in algos}
-        for rep in range(repeats):
-            rep_seed = None if seed is None else seed + rep
-            for name, fn in algos.items():
-                _, _, returns = fn(CliffWalkingEnv(), n_episodes=n_episodes, alpha=alpha, epsilon=epsilon, gamma=gamma, seed=rep_seed)
-                returns = np.asarray(returns, dtype=float)
-                per_algo[name].append(
-                    (returns[:interim_window].mean(), returns[-asymptotic_window:].mean())
-                )
-        for name in algos:
-            values = np.array(per_algo[name])
-            interim[name].append(values[:, 0].mean())
-            interim_std[name].append(values[:, 0].std())
-            asympt[name].append(values[:, 1].mean())
-            asympt_std[name].append(values[:, 1].std())
+    interim, interim_std, asympt, asympt_std = _td_alpha_sweep(
+        alphas,
+        repeats,
+        n_episodes,
+        interim_window,
+        asymptotic_window,
+        epsilon,
+        gamma,
+        seed,
+    )
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11.5, 4.6), sharey=False)
     x = list(alphas)
     for name, label in (("sarsa", "Sarsa"), ("q_learning", "Q-learning"), ("expected_sarsa", "Expected Sarsa")):
