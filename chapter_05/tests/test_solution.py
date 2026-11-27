@@ -252,9 +252,11 @@ class TestOffPolicyControl:
         env = TinyChainEnv()
         policy, q_table, rewards = mc_control_off_policy(env, n_episodes=10, epsilon=0.2, seed=0)
         assert len(rewards) == 10
-        for probs in policy.values():
+        for state, probs in policy.items():
             assert probs.sum() == pytest.approx(1.0)
-            assert (probs == 1.0).sum() >= 1 or True
+            q = q_table[state]
+            best = np.flatnonzero(q == q.max())
+            assert np.all(probs[best] == pytest.approx(1.0 / len(best)))
 
     def test_ordinary_is_control_runs(self) -> None:
         env = TinyChainEnv()

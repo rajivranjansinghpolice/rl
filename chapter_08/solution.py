@@ -155,15 +155,9 @@ def make_gridworld(
         terminal_states=[goal],
         seed=seed,
     )
-    # Honour the caller's start state. FiniteMDP.reset() samples uniformly when
-    # no state is given; the book's gridworld tasks always start at `start`.
+    # Honour the caller's start state. FiniteMDP.reset() uses `start_state`
+    # when no explicit state is passed; the book's gridworlds start at `start`.
     mdp.start_state = start
-    _base_reset = mdp.reset
-
-    def reset(state=None):
-        return _base_reset(mdp.start_state if state is None else state)
-
-    mdp.reset = reset
     return mdp
 
 
@@ -971,7 +965,9 @@ def _grid_state_strings(rows: int, cols: int, walls: list[str]) -> list:
 def changing_maze_layouts():
     """Book layouts for Sec. 8.3 (reconstruction; the draft pages do not print cell coordinates).
 
-    Returns (start, goal, base_walls, blocking_walls, shortcut_walls).
+    Returns (start, goal, barrier, blocking_alt, shortcut_base, shortcut_alt):
+    start/goal labels, the shared row-2 barrier, the barrier after the blocking
+    change, and the before/after walls for the shortcut maze.
     Grid: 6 rows x 10 cols, barrier along row 2, S bottom center, G top right.
     """
     start, goal = "5,4", "0,9"

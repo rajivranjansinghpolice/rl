@@ -48,11 +48,21 @@ def _sample_action(state, policy_fn, rng: np.random.Generator, actions: tuple) -
     return int(rng.choice(n, p=probs))
 
 
-def _run_episode(env, policy_fn, rng: np.random.Generator) -> list[tuple]:
-    """Return [(state, action_index, reward), ...] for one episode."""
+def _run_episode(
+    env,
+    policy_fn,
+    rng: np.random.Generator,
+    max_steps: int | None = None,
+) -> list[tuple]:
+    """Return [(state, action_index, reward), ...] for one episode.
+
+    `max_steps` bounds non-terminating environments; None keeps the book's
+    episodic assumption and allows unlimited steps.
+    """
     actions = _actions_for(env)
     state = env.reset()
     trajectory = []
+    steps = 0
     while True:
         action_index = _sample_action(state, policy_fn, rng, actions)
         reward, observation, done = env.step(actions[action_index])
@@ -60,6 +70,9 @@ def _run_episode(env, policy_fn, rng: np.random.Generator) -> list[tuple]:
         if done:
             return trajectory
         state = observation
+        steps += 1
+        if max_steps is not None and steps >= max_steps:
+            return trajectory
 
 
 def _returns_from_rewards(rewards: list[float], gamma: float) -> list[float]:
@@ -102,6 +115,7 @@ def mc_first_visit_prediction(
     n_episodes: int = 10_000,
     gamma: float = 1.0,
     seed: int | None = None,
+    max_steps: int | None = None,
 ) -> dict:
     """First-visit MC prediction (Algorithm 5.1). Book Section 5.1.
 
@@ -111,7 +125,7 @@ def mc_first_visit_prediction(
     rng = np.random.default_rng(seed)
     returns_by_state: dict = {}
     for _ in range(n_episodes):
-        trajectory = _run_episode(env, policy_fn, rng)
+        trajectory = _run_episode(env, policy_fn, rng, max_steps)
         rewards = [r for _, _, r in trajectory]
         returns = _returns_from_rewards(rewards, gamma)
         seen: set = set()
@@ -129,6 +143,7 @@ def mc_every_visit_prediction(
     n_episodes: int = 10_000,
     gamma: float = 1.0,
     seed: int | None = None,
+    max_steps: int | None = None,
 ) -> dict:
     """Every-visit MC prediction (Algorithm 5.1). Book Section 5.1.
 
@@ -138,7 +153,7 @@ def mc_every_visit_prediction(
     rng = np.random.default_rng(seed)
     returns_by_state: dict = {}
     for _ in range(n_episodes):
-        trajectory = _run_episode(env, policy_fn, rng)
+        trajectory = _run_episode(env, policy_fn, rng, max_steps)
         rewards = [r for _, _, r in trajectory]
         returns = _returns_from_rewards(rewards, gamma)
         for t, (state, _, _) in enumerate(trajectory):
@@ -162,6 +177,7 @@ def mc_control_epsilon_greedy(
     epsilon: float = 0.1,
     gamma: float = 1.0,
     seed: int | None = None,
+    max_steps: int | None = None,
 ) -> tuple[dict, dict, list]:
     """On-policy first-visit MC control for epsilon-soft policies (Algorithm 5.3).
 
@@ -189,7 +205,7 @@ def mc_control_epsilon_greedy(
 
     episode_rewards: list[float] = []
     for _ in range(n_episodes):
-        trajectory = _run_episode(env, behavior_probs, rng)
+        trajectory = _run_episode(env, behavior_probs, rng, max_steps)
         rewards = [r for _, _, r in trajectory]
         episode_rewards.append(float(sum(rewards)))
         _accumulate_first_visit_q(
@@ -226,6 +242,7 @@ def mc_off_policy_prediction(
     weighted: bool = True,
     first_visit: bool = True,
     seed: int | None = None,
+    max_steps: int | None = None,
 ) -> dict:
     """Off-policy MC prediction via importance sampling (Algorithms 5.4/5.5).
 
@@ -253,7 +270,7 @@ def mc_off_policy_prediction(
     weights_sum: dict = {}
 
     for _ in range(n_episodes):
-        trajectory = _run_episode(env, behavior_fn, rng)
+        trajectory = _run_episode(env, behavior_fn, rng, max_steps)
         rewards = [r for _, _, r in trajectory]
         returns = _returns_from_rewards(rewards, gamma)
         ratios = _importance_ratios(trajectory, target_fn, behavior_fn)
@@ -338,6 +355,7 @@ def mc_control_off_policy(
     gamma: float = 1.0,
     weighted: bool = True,
     seed: int | None = None,
+    max_steps: int | None = None,
 ) -> tuple[dict, dict, list]:
     """Off-policy MC control (Algorithms 5.4/5.5). Book Section 5.7.
 
@@ -370,7 +388,7 @@ def mc_control_off_policy(
 
     episode_rewards: list[float] = []
     for _ in range(n_episodes):
-        trajectory = _run_episode(env, behavior_probs, rng)
+        trajectory = _run_episode(env, behavior_probs, rng, max_steps)
         rewards = [r for _, _, r in trajectory]
         episode_rewards.append(float(sum(rewards)))
         _backward_off_policy_update(
@@ -709,7 +727,7 @@ def _log_step_list(max_episodes: int) -> list[int]:
     while base < max_episodes:
         steps += [i * base for i in range(1, 10) if i * base <= max_episodes]
         base *= 10
-    if steps[-1] != max_episodes:
+    if not steps or steps[-1] != max_episodes:
         steps.append(max_episodes)
     return steps
 
@@ -728,6 +746,7 @@ def _importance_sampling_errors(
     v_ref: float,
     step_list: list[int],
     max_episodes: int,
+    max_steps: int | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Return one run's squared errors at each checkpoint, for both IS rules.
 
@@ -740,7 +759,7 @@ def _importance_sampling_errors(
     err_w = np.full(len(step_list), np.nan)
     ck = 0
     for ep in range(1, max_episodes + 1):
-        traj = _run_episode(env, behavior, rng)
+        traj = _run_episode(env, behavior, rng, max_steps)
         rewards = [r for _, _, r in traj]
         returns = _returns_from_rewards(rewards, 1.0)
         ratios = _importance_ratios(traj, target, behavior)

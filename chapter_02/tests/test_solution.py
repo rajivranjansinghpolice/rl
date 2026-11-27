@@ -21,6 +21,7 @@ from chapter_02.solution import (
     BanditProblem,
     ContextualBandit,
     GradientBanditAgent,
+    _ucb_experiment_selector,
     descending_bonus,
     descending_bonus_select,
     make_small_gridworld,
@@ -201,6 +202,28 @@ class TestOptimisticInitialValues:
     def test_optimistic_exploration(self) -> None:
         _, rate = simulate_optimistic_initial_values(initial_value=5.0)
         assert rate > 0.5
+
+
+class TestUCBExperimentSelector:
+    """Regression tests for the Figure 2.4 experiment selector."""
+
+    def test_untried_arms_chosen_uniformly(self) -> None:
+        selector = _ucb_experiment_selector("ucb", 2.0, 0.1)
+        Q = np.zeros(4)
+        N = np.zeros(4, dtype=int)
+        picks = {
+            selector(Q, N, 1, np.random.default_rng(seed)) for seed in range(60)
+        }
+        assert picks == {0, 1, 2, 3}
+
+    def test_uses_ucb_bonus_after_all_arms_tried(self) -> None:
+        selector = _ucb_experiment_selector("ucb", 2.0, 0.1)
+        Q = np.array([0.0, 1.0, 0.0, 0.0])
+        N = np.array([1, 1, 1, 1])
+        picks = {
+            selector(Q, N, 10, np.random.default_rng(seed)) for seed in range(60)
+        }
+        assert picks == {1}
 
 
 class TestUCBUncertainty:

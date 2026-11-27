@@ -243,10 +243,12 @@ def tree_backup(
 ) -> tuple[dict, dict]:
     """n-step Tree Backup (Sec. 7.5, box titled "State-action n-step Tree Backup"). Book Section 7.5.
 
-    Off-policy control without importance sampling: the target policy is the
-    epsilon-greedy policy w.r.t. q_table (a 50/50 random policy for eps-greedy-0.5,
-    or uniform for the very first passes); the behavior policy is the same
-    epsilon-greedy here.
+    Tree backup replaces importance sampling with an expected target over the
+    non-sampled actions, using their behavior probabilities. In this demo the
+    target policy is the epsilon-greedy policy w.r.t. q_table (50/50 for
+    epsilon=0.5, uniform on the very first passes), and the behavior policy is
+    the same epsilon-greedy rule: with target == behavior the backup reduces to
+    expected Sarsa, so the defining off-policy case is not exercised here.
 
     Returns:
         (policy, q_table): policy[state] = probability vector over ACTIONS.

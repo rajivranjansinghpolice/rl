@@ -22,7 +22,12 @@ FIGURES = [
     ("fig_7_2_n_step_td_alpha.png", plot_figure_7_2),
 ]
 
-for filename, plot_fn in FIGURES:
-    path = os.path.join(HERE, filename)
-    plot_fn(save_path=path)
-    print("wrote", path)
+def main() -> None:
+    for filename, plot_fn in FIGURES:
+        path = os.path.join(HERE, filename)
+        plot_fn(save_path=path)
+        print("wrote", path)
+
+
+if __name__ == "__main__":
+    main()

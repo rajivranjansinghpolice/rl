@@ -1,11 +1,11 @@
 """
-Pseudocode for Chapter 9 - Planning and Learning with Tabular Methods.
+Pseudocode for Chapter 8 - Planning and Learning with Tabular Methods.
 
 Mapping to Sutton & Barto book pseudocode:
 - Each algorithm's steps are annotated with "Book Step X.Y" comments.
 - A mapping table at the top shows step -> code correspondence.
 
-Reference: Sutton & Barto (2nd Ed), Chapter 8 (repo Chapter 9)
+Reference: Sutton & Barto (2nd Ed), Chapter 8
 """
 
 # Book Step Mapping Table
@@ -19,7 +19,7 @@ Reference: Sutton & Barto (2nd Ed), Chapter 8 (repo Chapter 9)
 # | 8.5       | Full distribution sweeps  | expected_sweep                  |
 # | 8.5       | Sample vs expected comparison      | compare_sample_vs_expected_dyna |
 # | 8.1/8.3   | Distribution (counting) model      | TabularModel                    |
-# | Ex 9.3    | Stochastic gridworld experiment    | make_gridworld                  |
+# | Sec. 8.1/8.3 | Stochastic gridworld experiment | make_gridworld                  |
 
 
 # ============================================================================

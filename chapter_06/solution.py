@@ -427,10 +427,9 @@ class CliffWalkingEnv:
             raise RuntimeError("call reset() first")
         if isinstance(action, str):
             action = self.ACTIONS.index(action)
-        try:
-            dr, dc = self._DELTAS[action]
-        except IndexError:
-            raise ValueError(f"invalid action {action}") from None
+        if action < 0 or action >= len(self.ACTIONS):
+            raise ValueError(f"invalid action {action}")
+        dr, dc = self._DELTAS[action]
         r, c = self.state
         nr = min(max(r + dr, 0), self.height - 1)
         nc = min(max(c + dc, 0), self.width - 1)
@@ -579,7 +578,8 @@ def _run_td_episode(
             next_actions = _actions_for(env, next_state)
             next_row = _q_row(q, next_state, len(next_actions))
             # Draw the next action in every mode: it is Sarsa's sample, and
-            # drawing it uniformly keeps all three modes' RNG streams aligned.
+            # using the same epsilon-greedy behavior policy keeps all three
+            # modes' RNG streams aligned.
             next_a_idx = _eps_greedy_sample(next_row, epsilon, rng)
             target = _td_bootstrap_target(mode, reward, gamma, next_row, next_a_idx, epsilon)
         current = q.get((state, a_idx), 0.0)
@@ -803,8 +803,8 @@ def maximization_bias_experiment(
     deterministic safe action 'right' with value 0, gamma = 1. Initial action
     values 0, random tie-breaking, epsilon-greedy behavior with epsilon (book
     - 0.1), alpha (book - 0.1). The book averaged over 10,000 runs;
-epeats
-    defaults to a reduced value - increase it for publication-quality curves.
+    repeats defaults to a reduced value - increase it for
+    publication-quality curves.
 
     Returns dict with 'episodes' (1..n_episodes), 'q_learning_left' and
     'double_q_learning_left': fraction of runs taking 'left' at state A per
@@ -919,7 +919,7 @@ def run_batch_updating(repeats: int = 100, n_walks: int = 100, seed: int = 0) ->
     k (k = 1..n_walks), solve the batch problem exactly on the first k walks
     and record the RMS error against the true values. The book averaged over
     100 repetitions of the whole experiment;
-epeats defaults to that.
+    repeats defaults to that.
 
     Returns dict with 'walks' (1..n_walks), 'td', 'mc': mean RMS errors.
     """
@@ -1130,15 +1130,13 @@ def plot_figure_6_6_td_control_performance(
 
     Cliff walking; Sarsa, Q-learning, Expected Sarsa. 'Interim' performance
     = average return over the first interim_window episodes; 'asymptotic'
-    = average return over the last symptotic_window of
-_episodes
-    episodes. All runs use epsilon-greedy behavior with epsilon (book 0.1).
+    = average return over the last asymptotic_window episodes.
+    All runs use epsilon-greedy behavior with epsilon (book 0.1).
 
     The 2nd-ed. figure is adapted from van Seijen et al. (2009) and used
     n=100 interim episodes averaged over 50,000 runs, and n=100,000
     asymptotic episodes averaged over 10 runs. We use far fewer runs
-    (
-epeats) and episodes - this reproduces the *shape* of the
+    (repeats) and episodes - this reproduces the *shape* of the
     phenomenon, not the published error bars; it is an illustrative
     demonstration, not a pixel-exact reproduction.
     """
@@ -1185,7 +1183,7 @@ def plot_figure_6_7_double_q_learning(save_path=None, show=False, n_episodes=300
 
     Percentage of runs taking the 'left' (suboptimal) action from state A
     per episode. The book used 10,000 runs; we use
-epeats (default 100,
+    repeats (default 100,
     increase for smoother curves). Curves are smoothed over
     smooth_window episodes for display.
     """

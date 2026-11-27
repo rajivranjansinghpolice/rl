@@ -51,7 +51,12 @@ FIGURES = [
      lambda p: plot_figure_6_10_stochastic_wind(save_path=p, n_episodes=1500)),
 ]
 
-for filename, plot_fn in FIGURES:
-    path = os.path.join(HERE, filename)
-    plot_fn(path)
-    print("wrote", path)
+def main() -> None:
+    for filename, plot_fn in FIGURES:
+        path = os.path.join(HERE, filename)
+        plot_fn(path)
+        print("wrote", path)
+
+
+if __name__ == "__main__":
+    main()

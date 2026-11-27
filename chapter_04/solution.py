@@ -4,7 +4,7 @@ Reference: Sutton & Barto (2nd Ed), Chapter 4
 
 Implements: Alg 4.1 (iterative policy evaluation), Alg 4.2 (policy improvement),
 Alg 4.3 (policy iteration), Alg 4.4 (value iteration),
-Exercise 4.1 (gambler's problem â€” Example 4.3).
+Exercise 4.1 (gambler's problem — Example 4.3).
 
 Reuses the FiniteMDP dynamics model from chapter_03 (package `chapter_03`).
 """
@@ -252,7 +252,7 @@ def gamblers_problem(
 
     Undiscounted, episodic, finite MDP. States are capital 0..goal; 0 and
     `goal` are dummy terminals, giving them values 0 and 1 respectively
-    (Exercise 4.9 remark). All rewards are 0 â€” the +1 outcome of reaching the
+    (Exercise 4.9 remark). All rewards are 0 — the +1 outcome of reaching the
     goal is represented entirely by the terminal value 1 at `goal`.
     From s in 1..goal-1, actions are integer stakes 1..min(s, goal-s);
     winning a stake transitions to s + stake, losing to s - stake.

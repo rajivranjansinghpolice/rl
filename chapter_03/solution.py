@@ -123,7 +123,14 @@ class FiniteMDP:
         return sum(p * r for p, r, _ in self.transition_probs(state, action))
 
     def reset(self, state=None) -> object:
-        """Reset the MDP to a state. If none given, sample uniformly (seeded)."""
+        """Reset to `state`, the configured `start_state`, or a uniform sample.
+
+        A `start_state` attribute set by task factories (e.g. Chapter 8's
+        gridworlds) takes precedence over uniform sampling when no state is
+        passed explicitly.
+        """
+        if state is None:
+            state = getattr(self, "start_state", None)
         if state is None:
             self.current_state = self.states[int(self.rng.integers(len(self.states)))]
         else:

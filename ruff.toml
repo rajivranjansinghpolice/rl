@@ -5,6 +5,7 @@
 # not requiring docstrings on every test method or demo helper.
 
 target-version = "py310"
+# Aligns with config/quality_gates.json: 99 columns is the enforced line length.
 line-length = 99
 
 [lint]

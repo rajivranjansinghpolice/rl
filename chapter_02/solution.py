@@ -53,11 +53,11 @@ class ActionValueEstimator:
     Maintains estimates Q(a) and counts N(a) for each action.
     """
 
-    def __init__(self, k: int) -> None:
+    def __init__(self, k: int, seed: int | None = None) -> None:
         self.k = k
         self.Q: np.ndarray = np.zeros(k)
         self.N: np.ndarray = np.zeros(k, dtype=int)
-        self.rng = np.random.default_rng()
+        self.rng = np.random.default_rng(seed)
 
     def select_action(self) -> int:
         best_actions = np.flatnonzero(self.Q == self.Q.max())
@@ -151,6 +151,14 @@ def select_ucb(
     return int(best_actions[0])
 
 
+def _softmax_probs(preferences: np.ndarray) -> np.ndarray:
+    """Numerically stable softmax probabilities for action preferences."""
+    values = np.asarray(preferences, dtype=np.float64)
+    shifted = values - values.max()
+    exp_vals = np.exp(shifted)
+    return exp_vals / exp_vals.sum()
+
+
 def select_softmax(preferences: np.ndarray, rng: np.random.Generator | None = None) -> int:
     """Select action using softmax policy (Algorithm 2.5). Book Sec 2.5.
 
@@ -164,9 +172,7 @@ def select_softmax(preferences: np.ndarray, rng: np.random.Generator | None = No
     """
     if rng is None:
         rng = np.random.default_rng()
-    shifted = preferences - preferences.max()
-    exp_vals = np.exp(shifted)
-    probs = exp_vals / exp_vals.sum()
+    probs = _softmax_probs(preferences)
     return int(rng.choice(len(probs), p=probs))
 
 
@@ -177,21 +183,18 @@ class GradientBanditAgent:
     of expected reward.
     """
 
-    def __init__(self, k: int, alpha: float = 0.1) -> None:
+    def __init__(self, k: int, alpha: float = 0.1, seed: int | None = None) -> None:
         self.k = k
         self.alpha = alpha
         self.H: np.ndarray = np.zeros(k)
         self.r_bar: float = 0.0
-        self.rng = np.random.default_rng()
+        self.rng = np.random.default_rng(seed)
 
     def select_action(self) -> int:
         return select_softmax(self.H, self.rng)
 
     def update(self, action: int, reward: float) -> None:
-        probs = np.zeros(self.k)
-        shifted = self.H - self.H.max()
-        exp_vals = np.exp(shifted)
-        probs = exp_vals / exp_vals.sum()
+        probs = _softmax_probs(self.H)
         delta = reward - self.r_bar
         self.H[action] += self.alpha * delta * (1.0 - probs[action])
         for a in range(self.k):
@@ -206,6 +209,7 @@ def simulate_nonstationary(
     epsilon: float = 0.1,
     alpha: float = 0.1,
     true_reward_change: float = 0.01,
+    seed: int | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Simulate non-stationary bandit with constant step-size (Exercise 2.3).
 
@@ -217,12 +221,13 @@ def simulate_nonstationary(
         epsilon: Epsilon for epsilon-greedy.
         alpha: Constant step-size parameter.
         true_reward_change: Std dev of true reward changes per step.
+        seed: Optional seed for reproducible sampling.
 
     Returns:
         Tuple of (action_values, average_rewards).
 
     """
-    rng = np.random.default_rng()
+    rng = np.random.default_rng(seed)
     q_star = rng.normal(0.0, 1.0, k)
     Q = np.zeros(k)
     rewards = np.zeros(steps)
@@ -245,6 +250,7 @@ def simulate_optimistic_initial_values(
     steps: int = 1000,
     initial_value: float = 5.0,
     epsilon: float = 0.0,
+    seed: int = 0,
 ) -> tuple[np.ndarray, float]:
     """Simulate bandit with optimistic initial values (Exercise 2.4).
 
@@ -255,13 +261,14 @@ def simulate_optimistic_initial_values(
         steps: Number of steps.
         initial_value: Optimistic initial Q value.
         epsilon: Epsilon (default 0 for pure greedy).
+        seed: Seed for both the sampling RNG and the bandit task.
 
     Returns:
         Tuple of (final_Q, best_action_selection_rate_over_last_100).
 
     """
-    rng = np.random.default_rng()
-    bandit = BanditProblem(k, seed=0)
+    rng = np.random.default_rng(seed)
+    bandit = BanditProblem(k, seed=seed)
     Q = np.full(k, initial_value)
     N = np.zeros(k, dtype=int)
     best_counts = np.zeros(steps)
@@ -301,14 +308,14 @@ def simulate_ucb_uncertainty(
         Tuple of (final_Q, best_action_selection_rate).
 
     """
-    np.random.default_rng(seed)
+    rng = np.random.default_rng(seed)
     bandit = BanditProblem(k, seed=seed)
     Q = np.zeros(k)
     N = np.zeros(k, dtype=int)
     best_counts = np.zeros(steps)
 
     for t in range(1, steps + 1):
-        action = select_ucb(Q, N, t, c)
+        action = select_ucb(Q, N, t, c, rng)
         reward = bandit.step(action)
         N[action] += 1
         Q[action] += (1.0 / N[action]) * (reward - Q[action])
@@ -325,22 +332,21 @@ class ContextualBandit:
     Maintains action preferences indexed by (context, action) pairs.
     """
 
-    def __init__(self, num_contexts: int, k: int, alpha: float = 0.1) -> None:
+    def __init__(
+        self, num_contexts: int, k: int, alpha: float = 0.1, seed: int | None = None
+    ) -> None:
         self.num_contexts = num_contexts
         self.k = k
         self.alpha = alpha
         self.H: np.ndarray = np.zeros((num_contexts, k))
         self.r_bar: np.ndarray = np.zeros(num_contexts)
-        self.rng = np.random.default_rng()
+        self.rng = np.random.default_rng(seed)
 
     def select_action(self, context: int) -> int:
         return select_softmax(self.H[context], self.rng)
 
     def update(self, context: int, action: int, reward: float) -> None:
-        probs = np.zeros(self.k)
-        shifted = self.H[context] - self.H[context].max()
-        exp_vals = np.exp(shifted)
-        probs = exp_vals / exp_vals.sum()
+        probs = _softmax_probs(self.H[context])
         delta = reward - self.r_bar[context]
         self.H[context, action] += self.alpha * delta * (1.0 - probs[action])
         for a in range(self.k):
@@ -1019,13 +1025,8 @@ def _ucb_experiment_selector(name: str, c: float, epsilon: float):
         return _epsilon_greedy_selector(epsilon)
 
     def select_fn(Q, N, t, rng):
-        # Untried arms must be tried before any bonus arithmetic is meaningful.
-        untried = np.flatnonzero(N == 0)
-        if len(untried) > 0:
-            return int(untried[0])
-        ucb = Q + c * np.sqrt(np.log(max(t, 1)) / N)
-        best_actions = np.flatnonzero(ucb == ucb.max())
-        return int(rng.choice(best_actions))
+        # Untried arms get an infinite bonus and are chosen uniformly at random.
+        return select_ucb(Q, N, t, c, rng)
 
     return select_fn
 

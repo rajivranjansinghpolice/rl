@@ -50,14 +50,14 @@ def pseudocode_gridworld_mdp():
     """
     Pseudocode mapping for Gridworld MDP.
 
-    Step mapping:
-        Step 1  → Gridworld.__init__(): Create 4x4 grid
-        Step 2  → Gridworld._define_special_states(): Define A, B, A+, D
-        Step 3  → Gridworld.ACTIONS: {up, down, left, right}
-        Step 4  → Gridworld.step(action): Compute s', r
-        Step 4a → Gridworld._get_next_state(s, a): Deterministic transition
-        Step 4b → Gridworld._get_reward(s, a, s'): Reward computation
-        Step 4c → Gridworld._is_terminal(s'): Check absorbing state
+    Step mapping (rl_envs.gridworld.GridWorld):
+        Step 1  → GridWorld.__init__(): Create 4x4 grid
+        Step 2  → GridWorld.__init__(): Defines A, B, A+, C, D coordinates
+        Step 3  → GridWorld.UP/DOWN/LEFT/RIGHT: Action constants
+        Step 4  → GridWorld.step(action): Compute s', r, done
+        Step 4a → GridWorld.get_next_state(s, a): Transition
+        Step 4b → GridWorld.get_reward(s, a): Reward computation
+        Step 4c → GridWorld.is_terminal(): Check absorbing state
     """
     pass
 
@@ -84,15 +84,18 @@ def pseudocode_agent_policy():
     """
     Pseudocode mapping for Agent Policy in Gridworld.
 
-    Step mapping:
-        Step 1  → Agent.__init__(): Initialize stochastic policy (uniform)
-        Step 2  → Agent.step(s_t): Main interaction loop
-        Step 2a → Agent.step(s_t): Receive current state
-        Step 2b → Agent._is_terminal(s_t): Check terminal state
-        Step 2c → Agent._select_action(s_t): Sample from policy
-        Step 2d → Agent.step(s_t): Execute action, observe r, s'
-        Step 2e → Agent.update_value(s_t, r, s_t_next): TD update
-        Step 2f → Agent.step(s_t): Increment timestep
+    Step mapping (implemented pieces are split across real classes):
+        Step 1  → rl_envs.gridworld.RandomAgent(n_actions=4): uniform policy
+        Step 2  → chapter_01/exercise_1_1.py:main(): interaction loop
+        Step 2a → GridWorld.reset()/step(): current state
+        Step 2b → GridWorld.is_terminal(): terminal check
+        Step 2c → RandomAgent.select_action(state, epsilon): sample action
+        Step 2d → GridWorld.step(action): observe r, s', done
+        Step 2e → GreedyAgent.update_value(state, action, value): value update
+        Step 2f → chapter_01/exercise_1_1.py:main(): timestep loop
+
+    Note: the discounted return (Eq. 1.1) and the full TD update are previewed
+    here; the complete value-iteration implementation lives in chapter_04.
     """
     pass
 
@@ -119,14 +122,15 @@ def pseudocode_value_iteration():
     """
     Pseudocode mapping for Value Iteration (Chapter 4, Section 4.1).
 
-    Step mapping:
-        Step 1  → ValueIteration.__init__(): Initialize V(s) = 0
-        Step 2  → ValueIteration.solve(): Iteration loop
-        Step 2a → ValueIteration.solve(): Δ = 0
-        Step 2b → ValueIteration.solve(): For each state s
-        Step 2c → ValueIteration.compute_q_values(s): Compute Q(s,a) for all a
-        Step 2d → ValueIteration.solve(): V(s) ← max_a Q(s,a)
-        Step 2e → ValueIteration.solve(): Δ = max(Δ, |ΔV|)
-        Step 2f → ValueIteration.solve(): Check convergence θ
+    Step mapping (implemented in chapter_04.solution, not a ValueIteration class):
+        Step 1  → chapter_04.solution.value_iteration(): V(s) starts at 0
+        Step 2  → chapter_04.solution.value_iteration(): sweep loop
+        Step 2a → value_iteration(): delta = 0
+        Step 2b → value_iteration(): for each state s
+        Step 2c → value_iteration(): compute q for each action via MDP dynamics
+        Step 2d → value_iteration(): V(s) ← max_a q(s,a)
+        Step 2e → value_iteration(): delta = max(delta, |old - best|)
+        Step 2f → value_iteration(): check delta < theta
+        Final  → chapter_04.solution.policy_improvement(): greedy policy
     """
     pass

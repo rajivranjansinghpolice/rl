@@ -17,10 +17,10 @@ Environment Structure (4x4 grid):
     (3,0) [A+] (3,1)     (3,2)     (3,3) [D]
 
 Special States:
-    - A  (0,0): Actions "up" or "left" -> A+ with +10 reward; others -> B with +5
-    - B  (0,3): Any action -> C (0,2) with +5 reward
-    - A+ (3,0): Terminal state (absorbing), reward +10
-    - D  (3,3): Terminal state (absorbing), reward -10
+    - A  (0,0): "up"/"left" -> A+ with +10; "down"/"right" -> B with +5
+    - B  (0,3): "up"/"right" -> C (0,2) with +5; "down"/"left" -> D (3,3) with +5
+    - A+ (3,0): Terminal (absorbing); +10 on entry from A, then no further reward
+    - D  (3,3): Terminal (absorbing); +5 on entry from B, then no further reward
 
 All other states: deterministic transitions in the chosen direction, reward -1.
 """
