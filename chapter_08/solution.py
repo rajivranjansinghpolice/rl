@@ -20,10 +20,12 @@ import numpy as np
 
 from chapter_03.solution import FiniteMDP, bellman_backup_optimality
 
+# actions: collection of the listed elements (book Chapter 8).
 ACTIONS = ("up", "down", "left", "right")
 
 # Grid geometry, shared by the world builder and the maze experiments.
 _GRID_DELTAS = {"up": (-1, 0), "down": (1, 0), "left": (0, -1), "right": (0, 1)}
+# grid perpendiculars: dictionary of key/value pairs (book Chapter 8).
 _GRID_PERPENDICULARS = {
     "up": ("left", "right"),
     "down": ("left", "right"),
@@ -36,9 +38,24 @@ _SEED_STRIDE = 1009
 
 
 def _grid_move(state: str, action: str, rows: int, cols: int, wall_set: set) -> str:
-    """Destination of `action`; walls and boundaries keep the agent in place."""
+    """Destination of `action`; walls and boundaries keep the agent in place.
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+    Args:
+        state: See Section 8.2 and the implementation for its role.
+        action: See Section 8.2 and the implementation for its role.
+        rows: See Section 8.2 and the implementation for its role.
+        cols: See Section 8.2 and the implementation for its role.
+        wall_set: See Section 8.2 and the implementation for its role.
+
+    Returns:
+        grid move as defined in Section 8.2."""
+    # internal helper for the grid move step (book Chapter 8).
     r, c = (int(x) for x in state.split(","))
+    # (dr, dc): element selected from the indexed collection (book Chapter 8).
     dr, dc = _GRID_DELTAS[action]
+    # (nr, nc): collection of the listed elements (book Chapter 8).
     nr, nc = r + dr, c + dc
     if 0 <= nr < rows and 0 <= nc < cols and f"{nr},{nc}" not in wall_set:
         return f"{nr},{nc}"
@@ -54,21 +71,61 @@ def _grid_outcome_probs(
     slip: float,
     goal: str,
 ) -> dict:
-    """Distribution over (reward, next_state) for one pair; +1 only at `goal`."""
+    """Distribution over (reward, next_state) for one pair; +1 only at `goal`.
 
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+    Args:
+        state: See Section 8.2 and the implementation for its role.
+        action: See Section 8.2 and the implementation for its role.
+        rows: See Section 8.2 and the implementation for its role.
+        cols: See Section 8.2 and the implementation for its role.
+        wall_set: See Section 8.2 and the implementation for its role.
+        slip: See Section 8.2 and the implementation for its role.
+        goal: See Section 8.2 and the implementation for its role.
+
+    Returns:
+        grid outcome probs as defined in Section 8.2."""
+
+    # internal helper for the grid outcome probs step (book Chapter 8).
     def add(probs: dict, p: float, next_state: str) -> None:
+        """add (reference implementation).
+
+
+        Args:
+            probs: See the relevant book section and function body.
+            p: See the relevant book section and function body.
+            next_state: See the relevant book section and function body.
+
+        Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8)."""
+        # carry out the add step (book Chapter 8).
+        # reward: reward observed after taking the action (book Chapter 8).
         reward = 1.0 if next_state == goal else 0.0
         probs[(reward, next_state)] = probs.get((reward, next_state), 0.0) + p
 
+    # probs: action probabilities from the current policy (book Chapter 8).
     probs: dict = {}
     add(probs, 1.0 - slip, _grid_move(state, action, rows, cols, wall_set))
+    # Iterate over perp: each item in _GRID_PERPENDICULARS[action] (book algorithm).
     for perp in _GRID_PERPENDICULARS[action]:
         add(probs, slip / 2.0, _grid_move(state, perp, rows, cols, wall_set))
     return probs
 
 
 def _max_q(q_table: dict, state, actions: list, terminal_states: set) -> float:
-    """Max over actions of Q(state, a); 0.0 for terminal states."""
+    """Max over actions of Q(state, a); 0.0 for terminal states.
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+    Args:
+        q_table: See Section 8.2 and the implementation for its role.
+        state: See Section 8.2 and the implementation for its role.
+        actions: See Section 8.2 and the implementation for its role.
+        terminal_states: See Section 8.2 and the implementation for its role.
+
+    Returns:
+        max q as defined in Section 8.2."""
+    # internal helper for the max q step (book Chapter 8).
     if state in terminal_states:
         return 0.0
     return max(q_table[(state, a)] for a in actions)
@@ -77,10 +134,22 @@ def _max_q(q_table: dict, state, actions: list, terminal_states: set) -> float:
 def _epsilon_greedy_action(
     q_table: dict, state, actions: list, epsilon: float, rng: np.random.Generator
 ):
-    """Epsilon-greedy action selection with uniformly random tie-breaking."""
+    """Epsilon-greedy action selection with uniformly random tie-breaking.
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+    Args:
+        q_table: See Section 8.2 and the implementation for its role.
+        state: See Section 8.2 and the implementation for its role.
+        actions: See Section 8.2 and the implementation for its role.
+        epsilon: See Section 8.2 and the implementation for its role.
+        rng: See Section 8.2 and the implementation for its role."""
+    # internal helper for the epsilon greedy action step (book Chapter 8).
+    # q values: action-value estimates for the state (book Chapter 8).
     q_values = np.array([q_table[(state, a)] for a in actions], dtype=np.float64)
     if rng.random() < epsilon:
         return actions[int(rng.integers(len(actions)))]
+    # best: best action or best value found so far (book Chapter 8).
     best = np.flatnonzero(q_values == q_values.max())
     return actions[int(rng.choice(best))]
 
@@ -96,8 +165,27 @@ def _q_learning_update(
     actions: list,
     terminal_states: set,
 ) -> float:
-    """One one-step tabular Q-learning backup (book Sec. 6.2 / eq. 8.2)."""
+    """One one-step tabular Q-learning backup (book Sec. 6.2 / eq. 8.2).
+
+    Book: Sutton & Barto (2nd ed.), Section 6.2 (Chapter 8).
+
+    Args:
+        q_table: See Section 6.2 and the implementation for its role.
+        state: See Section 6.2 and the implementation for its role.
+        action: See Section 6.2 and the implementation for its role.
+        reward: See Section 6.2 and the implementation for its role.
+        next_state: See Section 6.2 and the implementation for its role.
+        alpha: See Section 6.2 and the implementation for its role.
+        gamma: See Section 6.2 and the implementation for its role.
+        actions: See Section 6.2 and the implementation for its role.
+        terminal_states: See Section 6.2 and the implementation for its role.
+
+    Returns:
+        q learning update as defined in Section 6.2."""
+    # internal helper for the q learning update step (book Chapter 8).
+    # target: target value for the current update (book Chapter 8).
     target = reward + gamma * _max_q(q_table, next_state, actions, terminal_states)
+    # old: element selected from the indexed collection (book Chapter 8).
     old = q_table[(state, action)]
     q_table[(state, action)] = old + alpha * (target - old)
     return q_table[(state, action)] - old
@@ -126,16 +214,35 @@ def make_gridworld(
     With ``walls`` given ('r,c' strings), those cells are removed from the
     state set and act as impassable barriers (the agent stays in place when
     attempting to enter one), matching the Dyna maze of Figure 8.3.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+    Args:
+        rows: See Section 8.2 and the implementation for its role.
+        cols: See Section 8.2 and the implementation for its role.
+        start: See Section 8.2 and the implementation for its role.
+        goal: See Section 8.2 and the implementation for its role.
+        slip: See Section 8.2 and the implementation for its role.
+        gamma: See Section 8.2 and the implementation for its role.
+        seed: See Section 8.2 and the implementation for its role.
+        walls: See Section 8.2 and the implementation for its role.
+
+    Returns:
+        make gridworld as defined in Section 8.2."""
     if not 0.0 <= slip < 1.0:
         raise ValueError("slip must be in [0, 1)")
+    # walls: value chosen conditionally (book Chapter 8).
     walls = list(walls) if walls else []
+    # wall set: result of set(...) (book Chapter 8).
     wall_set = set(walls)
+    # states: all states in the MDP (book Chapter 8).
     states = [f"{r},{c}" for r in range(rows) for c in range(cols) if f"{r},{c}" not in wall_set]
+    # goal: value chosen conditionally (book Chapter 8).
     goal = goal if goal is not None else f"{rows - 1},{cols - 1}"
     if goal not in states:
         raise ValueError(f"goal {goal!r} not in grid")
 
+    # transitions: dict attribute/state used by the algorithm (book Chapter 8).
     transitions: dict = {}
     for state in states:
         if state == goal:
@@ -147,6 +254,7 @@ def make_gridworld(
             transitions[(state, action)] = [
                 (p, r, ns) for (r, ns), p in probs.items() if p > 0.0
             ]
+    # mdp: result of FiniteMDP(...) (book Chapter 8).
     mdp = FiniteMDP(
         states,
         list(ACTIONS),
@@ -173,42 +281,100 @@ class TabularModel:
     (`distribution`). It validates P(outcome | s, a) by normalizing counts,
     which avoids the "sample average collapses to a single deterministic
     outcome" failure mode discussed in Sec. 8.1/8.3.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.1 (Chapter 8)."""
 
     def __init__(self) -> None:
+        """init (reference implementation).
+
+        Book: Sutton & Barto (2nd ed.), Section 8.1 (Chapter 8)."""
+        # self. outcome counts: dict attribute/state used by the algorithm (book Chapter 8).
         self._outcome_counts: dict = {}
+        # self. visited: dict attribute/state used by the algorithm (book Chapter 8).
         self._visited: dict = {}
         # Incremental predecessor index (book Sec. 8.4): scanning every known
         # pair on each pop is the main cost of prioritized sweeping.
         self._predecessors: dict = {}
 
     def observe(self, state, action, reward: float, next_state) -> None:
-        """Record one observed transition (model-learning step, book Sec 8.2 (e))."""
+        """Record one observed transition (model-learning step, book Sec 8.2 (e)).
+
+        Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+        Args:
+            state: See Section 8.2 and the implementation for its role.
+            action: See Section 8.2 and the implementation for its role.
+            reward: See Section 8.2 and the implementation for its role.
+            next_state: See Section 8.2 and the implementation for its role."""
+        # carry out the observe step (book Chapter 8).
+        # key: collection of the listed elements (book Chapter 8).
         key = (state, action)
+        # outcomes: result of self._outcome_counts.setdefault(...) (book Chapter 8).
         outcomes = self._outcome_counts.setdefault(key, {})
+        # outcome: collection of the listed elements (book Chapter 8).
         outcome = (float(reward), next_state)
         outcomes[outcome] = outcomes.get(outcome, 0) + 1
         self._visited.setdefault(state, set()).add(action)
         self._predecessors.setdefault(next_state, set()).add(key)
 
     def is_known(self, state, action) -> bool:
-        """Return True if (state, action) has been observed at least once."""
+        """Return True if (state, action) has been observed at least once.
+
+        Book: Sutton & Barto (2nd ed.), Section 8.1 (Chapter 8).
+
+        Args:
+            state: See Section 8.1 and the implementation for its role.
+            action: See Section 8.1 and the implementation for its role.
+
+        Returns:
+            is known as defined in Section 8.1."""
+        # carry out the is known step (book Chapter 8).
         return (state, action) in self._outcome_counts
 
     def known_pairs(self) -> list:
-        """Return all (state, action) pairs observed so far, sorted for determinism."""
+        """Return all (state, action) pairs observed so far, sorted for determinism.
+
+
+        Returns:
+            known pairs as defined in Section 8.1.
+
+        Book: Sutton & Barto (2nd ed.), Section 8.1 (Chapter 8)."""
+        # carry out the known pairs step (book Chapter 8).
         return sorted(self._outcome_counts, key=repr)
 
     def visited_states(self) -> list:
-        """Return all states observed at least once, sorted for determinism."""
+        """Return all states observed at least once, sorted for determinism.
+
+
+        Returns:
+            visited states as defined in Section 8.1.
+
+        Book: Sutton & Barto (2nd ed.), Section 8.1 (Chapter 8)."""
+        # carry out the visited states step (book Chapter 8).
         return sorted(self._visited, key=repr)
 
     def actions_taken(self, state) -> list:
-        """Return all actions taken in `state`, sorted for determinism."""
+        """Return all actions taken in `state`, sorted for determinism.
+
+        Book: Sutton & Barto (2nd ed.), Section 8.1 (Chapter 8).
+
+        Args:
+            state: See Section 8.1 and the implementation for its role.
+
+        Returns:
+            actions taken as defined in Section 8.1."""
+        # carry out the actions taken step (book Chapter 8).
         return sorted(self._visited[state], key=repr)
 
     def has_pairs(self) -> bool:
-        """Return True if at least one (state, action) pair is known."""
+        """Return True if at least one (state, action) pair is known.
+
+
+        Returns:
+            has pairs as defined in Section 8.1.
+
+        Book: Sutton & Barto (2nd ed.), Section 8.1 (Chapter 8)."""
+        # carry out the has pairs step (book Chapter 8).
         return bool(self._outcome_counts)
 
     def sample_known_pair(self, rng: np.random.Generator):
@@ -216,10 +382,19 @@ class TabularModel:
 
         Book Section 8.2, step (f): pick a random previously observed state,
         then a random action previously taken in that state.
-        """
+
+        Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+        Args:
+            rng: See Section 8.2 and the implementation for its role."""
+        # carry out the sample known pair step (book Chapter 8).
+        # visited: result of self.visited_states(...) (book Chapter 8).
         visited = self.visited_states()
+        # state: current state of the environment or MDP (book Chapter 8).
         state = visited[int(rng.integers(len(visited)))]
+        # taken: result of self.actions_taken(...) (book Chapter 8).
         taken = self.actions_taken(state)
+        # action: action selected for the current step (book Chapter 8).
         action = taken[int(rng.integers(len(taken)))]
         return state, action
 
@@ -227,8 +402,19 @@ class TabularModel:
         """Return the learned outcome distribution [(prob, reward, next_state)].
 
         Raises KeyError if the pair has never been observed.
-        """
+
+        Book: Sutton & Barto (2nd ed.), Section 8.1 (Chapter 8).
+
+        Args:
+            state: See Section 8.1 and the implementation for its role.
+            action: See Section 8.1 and the implementation for its role.
+
+        Returns:
+            distribution as defined in Section 8.1."""
+        # carry out the distribution step (book Chapter 8).
+        # outcomes: element selected from the indexed collection (book Chapter 8).
         outcomes = self._outcome_counts[(state, action)]
+        # total: running total accumulator (book Chapter 8).
         total = sum(outcomes.values())
         return [
             (count / total, reward, next_state)
@@ -236,18 +422,48 @@ class TabularModel:
         ]
 
     def sample(self, state, action, rng: np.random.Generator):
-        """Sample one outcome (reward, next_state) ~ learned distribution."""
+        """Sample one outcome (reward, next_state) ~ learned distribution.
+
+        Book: Sutton & Barto (2nd ed.), Section 8.1 (Chapter 8).
+
+        Args:
+            state: See Section 8.1 and the implementation for its role.
+            action: See Section 8.1 and the implementation for its role.
+            rng: See Section 8.1 and the implementation for its role."""
+        # draw a sample from the learned distribution (book Chapter 8).
+        # dist: result of self.distribution(...) (book Chapter 8).
         dist = self.distribution(state, action)
+        # probs: action probabilities from the current policy (book Chapter 8).
         probs = np.array([p for p, _, _ in dist], dtype=np.float64)
+        # idx: integer conversion (book Chapter 8).
         idx = int(rng.choice(len(dist), p=probs))
         return dist[idx][1], dist[idx][2]
 
     def observation_count(self, state, action) -> int:
-        """Return the number of times (state, action) was observed."""
+        """Return the number of times (state, action) was observed.
+
+        Book: Sutton & Barto (2nd ed.), Section 8.1 (Chapter 8).
+
+        Args:
+            state: See Section 8.1 and the implementation for its role.
+            action: See Section 8.1 and the implementation for its role.
+
+        Returns:
+            observation count as defined in Section 8.1."""
+        # carry out the observation count step (book Chapter 8).
         return sum(self._outcome_counts[(state, action)].values())
 
     def predecessors(self, next_state) -> list:
-        """Return all known (state, action) pairs with any outcome into `next_state`."""
+        """Return all known (state, action) pairs with any outcome into `next_state`.
+
+        Book: Sutton & Barto (2nd ed.), Section 8.1 (Chapter 8).
+
+        Args:
+            next_state: See Section 8.1 and the implementation for its role.
+
+        Returns:
+            predecessors as defined in Section 8.1."""
+        # carry out the predecessors step (book Chapter 8).
         return sorted(self._predecessors.get(next_state, ()), key=repr)
 
 
@@ -264,21 +480,58 @@ def expected_q_target(
 
     Book Section 8.5, eq. (8.1): sum over s', r of p_hat(s', r | s, a) *
     [r + gamma * max_a' Q(s', a')].
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.5 (Chapter 8).
+
+    Args:
+        model: See Section 8.5 and the implementation for its role.
+        q_table: See Section 8.5 and the implementation for its role.
+        state: See Section 8.5 and the implementation for its role.
+        action: See Section 8.5 and the implementation for its role.
+        gamma: See Section 8.5 and the implementation for its role.
+        actions: See Section 8.5 and the implementation for its role.
+        terminal_states: See Section 8.5 and the implementation for its role.
+
+    Returns:
+        expected q target as defined in Section 8.5."""
+    # carry out the expected q target step (book Chapter 8).
     total = 0.0
+    # Iterate over (prob, reward, next_state): each item in model.distribution(state, action) ...
     for prob, reward, next_state in model.distribution(state, action):
+        # total: add value computed from its operands into the running value (book Chapter 8).
         total += prob * (reward + gamma * _max_q(q_table, next_state, actions, terminal_states))
     return total
 
 
 def _init_q(env: FiniteMDP, q_init: float = 0.0) -> dict:
+    """init q (reference implementation).
+
+
+    Args:
+        env: See the relevant book section and function body.
+        q_init: See the relevant book section and function body.
+
+    Returns:
+        Value produced by the implementation (see the book section).
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8)."""
+    # internal helper for the init q step (book Chapter 8).
     return {(s, a): q_init for s in env.states for a in env.actions}
 
 
 def _check_dyna_params(
     alpha: float, epsilon: float, gamma: float, kappa: float | None
 ) -> None:
-    """Validate the hyperparameters shared by the Dyna variants."""
+    """Validate the hyperparameters shared by the Dyna variants.
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+    Args:
+        alpha: See Section 8.2 and the implementation for its role.
+        epsilon: See Section 8.2 and the implementation for its role.
+        gamma: See Section 8.2 and the implementation for its role.
+        kappa: See Section 8.2 and the implementation for its role."""
+    # internal helper for the check dyna params step (book Chapter 8).
     if alpha <= 0.0:
         raise ValueError("alpha must be positive")
     if not 0.0 < epsilon <= 1.0:
@@ -300,7 +553,21 @@ def _observe_real_transition(
     next_state,
     time_steps: int,
 ) -> None:
-    """Store the real transition, remember the visit, and date the pair."""
+    """Store the real transition, remember the visit, and date the pair.
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+    Args:
+        model: See Section 8.2 and the implementation for its role.
+        visited_states: See Section 8.2 and the implementation for its role.
+        visited_set: See Section 8.2 and the implementation for its role.
+        last_tried: See Section 8.2 and the implementation for its role.
+        state: See Section 8.2 and the implementation for its role.
+        action: See Section 8.2 and the implementation for its role.
+        reward: See Section 8.2 and the implementation for its role.
+        next_state: See Section 8.2 and the implementation for its role.
+        time_steps: See Section 8.2 and the implementation for its role."""
+    # internal helper for the observe real transition step (book Chapter 8).
     model.observe(state, action, reward, next_state)
     if state not in visited_set:
         visited_set.add(state)
@@ -329,12 +596,33 @@ def _dyna_planning_updates(
     Each replay picks a pair, simulates its outcome, and backs it up. With
     `kappa` set (Dyna-Q+) never-tried pairs are considered as well, using a
     default self-loop model.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+    Args:
+        model: See Section 8.2 and the implementation for its role.
+        q_table: See Section 8.2 and the implementation for its role.
+        stats: See Section 8.2 and the implementation for its role.
+        actions: See Section 8.2 and the implementation for its role.
+        terminal_states: See Section 8.2 and the implementation for its role.
+        visited_states: See Section 8.2 and the implementation for its role.
+        last_tried: See Section 8.2 and the implementation for its role.
+        time_steps: See Section 8.2 and the implementation for its role.
+        planner: See Section 8.2 and the implementation for its role.
+        kappa: See Section 8.2 and the implementation for its role.
+        rng: See Section 8.2 and the implementation for its role.
+        alpha: See Section 8.2 and the implementation for its role.
+        gamma: See Section 8.2 and the implementation for its role.
+        n_planning: See Section 8.2 and the implementation for its role.
+
+    Returns:
+        dyna planning updates as defined in Section 8.2."""
     pops = 0
     for _ in range(n_planning):
         if not model.has_pairs():
             break
         if kappa is None:
+            # (ps, pa): result of model.sample_known_pair(...) (book Chapter 8).
             ps, pa = model.sample_known_pair(rng)
             untried = False
         else:
@@ -344,11 +632,15 @@ def _dyna_planning_updates(
             # a uniform action is equivalent to sampling uniformly from all
             # (s, a) pairs without materialising a potentially large list.
             ps = visited_states[int(rng.integers(len(visited_states)))]
+            # pa: element selected from the indexed collection (book Chapter 8).
             pa = actions[int(rng.integers(len(actions)))]
+            # untried: value derived from a unary operation (book Chapter 8).
             untried = not model.is_known(ps, pa)
         if untried:
+            # (sim_reward, sim_next): collection of the listed elements (book Chapter 8).
             sim_reward, sim_next = 0.0, ps
         elif planner == "sample":
+            # (sim_reward, sim_next): result of model.sample(...) (book Chapter 8).
             sim_reward, sim_next = model.sample(ps, pa, rng)
         else:  # "expected": book eq. (8.1), direct assignment
             sim_reward, sim_next = None, None
@@ -367,6 +659,7 @@ def _dyna_planning_updates(
                                (sim_reward if sim_reward is not None else 0.0) + bonus,
                                sim_next, alpha, gamma, actions, terminal_states)
         else:
+            # target: target value for the current update (book Chapter 8).
             target = expected_q_target(model, q_table, ps, pa, gamma,
                                        actions, terminal_states)
             # Sec. 8.3 bonus: add it to the modelled reward component (exact
@@ -374,7 +667,9 @@ def _dyna_planning_updates(
             # on stochastic models is not a book algorithm).
             target += bonus
             q_table[(ps, pa)] = target
+        # stats['planning_updates']: add literal constant value into the running value (book ...
         stats["planning_updates"] += 1
+        # pops: add literal constant value into the running value (book Chapter 8).
         pops += 1
     return pops
 
@@ -393,24 +688,57 @@ def _dyna_loop(
     kappa: float | None = None,
     step_callback=None,
 ):
+    """dyna loop (reference implementation).
+
+
+    Args:
+        env: See the relevant book section and function body.
+        planner: See the relevant book section and function body.
+        n_planning: See the relevant book section and function body.
+        n_episodes: See the relevant book section and function body.
+        alpha: See the relevant book section and function body.
+        epsilon: See the relevant book section and function body.
+        gamma: See the relevant book section and function body.
+        seed: See the relevant book section and function body.
+        max_steps: See the relevant book section and function body.
+        start_state: See the relevant book section and function body.
+        kappa: See the relevant book section and function body.
+        step_callback: See the relevant book section and function body.
+
+    Returns:
+        Value produced by the implementation (see the book section).
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8)."""
     _check_dyna_params(alpha, epsilon, gamma, kappa)
+    # rng: seeded random generator so runs are reproducible (book Chapter 8).
     rng = np.random.default_rng(seed)
+    # actions: all actions available in the MDP (book Chapter 8).
     actions = list(env.actions)
+    # terminal states: result of set(...) (book Chapter 8).
     terminal_states = set(env.terminal_states)
+    # q table: action-value estimates Q(s, a) (book Chapter 8).
     q_table = _init_q(env)
+    # model: result of TabularModel(...) (book Chapter 8).
     model = TabularModel()
+    # last tried: dict attribute/state used by the algorithm (book Chapter 8).
     last_tried: dict = {}
+    # visited states: list attribute/state used by the algorithm (book Chapter 8).
     visited_states: list = []
+    # visited set: set attribute/state used by the algorithm (book Chapter 8).
     visited_set: set = set()
     time_steps = 0
+    # stats: dictionary of key/value pairs (book Chapter 8).
     stats = {"episode_steps": [], "episode_rewards": [], "planning_updates": 0}
     for _loop_episode in range(n_episodes):
+        # state: current state of the environment or MDP (book Chapter 8).
         state = env.reset(start_state) if start_state is not None else env.reset()
         done = env.done
         steps = 0
         episode_reward = 0.0
         while not done and steps < max_steps:
+            # action: action selected for the current step (book Chapter 8).
             action = _epsilon_greedy_action(q_table, state, actions, epsilon, rng)
+            # (reward, next_state, done): result of env.step(...) (book Chapter 8).
             reward, next_state, done = env.step(action)
             # (d) direct RL: one-step tabular Q-learning on real experience
             _q_learning_update(q_table, state, action, reward, next_state,
@@ -418,6 +746,7 @@ def _dyna_loop(
             # (e) model-learning, plus the visit/staleness bookkeeping
             _observe_real_transition(model, visited_states, visited_set, last_tried,
                                      state, action, reward, next_state, time_steps)
+            # time_steps: add literal constant value into the running value (book Chapter 8).
             time_steps += 1
             # (f) planning: replay the learned model n_planning times
             pops = _dyna_planning_updates(
@@ -425,7 +754,9 @@ def _dyna_loop(
                 last_tried, time_steps, planner, kappa, rng, alpha, gamma, n_planning,
             )
             state = next_state
+            # steps: add literal constant value into the running value (book Chapter 8).
             steps += 1
+            # episode_reward: add reference to an existing value into the running value (book ...
             episode_reward += reward
             if step_callback is not None:
                 step_callback(_loop_episode, steps, state, q_table, pops)
@@ -470,6 +801,8 @@ def dyna_q(
         model is the learned TabularModel; stats holds episode lengths,
         episode rewards and the total number of planning updates performed.
     """
+    # carry out the dyna q step (book Chapter 8).
+    # gamma: discount factor for future rewards (book Chapter 8).
     gamma = env.gamma if gamma is None else gamma
     return _dyna_loop(env, "sample", n_planning, n_episodes, alpha, epsilon,
                       gamma, seed, max_steps, start_state, step_callback=step_callback)
@@ -515,8 +848,10 @@ def dyna_q_plus(
     Returns:
         (q_table, model, stats), same layout as dyna_q.
     """
+    # carry out the dyna q plus step (book Chapter 8).
     if kappa < 0.0:
         raise ValueError("kappa must be >= 0")
+    # gamma: discount factor for future rewards (book Chapter 8).
     gamma = env.gamma if gamma is None else gamma
     return _dyna_loop(env, "sample", n_planning, n_episodes, alpha, epsilon,
                       gamma, seed, max_steps, start_state, kappa=kappa,
@@ -532,23 +867,41 @@ class PriorityQueue:
     discarded lazily on pop). This matches the book's description: "if there
     is a previous entry of the pair in the queue, then insertion results in
     only the higher priority entry remaining in the queue".
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.4 (Chapter 8)."""
 
     def __init__(self) -> None:
+        """init (reference implementation).
+
+        Book: Sutton & Barto (2nd ed.), Section 8.4 (Chapter 8)."""
+        # initialize the parameters and state required by the algorithm (book Chapter 8).
         self._heap: list = []
         self._counter = itertools.count()
+        # self. best: dict attribute/state used by the algorithm (book Chapter 8).
         self._best: dict = {}
 
     def push(self, pair, priority: float) -> None:
-        """Insert `pair` with `priority`; stale lower-priority entries are dropped lazily."""
+        """Insert `pair` with `priority`; stale lower-priority entries are dropped lazily.
+
+        Book: Sutton & Barto (2nd ed.), Section 8.4 (Chapter 8).
+
+        Args:
+            pair: See Section 8.4 and the implementation for its role.
+            priority: See Section 8.4 and the implementation for its role."""
+        # carry out the push step (book Chapter 8).
         if priority <= 0.0:
             return
         self._best[pair] = priority
         heapq.heappush(self._heap, (-priority, next(self._counter), pair))
 
     def pop(self):
-        """Pop the highest-priority (pair, priority), or return None if empty."""
+        """Pop the highest-priority (pair, priority), or return None if empty.
+
+        Book: Sutton & Barto (2nd ed.), Section 8.4 (Chapter 8)."""
+        # carry out the pop step (book Chapter 8).
+        # Repeat while the condition holds: the algorithm's termination loop.
         while self._heap:
+            # (neg_prio, _, pair): result of heapq.heappop(...) (book Chapter 8).
             neg_prio, _, pair = heapq.heappop(self._heap)
             if self._best.get(pair) == -neg_prio:
                 del self._best[pair]
@@ -556,18 +909,41 @@ class PriorityQueue:
         return None
 
     def __len__(self) -> int:
-        """Return the number of queued (non-stale) entries."""
+        """Return the number of queued (non-stale) entries.
+
+
+        Returns:
+            len as defined in Section 8.4.
+
+        Book: Sutton & Barto (2nd ed.), Section 8.4 (Chapter 8)."""
+        # internal helper for the len step (book Chapter 8).
         return len(self._best)
 
     def empty(self) -> bool:
-        """Return True if no (non-stale) entries remain."""
+        """Return True if no (non-stale) entries remain.
+
+
+        Returns:
+            empty as defined in Section 8.4.
+
+        Book: Sutton & Barto (2nd ed.), Section 8.4 (Chapter 8)."""
+        # carry out the empty step (book Chapter 8).
         return not self._best
 
 
 def _check_sweep_params(
     alpha: float, epsilon: float, theta: float, gamma: float
 ) -> None:
-    """Validate the prioritized-sweeping hyperparameters."""
+    """Validate the prioritized-sweeping hyperparameters.
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+    Args:
+        alpha: See Section 8.2 and the implementation for its role.
+        epsilon: See Section 8.2 and the implementation for its role.
+        theta: See Section 8.2 and the implementation for its role.
+        gamma: See Section 8.2 and the implementation for its role."""
+    # internal helper for the check sweep params step (book Chapter 8).
     if alpha <= 0.0:
         raise ValueError("alpha must be positive")
     if not 0.0 < epsilon <= 1.0:
@@ -592,12 +968,32 @@ def _queue_real_transition(
     terminal_states: set,
     theta: float,
 ) -> None:
-    """Learn the real transition and queue it only if its change is nontrivial."""
+    """Learn the real transition and queue it only if its change is nontrivial.
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+    Args:
+        model: See Section 8.2 and the implementation for its role.
+        q_table: See Section 8.2 and the implementation for its role.
+        queue: See Section 8.2 and the implementation for its role.
+        stats: See Section 8.2 and the implementation for its role.
+        state: See Section 8.2 and the implementation for its role.
+        action: See Section 8.2 and the implementation for its role.
+        reward: See Section 8.2 and the implementation for its role.
+        next_state: See Section 8.2 and the implementation for its role.
+        gamma: See Section 8.2 and the implementation for its role.
+        actions: See Section 8.2 and the implementation for its role.
+        terminal_states: See Section 8.2 and the implementation for its role.
+        theta: See Section 8.2 and the implementation for its role."""
+    # internal helper for the queue real transition step (book Chapter 8).
     model.observe(state, action, reward, next_state)
+    # target: target value for the current update (book Chapter 8).
     target = reward + gamma * _max_q(q_table, next_state, actions, terminal_states)
+    # priority: absolute value (book Chapter 8).
     priority = abs(target - q_table[(state, action)])
     if priority > theta:
         queue.push((state, action), priority)
+        # stats['queue_pushes']: add literal constant value into the running value (book Chapter
         stats["queue_pushes"] += 1
 
 
@@ -617,26 +1013,56 @@ def _priority_planning_updates(
 
     A change to Q(s, a) can change the expected targets of every pair that
     leads into s, so those predecessors are the only ones worth reconsidering.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+    Args:
+        model: See Section 8.2 and the implementation for its role.
+        q_table: See Section 8.2 and the implementation for its role.
+        queue: See Section 8.2 and the implementation for its role.
+        stats: See Section 8.2 and the implementation for its role.
+        gamma: See Section 8.2 and the implementation for its role.
+        actions: See Section 8.2 and the implementation for its role.
+        terminal_states: See Section 8.2 and the implementation for its role.
+        theta: See Section 8.2 and the implementation for its role.
+        alpha: See Section 8.2 and the implementation for its role.
+        n_planning: See Section 8.2 and the implementation for its role.
+
+    Returns:
+        priority planning updates as defined in Section 8.2."""
+    # internal helper for the priority planning updates step (book Chapter 8).
     budget = n_planning
     pops = 0
+    # Repeat while the condition holds: the algorithm's termination loop.
     while budget > 0 and not queue.empty():
+        # (pair, _): result of queue.pop(...) (book Chapter 8).
         pair, _ = queue.pop()
+        # (ps, pa): reference to an existing value (book Chapter 8).
         ps, pa = pair
+        # new q: result of expected_q_target(...) (book Chapter 8).
         new_q = expected_q_target(model, q_table, ps, pa, gamma,
                                   actions, terminal_states)
+        # q_table[pair]: add value computed from its operands into the running value (book ...
         q_table[pair] += alpha * (new_q - q_table[pair])
+        # stats['updates']: add literal constant value into the running value (book Chapter 8).
         stats["updates"] += 1
+        # stats['planning_updates']: add literal constant value into the running value (book ...
         stats["planning_updates"] += 1
+        # budget: subtract literal constant value into the running value (book Chapter 8).
         budget -= 1
+        # pops: add literal constant value into the running value (book Chapter 8).
         pops += 1
+        # Iterate over pred_pair: each item in model.predecessors(ps) (book algorithm).
         for pred_pair in model.predecessors(ps):
+            # pred target: result of expected_q_target(...) (book Chapter 8).
             pred_target = expected_q_target(model, q_table, pred_pair[0],
                                             pred_pair[1], gamma,
                                             actions, terminal_states)
+            # pred priority: absolute value (book Chapter 8).
             pred_priority = abs(pred_target - q_table[pred_pair])
             if pred_priority > theta:
                 queue.push(pred_pair, pred_priority)
+                # stats['queue_pushes']: add literal constant value into the running value (book
                 stats["queue_pushes"] += 1
     return pops
 
@@ -681,14 +1107,22 @@ def prioritized_sweeping(
         (q_table, model, stats) with the same layout as dyna_q plus
         stats['queue_pushes'] and stats['updates'].
     """
+    # gamma: discount factor for future rewards (book Chapter 8).
     gamma = env.gamma if gamma is None else gamma
     _check_sweep_params(alpha, epsilon, theta, gamma)
+    # rng: seeded random generator so runs are reproducible (book Chapter 8).
     rng = np.random.default_rng(seed)
+    # actions: all actions available in the MDP (book Chapter 8).
     actions = list(env.actions)
+    # terminal states: result of set(...) (book Chapter 8).
     terminal_states = set(env.terminal_states)
+    # q table: action-value estimates Q(s, a) (book Chapter 8).
     q_table = _init_q(env)
+    # model: result of TabularModel(...) (book Chapter 8).
     model = TabularModel()
+    # queue: result of PriorityQueue(...) (book Chapter 8).
     queue = PriorityQueue()
+    # stats: dictionary of key/value pairs (book Chapter 8).
     stats = {
         "episode_steps": [],
         "episode_rewards": [],
@@ -698,12 +1132,15 @@ def prioritized_sweeping(
         "updates_per_step": [],
     }
     for _loop_episode in range(n_episodes):
+        # state: current state of the environment or MDP (book Chapter 8).
         state = env.reset(start_state) if start_state is not None else env.reset()
         done = env.done
         steps = 0
         episode_reward = 0.0
         while not done and steps < max_steps:
+            # action: action selected for the current step (book Chapter 8).
             action = _epsilon_greedy_action(q_table, state, actions, epsilon, rng)
+            # (reward, next_state, done): result of env.step(...) (book Chapter 8).
             reward, next_state, done = env.step(action)
             # (d)-(f) record the real transition and queue it if its change matters
             _queue_real_transition(model, q_table, queue, stats, state, action,
@@ -714,7 +1151,9 @@ def prioritized_sweeping(
                                               actions, terminal_states, theta,
                                               alpha, n_planning)
             state = next_state
+            # steps: add literal constant value into the running value (book Chapter 8).
             steps += 1
+            # episode_reward: add reference to an existing value into the running value (book ...
             episode_reward += reward
             stats["updates_per_step"].append(pops)
             if step_callback is not None:
@@ -738,16 +1177,34 @@ def expected_sweep(
     update at every known pair once per sweep is the small-MDP equivalent of
     the DP sweeps of Chapter 4. Returns the largest absolute change in any
     Q entry during the last sweep.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.5 (Chapter 8).
+
+    Args:
+        model: See Section 8.5 and the implementation for its role.
+        q_table: See Section 8.5 and the implementation for its role.
+        gamma: See Section 8.5 and the implementation for its role.
+        actions: See Section 8.5 and the implementation for its role.
+        terminal_states: See Section 8.5 and the implementation for its role.
+        sweeps: See Section 8.5 and the implementation for its role.
+
+    Returns:
+        expected sweep as defined in Section 8.5."""
+    # carry out the expected sweep step (book Chapter 8).
     max_change = 0.0
+    # Iterate over _: one pass per index (book algorithm).
     for _ in range(sweeps):
         max_change = 0.0
+        # Iterate over pair: each item in model.known_pairs() (book algorithm).
         for pair in model.known_pairs():
+            # (state, action): reference to an existing value (book Chapter 8).
             state, action = pair
             if state in terminal_states:
                 continue
+            # new q: result of expected_q_target(...) (book Chapter 8).
             new_q = expected_q_target(model, q_table, state, action, gamma,
                                       actions, terminal_states)
+            # max change: maximum of the values (book Chapter 8).
             max_change = max(max_change, abs(new_q - q_table[pair]))
             q_table[pair] = new_q
     return max_change
@@ -771,7 +1228,24 @@ def expected_dyna_q(
     update, and assigns the target directly (no step-size blending), matching
     the exact computation described in the book. Use expected_sweep for full
     distribution sweeps over all known pairs (the deterministic-style update).
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.5 (Chapter 8).
+
+    Args:
+        env: See Section 8.5 and the implementation for its role.
+        n_planning: See Section 8.5 and the implementation for its role.
+        n_episodes: See Section 8.5 and the implementation for its role.
+        alpha: See Section 8.5 and the implementation for its role.
+        epsilon: See Section 8.5 and the implementation for its role.
+        gamma: See Section 8.5 and the implementation for its role.
+        seed: See Section 8.5 and the implementation for its role.
+        max_steps: See Section 8.5 and the implementation for its role.
+        start_state: See Section 8.5 and the implementation for its role.
+
+    Returns:
+        expected dyna q as defined in Section 8.5."""
+    # carry out the expected dyna q step (book Chapter 8).
+    # gamma: discount factor for future rewards (book Chapter 8).
     gamma = env.gamma if gamma is None else gamma
     return _dyna_loop(env, "expected", n_planning, n_episodes, alpha, epsilon,
                       gamma, seed, max_steps, start_state)
@@ -784,22 +1258,41 @@ def optimal_q_values(
 
     Value iteration on v* with ch03's bellman_backup_optimality, then
     q*(s, a) = E[R + gamma * v*(s')]. Terminal state-action pairs map to 0.0.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+    Args:
+        mdp: See Section 8.2 and the implementation for its role.
+        tolerance: See Section 8.2 and the implementation for its role.
+        max_iterations: See Section 8.2 and the implementation for its role.
+
+    Returns:
+        optimal q values as defined in Section 8.2."""
+    # carry out the optimal q values step (book Chapter 8).
+    # values: state-value estimates V(s) (book Chapter 8).
     values = np.zeros(mdp.n_states, dtype=np.float64)
+    # Iterate over _: one pass per index (book algorithm).
     for _ in range(max_iterations):
+        # updated: result of bellman_backup_optimality(...) (book Chapter 8).
         updated = bellman_backup_optimality(mdp, values)
         if np.max(np.abs(updated - values)) < tolerance:
             values = updated
             break
         values = updated
+    # q star: dict attribute/state used by the algorithm (book Chapter 8).
     q_star: dict = {}
+    # Iterate over s: one pass per state (book algorithm).
     for s in mdp.states:
+        # Iterate over a: one pass per action (book algorithm).
         for a in mdp.actions:
             if s in mdp.terminal_states:
                 q_star[(s, a)] = 0.0
                 continue
+            # total: running total accumulator (book Chapter 8).
             total = mdp.expected_reward(s, a)
+            # Iterate over (p, _, ns): each item in mdp.transition_probs(s, a) (book algorithm).
             for p, _, ns in mdp.transition_probs(s, a):
+                # total: add value computed from its operands into the running value (book ...
                 total += mdp.gamma * p * values[mdp.state_index[ns]]
             q_star[(s, a)] = float(total)
     return q_star
@@ -826,12 +1319,39 @@ def compare_sample_vs_expected_dyna(
         dict with keys 'sample', 'expected' and 'q_star_max'. The 'sample'
         and 'expected' sub-dicts carry 'max_q_error', 'episode_steps' and
         'episode_rewards'.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.5 (Chapter 8).
+
+    Args:
+        env_factory: See Section 8.5 and the implementation for its role.
+        n_planning: See Section 8.5 and the implementation for its role.
+        n_episodes: See Section 8.5 and the implementation for its role.
+        alpha: See Section 8.5 and the implementation for its role.
+        epsilon: See Section 8.5 and the implementation for its role.
+        gamma: See Section 8.5 and the implementation for its role.
+        seed: See Section 8.5 and the implementation for its role.
+        start_state: See Section 8.5 and the implementation for its role."""
+    # carry out the compare sample vs expected dyna step (book Chapter 8).
+    # q star: result of optimal_q_values(...) (book Chapter 8).
     q_star = optimal_q_values(env_factory(seed))
 
     def _run(kind):
+        """run (reference implementation).
+
+
+        Args:
+            kind: See the relevant book section and function body.
+
+        Returns:
+            Value produced by the implementation (see the book section).
+
+        Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8)."""
+        # internal helper for the run step (book Chapter 8).
+        # env: environment instance being controlled (book Chapter 8).
         env = env_factory(seed)
+        # runner: value chosen conditionally (book Chapter 8).
         runner = dyna_q if kind == "sample" else expected_dyna_q
+        # (q_table, model, stats): result of runner(...) (book Chapter 8).
         q_table, model, stats = runner(
             env,
             n_planning=n_planning,
@@ -842,9 +1362,13 @@ def compare_sample_vs_expected_dyna(
             seed=seed,
             start_state=start_state,
         )
+        # known: result of model.known_pairs(...) (book Chapter 8).
         known = model.known_pairs()
+        # error: maximum of the values (book Chapter 8).
         error = max(abs(q_table[pair] - q_star[pair]) for pair in known)
+        # known error: floating-point conversion (book Chapter 8).
         known_error = float(error)
+        # all error: maximum of the values (book Chapter 8).
         all_error = max(abs(q_table[pair] - q_star[pair]) for pair in q_star)
         return {
             "max_q_error": float(all_error),
@@ -871,14 +1395,29 @@ def _epsilon_greedy_action_with_bonus(q_table, state, actions, epsilon, rng,
 
     The executed action maximises Q(s, a) + kappa * sqrt(tau(s, a)); Q itself
     stays an unbiased estimate of the return under the modelled rewards.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Exercise 8.4 (Chapter 8).
+
+    Args:
+        q_table: See Exercise 8.4 and the implementation for its role.
+        state: See Exercise 8.4 and the implementation for its role.
+        actions: See Exercise 8.4 and the implementation for its role.
+        epsilon: See Exercise 8.4 and the implementation for its role.
+        rng: See Exercise 8.4 and the implementation for its role.
+        kappa: See Exercise 8.4 and the implementation for its role.
+        time_steps: See Exercise 8.4 and the implementation for its role.
+        last_tried: See Exercise 8.4 and the implementation for its role."""
+    # internal helper for the epsilon greedy action with bonus step (book Chapter 8).
     if rng.random() < epsilon:
         return actions[int(rng.integers(len(actions)))]
+    # bonuses: array built from the supplied values (book Chapter 8).
     bonuses = np.array([
         kappa * np.sqrt(max(0, time_steps - last_tried.get((state, a), 0)))
         for a in actions
     ], dtype=np.float64)
+    # values: state-value estimates V(s) (book Chapter 8).
     values = np.array([q_table[(state, a)] for a in actions], dtype=np.float64) + bonuses
+    # best: best action or best value found so far (book Chapter 8).
     best = np.flatnonzero(values == values.max())
     return actions[int(rng.choice(best))]
 
@@ -893,7 +1432,8 @@ class ChangingGridworld:
     swapped when the clock reaches `change_step`. A caller's agent keeps its
     Q-table and TabularModel across the swap — the model is stale for the
     swapped cells, which is exactly the situation the book studies.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.3 (Chapter 8)."""
 
     def __init__(
         self,
@@ -907,6 +1447,22 @@ class ChangingGridworld:
         gamma: float = 0.95,
         seed: int | None = None,
     ) -> None:
+        """init (reference implementation).
+
+
+        Args:
+            rows: See the relevant book section and function body.
+            cols: See the relevant book section and function body.
+            start: See the relevant book section and function body.
+            goal: See the relevant book section and function body.
+            base_walls: See the relevant book section and function body.
+            alt_walls: See the relevant book section and function body.
+            change_step: See the relevant book section and function body.
+            gamma: See the relevant book section and function body.
+            seed: See the relevant book section and function body.
+
+        Book: Sutton & Barto (2nd ed.), Section 8.3 (Chapter 8)."""
+        # initialize the parameters and state required by the algorithm (book Chapter 8).
         self.rows = rows
         self.cols = cols
         self.start_state = start
@@ -922,35 +1478,95 @@ class ChangingGridworld:
 
     @property
     def actions(self):
+        """actions (reference implementation).
+
+
+        Returns:
+            Value produced by the implementation (see the book section).
+
+        Book: Sutton & Barto (2nd ed.), Section 8.3 (Chapter 8)."""
+        # carry out the actions step (book Chapter 8).
         return self._env.actions
 
     @property
     def terminal_states(self):
+        """terminal states (reference implementation).
+
+
+        Returns:
+            Value produced by the implementation (see the book section).
+
+        Book: Sutton & Barto (2nd ed.), Section 8.3 (Chapter 8)."""
+        # carry out the terminal states step (book Chapter 8).
         return self._env.terminal_states
 
     @property
     def gamma(self):
+        """gamma (reference implementation).
+
+
+        Returns:
+            Value produced by the implementation (see the book section).
+
+        Book: Sutton & Barto (2nd ed.), Section 8.3 (Chapter 8)."""
+        # carry out the gamma step (book Chapter 8).
         return self._env.gamma
 
     @property
     def done(self):
+        """done (reference implementation).
+
+
+        Returns:
+            Value produced by the implementation (see the book section).
+
+        Book: Sutton & Barto (2nd ed.), Section 8.3 (Chapter 8)."""
+        # carry out the done step (book Chapter 8).
         return self._env.done
 
     def reset(self, start_state: str | None = None) -> str:
+        """reset (reference implementation).
+
+
+        Args:
+            start_state: See the relevant book section and function body.
+
+        Returns:
+            Value produced by the implementation (see the book section).
+
+        Book: Sutton & Barto (2nd ed.), Section 8.3 (Chapter 8)."""
+        # reset internal state for a new episode (book Chapter 8).
+        # state: current state of the environment or MDP (book Chapter 8).
         state = self._env.reset(start_state if start_state is not None
                                 else self.start_state)
         self._current_state = state
         return state
 
     def step(self, action: str):
+        """step (reference implementation).
+
+
+        Args:
+            action: See the relevant book section and function body.
+
+        Returns:
+            Value produced by the implementation (see the book section).
+
+        Book: Sutton & Barto (2nd ed.), Section 8.3 (Chapter 8)."""
+        # advance one step and return the observed transition (book Chapter 8).
         self.steps += 1
         if self.steps == self._change_step + 1:
             self._swap()
+        # (reward, next_state, done): result of self._env.step(...) (book Chapter 8).
         reward, next_state, done = self._env.step(action)
         self._current_state = next_state
         return reward, next_state, done
 
     def _swap(self) -> None:
+        """swap (reference implementation).
+
+        Book: Sutton & Barto (2nd ed.), Section 8.3 (Chapter 8)."""
+        # internal helper for the swap step (book Chapter 8).
         self._env = make_gridworld(rows=self.rows, cols=self.cols, start=self.start_state,
                                    goal=self.goal, gamma=self._gamma, seed=None,
                                    walls=self._alt_walls)
@@ -958,6 +1574,20 @@ class ChangingGridworld:
 
 
 def _grid_state_strings(rows: int, cols: int, walls: list[str]) -> list:
+    """grid state strings (reference implementation).
+
+
+    Args:
+        rows: See the relevant book section and function body.
+        cols: See the relevant book section and function body.
+        walls: See the relevant book section and function body.
+
+    Returns:
+        Value produced by the implementation (see the book section).
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8)."""
+    # internal helper for the grid state strings step (book Chapter 8).
+    # wall set: result of set(...) (book Chapter 8).
     wall_set = set(walls)
     return [f"{r},{c}" for r in range(rows) for c in range(cols) if f"{r},{c}" not in wall_set]
 
@@ -969,15 +1599,19 @@ def changing_maze_layouts():
     start/goal labels, the shared row-2 barrier, the barrier after the blocking
     change, and the before/after walls for the shortcut maze.
     Grid: 6 rows x 10 cols, barrier along row 2, S bottom center, G top right.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.3 (Chapter 8)."""
+    # (start, goal): collection of the listed elements (book Chapter 8).
     start, goal = "5,4", "0,9"
     # blocking maze (Example 8.2): gap on the right initially; after the change,
     # the right passage is walled and the left passage (col 0) is open.
     barrier = [f"2,{c}" for c in range(10) if c != 9]
+    # blocking alt: collection built by comprehension (book Chapter 8).
     blocking_alt = [f"2,{c}" for c in range(10) if c != 0]
     # shortcut maze (Example 8.3): gap on the left initially; after the change,
     # a right-side shortcut (col 9) is ALSO opened; the left gap stays open.
     shortcut_base = [f"2,{c}" for c in range(10) if c != 0]
+    # shortcut alt: collection built by comprehension (book Chapter 8).
     shortcut_alt = [f"2,{c}" for c in range(10) if c not in (0, 9)]
     return start, goal, barrier, blocking_alt, shortcut_base, shortcut_alt
 
@@ -985,12 +1619,27 @@ def changing_maze_layouts():
 def _maze_experiment_env(
     layout: str, change_step: int, gamma: float, seed: int
 ) -> tuple[ChangingGridworld, str, list[str], list[str]]:
-    """Build the layout pair and the maze whose barrier swaps mid-run."""
+    """Build the layout pair and the maze whose barrier swaps mid-run.
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+    Args:
+        layout: See Section 8.2 and the implementation for its role.
+        change_step: See Section 8.2 and the implementation for its role.
+        gamma: See Section 8.2 and the implementation for its role.
+        seed: See Section 8.2 and the implementation for its role.
+
+    Returns:
+        maze experiment env as defined in Section 8.2."""
+    # internal helper for the maze experiment env step (book Chapter 8).
     start, goal, barrier, blocking_alt, shortcut_base, shortcut_alt = changing_maze_layouts()
     if layout == "blocking":
+        # (base_walls, alt_walls): collection of the listed elements (book Chapter 8).
         base_walls, alt_walls = barrier, blocking_alt
     else:
+        # (base_walls, alt_walls): collection of the listed elements (book Chapter 8).
         base_walls, alt_walls = shortcut_base, shortcut_alt
+    # env: environment instance being controlled (book Chapter 8).
     env = ChangingGridworld(6, 10, start, goal, base_walls, alt_walls,
                             change_step=change_step, gamma=gamma, seed=seed)
     return env, start, base_walls, alt_walls
@@ -1011,21 +1660,44 @@ def _maze_planning_updates(
     gamma: float,
     n_planning: int,
 ) -> None:
-    """Replay the model after each real step (identical to _dyna_loop)."""
+    """Replay the model after each real step (identical to _dyna_loop).
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+    Args:
+        model: See Section 8.2 and the implementation for its role.
+        q_table: See Section 8.2 and the implementation for its role.
+        agent: See Section 8.2 and the implementation for its role.
+        actions: See Section 8.2 and the implementation for its role.
+        terminal_states: See Section 8.2 and the implementation for its role.
+        visited_states: See Section 8.2 and the implementation for its role.
+        last_tried: See Section 8.2 and the implementation for its role.
+        time_steps: See Section 8.2 and the implementation for its role.
+        kappa: See Section 8.2 and the implementation for its role.
+        rng: See Section 8.2 and the implementation for its role.
+        alpha: See Section 8.2 and the implementation for its role.
+        gamma: See Section 8.2 and the implementation for its role.
+        n_planning: See Section 8.2 and the implementation for its role."""
     for _ in range(n_planning):
         if not model.has_pairs():
             break
         if agent in ("dyna_q", "selection_bonus"):
+            # (ps, pa): result of model.sample_known_pair(...) (book Chapter 8).
             ps, pa = model.sample_known_pair(rng)
+            # (sim_reward, sim_next): result of model.sample(...) (book Chapter 8).
             sim_reward, sim_next = model.sample(ps, pa, rng)
             bonus = 0.0
         else:  # dyna_q_plus
             ps = visited_states[int(rng.integers(len(visited_states)))]
+            # pa: element selected from the indexed collection (book Chapter 8).
             pa = actions[int(rng.integers(len(actions)))]
             if not model.is_known(ps, pa):
+                # (sim_reward, sim_next): collection of the listed elements (book Chapter 8).
                 sim_reward, sim_next = 0.0, ps
             else:
+                # (sim_reward, sim_next): result of model.sample(...) (book Chapter 8).
                 sim_reward, sim_next = model.sample(ps, pa, rng)
+            # tried: result of model.is_known(...) (book Chapter 8).
             tried = model.is_known(ps, pa)
             # Only a modelled pair can be stale. A never-tried pair uses the
             # default self-loop model and gets no sqrt(tau) bonus, otherwise
@@ -1062,32 +1734,62 @@ def changing_maze_experiment(
     time step.
 
     Returns (cumulative_reward, episode_rewards).
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.3 (Chapter 8).
+
+    Args:
+        layout: See Section 8.3 and the implementation for its role.
+        agent: See Section 8.3 and the implementation for its role.
+        change_step: See Section 8.3 and the implementation for its role.
+        n_episodes: See Section 8.3 and the implementation for its role.
+        n_planning: See Section 8.3 and the implementation for its role.
+        alpha: See Section 8.3 and the implementation for its role.
+        epsilon: See Section 8.3 and the implementation for its role.
+        gamma: See Section 8.3 and the implementation for its role.
+        kappa: See Section 8.3 and the implementation for its role.
+        seed: See Section 8.3 and the implementation for its role.
+        max_steps: See Section 8.3 and the implementation for its role.
+        steps_cap: See Section 8.3 and the implementation for its role.
+
+    Returns:
+        changing maze experiment as defined in Section 8.3."""
     if layout not in ("blocking", "shortcut"):
         raise ValueError("layout must be 'blocking' or 'shortcut'")
     if agent not in ("dyna_q", "dyna_q_plus", "selection_bonus"):
         raise ValueError(
             "agent must be 'dyna_q', 'dyna_q_plus' or 'selection_bonus'")
+    # (env, start, base_walls, alt_walls): result of _maze_experiment_env(...) (book Chapter 8).
     env, start, base_walls, alt_walls = _maze_experiment_env(layout, change_step, gamma, seed)
+    # rng: seeded random generator so runs are reproducible (book Chapter 8).
     rng = np.random.default_rng(seed)
     # Q-table covers the union of both barrier phases (a cell that becomes
     # walkable after the swap must have actions)
     walkable = set(_grid_state_strings(env.rows, env.cols, base_walls)) | \
         set(_grid_state_strings(env.rows, env.cols, alt_walls))
+    # q table: action-value estimates Q(s, a) (book Chapter 8).
     q_table = {(s, a): 0.0 for s in walkable for a in ACTIONS}
+    # model: result of TabularModel(...) (book Chapter 8).
     model = TabularModel()
+    # actions: all actions available in the MDP (book Chapter 8).
     actions = list(env.actions)
+    # terminal states: result of set(...) (book Chapter 8).
     terminal_states = set(env.terminal_states)
+    # last tried: dict attribute/state used by the algorithm (book Chapter 8).
     last_tried: dict = {}
+    # visited states: list attribute/state used by the algorithm (book Chapter 8).
     visited_states: list = []
+    # visited set: set attribute/state used by the algorithm (book Chapter 8).
     visited_set: set = set()
     time_steps = 0
+    # cumulative reward: collection of the listed elements (book Chapter 8).
     cumulative_reward = [0.0]
+    # episode rewards: collection of the listed elements (book Chapter 8).
     episode_rewards = []
     total_steps = 0
     for _loop_episode in range(n_episodes):
         if steps_cap is not None and time_steps >= steps_cap:
             break
+        # state: current state of the environment or MDP (book Chapter 8).
         state = env.reset(start)
         done = env.done
         steps = 0
@@ -1096,12 +1798,15 @@ def changing_maze_experiment(
             if steps_cap is not None and time_steps >= steps_cap:
                 break
             if agent == "selection_bonus":
+                # action: action selected for the current step (book Chapter 8).
                 action = _epsilon_greedy_action_with_bonus(
                     q_table, state, actions, epsilon, rng, kappa,
                     time_steps, last_tried)
             else:
+                # action: action selected for the current step (book Chapter 8).
                 action = _epsilon_greedy_action(
                     q_table, state, actions, epsilon, rng)
+            # (reward, next_state, done): result of env.step(...) (book Chapter 8).
             reward, next_state, done = env.step(action)
             _q_learning_update(q_table, state, action, reward, next_state,
                                alpha, gamma, actions, terminal_states)
@@ -1110,8 +1815,11 @@ def changing_maze_experiment(
                 visited_set.add(state)
                 visited_states.append(state)
             last_tried[(state, action)] = time_steps
+            # time_steps: add literal constant value into the running value (book Chapter 8).
             time_steps += 1
+            # episode_reward: add reference to an existing value into the running value (book ...
             episode_reward += reward
+            # total_steps: add literal constant value into the running value (book Chapter 8).
             total_steps += 1
             cumulative_reward.append(cumulative_reward[-1] + reward)
             # (f) planning: replay the model so the new reward information
@@ -1120,6 +1828,7 @@ def changing_maze_experiment(
                                    visited_states, last_tried, time_steps, kappa,
                                    rng, alpha, gamma, n_planning)
             state = next_state
+            # steps: add literal constant value into the running value (book Chapter 8).
             steps += 1
         if steps == 0:
             break
@@ -1147,19 +1856,36 @@ def plot_figure_8_3_dyna_maze(
     per episode for episodes 2..n_episodes (the first episode, ~1700 steps,
     is identical for all n because the same initial seed is held constant
     across algorithms, and is not shown). Averaged over `runs` repetitions.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+    Args:
+        save_path: See Section 8.2 and the implementation for its role.
+        show: See Section 8.2 and the implementation for its role.
+        planning_steps: See Section 8.2 and the implementation for its role.
+        n_episodes: See Section 8.2 and the implementation for its role.
+        runs: See Section 8.2 and the implementation for its role.
+        seed: See Section 8.2 and the implementation for its role."""
+    # render the book figure with matplotlib (book Chapter 8).
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    # book walls: collection of the listed elements (book Chapter 8).
     book_walls = ["1,2", "2,2", "3,2", "0,7", "1,7", "2,7", "4,5"]
+    # curves: averaged learning curves by configuration (book Chapter 8).
     curves = {n: np.zeros(n_episodes, dtype=np.float64) for n in planning_steps}
+    # Iterate over n: each item in planning_steps (book algorithm).
     for n in planning_steps:
+        # Iterate over r: one pass per index (book algorithm).
         for r in range(runs):
+            # rs: value computed from its operands (book Chapter 8).
             rs = seed + r * _SEED_STRIDE
+            # env: environment instance being controlled (book Chapter 8).
             env = make_gridworld(rows=6, cols=9, start="2,0", goal="0,8",
                                  gamma=0.95, seed=rs, walls=book_walls)
+            # (_, _, stats): result of dyna_q(...) (book Chapter 8).
             _, _, stats = dyna_q(
                 env,
                 n_planning=n,
@@ -1171,10 +1897,14 @@ def plot_figure_8_3_dyna_maze(
                 max_steps=10000,
                 start_state="2,0",
             )
+            # curves[n]: add array built from the supplied values into the running value (book ...
             curves[n] += np.array(stats["episode_steps"], dtype=np.float64)
+        # curves[n]: divide reference to an existing value into the running value (book Chapter 8).
         curves[n] /= runs
 
+    # (fig, ax): result of plt.subplots(...) (book Chapter 8).
     fig, ax = plt.subplots(figsize=(7.5, 4.5))
+    # Iterate over n: each item in planning_steps (book algorithm).
     for n in planning_steps:
         ax.plot(np.arange(2, n_episodes + 1), curves[n][1:], label=f"n={n} planning steps")
     ax.set_xlim(2, n_episodes)
@@ -1195,13 +1925,36 @@ def plot_figure_8_3_dyna_maze(
 
 def _episode2_mid_snapshot(n_planning: int = 50, seed: int = 0):
     """Replay the first two Dyna maze episodes and capture state/Q at the
-    midpoint of episode 2 (book, Fig. 8.4)."""
+    midpoint of episode 2 (book, Fig. 8.4).
+
+    Book: Sutton & Barto (2nd ed.), Figure 8.4 (Chapter 8).
+
+    Args:
+        n_planning: See Figure 8.4 and the implementation for its role.
+        seed: See Figure 8.4 and the implementation for its role."""
+    # book walls: collection of the listed elements (book Chapter 8).
     book_walls = ["1,2", "2,2", "3,2", "0,7", "1,7", "2,7", "4,5"]
+    # env: environment instance being controlled (book Chapter 8).
     env = make_gridworld(rows=6, cols=9, start="2,0", goal="0,8",
                          gamma=0.95, seed=seed, walls=book_walls)
+    # log: collection of the listed elements (book Chapter 8).
     log = []
 
     def cb(ep, steps, state, q_table, pops):
+        """cb (reference implementation).
+
+
+        Args:
+            ep: See the relevant book section and function body.
+            steps: See the relevant book section and function body.
+            state: See the relevant book section and function body.
+            q_table: See the relevant book section and function body.
+            pops: See the relevant book section and function body.
+
+        Returns:
+            Value produced by the implementation (see the book section).
+
+        Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8)."""
         if ep == 1:  # second episode
             log.append((steps, state, dict(q_table)))
 
@@ -1210,17 +1963,35 @@ def _episode2_mid_snapshot(n_planning: int = 50, seed: int = 0):
            step_callback=cb)
     if not log:
         raise RuntimeError("episode 2 produced no steps")
+    # idx: value computed from its operands (book Chapter 8).
     idx = len(log) // 2
     return {"steps": log[idx][0], "state": log[idx][1],
             "q_table": log[idx][2], "episode_len": len(log)}
 
 
 def _draw_policy_panel(ax, q_table, agent_state, title):
+    """draw policy panel (reference implementation).
+
+
+    Args:
+        ax: See the relevant book section and function body.
+        q_table: See the relevant book section and function body.
+        agent_state: See the relevant book section and function body.
+        title: See the relevant book section and function body.
+
+    Returns:
+        Value produced by the implementation (see the book section).
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8)."""
     import matplotlib.pyplot as plt
 
+    # (rows, cols): collection of the listed elements (book Chapter 8).
     rows, cols = 6, 9
+    # book walls: collection of the listed elements (book Chapter 8).
     book_walls = {"1,2", "2,2", "3,2", "0,7", "1,7", "2,7", "4,5"}
+    # Iterate over wall: each item in book_walls (book algorithm).
     for wall in book_walls:
+        # (r, c): collection built by comprehension (book Chapter 8).
         r, c = (int(x) for x in wall.split(","))
         ax.add_patch(plt.Rectangle((c - 0.5, r - 0.5), 1, 1,
                                    facecolor="#4d4d4d", edgecolor="black"))
@@ -1228,22 +1999,29 @@ def _draw_policy_panel(ax, q_table, agent_state, title):
             fontweight="bold", color="white")
     ax.text(8, 0, "G", ha="center", va="center", fontsize=13,
             fontweight="bold", color="#0b7a0b")
+    # deltas: per-step TD errors or differences (book Chapter 8).
     deltas = {"up": (-1, 0), "down": (1, 0), "left": (0, -1), "right": (0, 1)}
+    # actions: all actions available in the MDP (book Chapter 8).
     actions = ["up", "down", "left", "right"]
     for r in range(rows):
         for c in range(cols):
+            # cell: intermediate value used by the algorithm (book Chapter 8).
             cell = f"{r},{c}"
             if cell in book_walls or cell == "0,8":
                 continue
+            # vals: collection built by comprehension (book Chapter 8).
             vals = [q_table.get((cell, a), 0.0) for a in actions]
+            # best: best action or best value found so far (book Chapter 8).
             best = max(vals)
             if vals.count(best) > 1:
                 continue  # no arrow when action values are tied (book rule)
             a = actions[vals.index(best)]
+            # (dr, dc): element selected from the indexed collection (book Chapter 8).
             dr, dc = deltas[a]
             ax.arrow(c, r, dc * 0.32, dr * 0.32, width=0.03,
                      head_width=0.11, head_length=0.08, color="black",
                      length_includes_head=True)
+    # (ar, ac): collection built by comprehension (book Chapter 8).
     ar, ac = (int(x) for x in agent_state.split(","))
     ax.add_patch(plt.Rectangle((ac - 0.22, ar - 0.22), 0.44, 0.44,
                                facecolor="black", edgecolor="white", linewidth=1.5))
@@ -1265,16 +2043,25 @@ def plot_figure_8_4_policies(save_path: str | None = None, show: bool = False,
     the greedy action in each state; states whose action values are all equal
     (e.g. everything unvisited, or tied) get no arrow. The black square marks
     the agent's location at the snapshot (midpoint of episode 2).
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+    Args:
+        save_path: See Section 8.2 and the implementation for its role.
+        show: See Section 8.2 and the implementation for its role.
+        seed: See Section 8.2 and the implementation for its role."""
+    # render the book figure with matplotlib (book Chapter 8).
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    # snaps: dictionary of key/value pairs (book Chapter 8).
     snaps = {
         "n=0": _episode2_mid_snapshot(n_planning=0, seed=seed),
         "n=50": _episode2_mid_snapshot(n_planning=50, seed=seed),
     }
+    # (fig, axes): result of plt.subplots(...) (book Chapter 8).
     fig, axes = plt.subplots(1, 2, figsize=(13.5, 5.2))
     _draw_policy_panel(axes[0], snaps["n=0"]["q_table"], snaps["n=0"]["state"],
                        "WITHOUT PLANNING (N=0)")
@@ -1303,17 +2090,39 @@ def _average_maze_curves(
     seed: int,
     agents: tuple[str, ...],
 ) -> dict:
-    """Average the cumulative-reward curves over independent maze runs."""
+    """Average the cumulative-reward curves over independent maze runs.
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+    Args:
+        layout: See Section 8.2 and the implementation for its role.
+        change_step: See Section 8.2 and the implementation for its role.
+        steps_cap: See Section 8.2 and the implementation for its role.
+        runs: See Section 8.2 and the implementation for its role.
+        n_episodes: See Section 8.2 and the implementation for its role.
+        seed: See Section 8.2 and the implementation for its role.
+        agents: See Section 8.2 and the implementation for its role.
+
+    Returns:
+        average maze curves as defined in Section 8.2."""
+    # internal helper for the average maze curves step (book Chapter 8).
+    # curves: averaged learning curves by configuration (book Chapter 8).
     curves = {}
+    # Iterate over agent: each item in agents (book algorithm).
     for agent in agents:
+        # acc: zero-filled array (book Chapter 8).
         acc = np.zeros(steps_cap + 1, dtype=np.float64)
+        # Iterate over r: one pass per index (book algorithm).
         for r in range(runs):
+            # rs: value computed from its operands (book Chapter 8).
             rs = seed + r * _SEED_STRIDE
+            # (cum, _): result of changing_maze_experiment(...) (book Chapter 8).
             cum, _ = changing_maze_experiment(
                 layout=layout, agent=agent, change_step=change_step,
                 n_episodes=n_episodes, n_planning=5, alpha=0.1, epsilon=0.1,
                 gamma=0.95, kappa=1e-4, seed=rs, max_steps=400,
                 steps_cap=steps_cap)
+            # acc[:len(cum)]: add array built from the supplied values into the running value ...
             acc[:len(cum)] += np.array(cum, dtype=np.float64)
         curves[agent] = acc / runs
     return curves
@@ -1338,26 +2147,46 @@ def plot_changing_maze(layout: str, change_step: int, steps_cap: int,
     never-tried pairs dilutes goal-reward propagation), so the phase-1 ordering
     is the opposite of the book's. The plots are therefore named
     ``example_8_2_*`` / ``example_8_3_*`` and must not be cited as Fig. 8.5/8.6.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.3 (Chapter 8).
+
+    Args:
+        layout: See Section 8.3 and the implementation for its role.
+        change_step: See Section 8.3 and the implementation for its role.
+        steps_cap: See Section 8.3 and the implementation for its role.
+        save_path: See Section 8.3 and the implementation for its role.
+        show: See Section 8.3 and the implementation for its role.
+        runs: See Section 8.3 and the implementation for its role.
+        n_episodes: See Section 8.3 and the implementation for its role.
+        seed: See Section 8.3 and the implementation for its role.
+        agents: See Section 8.3 and the implementation for its role."""
+    # render the book figure with matplotlib (book Chapter 8).
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    # curves: averaged learning curves by configuration (book Chapter 8).
     curves = _average_maze_curves(layout, change_step, steps_cap, runs,
                                   n_episodes, seed, agents)
 
+    # (fig, ax): result of plt.subplots(...) (book Chapter 8).
     fig, ax = plt.subplots(figsize=(8, 4.5))
+    # x: state feature vector (book Chapter 8).
     x = np.arange(steps_cap + 1)
+    # styles: dictionary of key/value pairs (book Chapter 8).
     styles = {"dyna_q": ("Dyna-Q", "-"), "dyna_q_plus": ("Dyna-Q+", "--"),
               "selection_bonus": ("Selection-only bonus (Ex. 8.4)", ":")}
+    # Iterate over agent: each item in agents (book algorithm).
     for agent in agents:
+        # (label, style): element selected from the indexed collection (book Chapter 8).
         label, style = styles[agent]
         ax.plot(x, curves[agent], label=label, linestyle=style)
     ax.axvline(change_step, color="red", linestyle=":", linewidth=1.2,
                label=f"layout changes at t={change_step}")
     ax.set_xlabel("Time steps")
     ax.set_ylabel("Cumulative reward")
+    # ex: value chosen conditionally (book Chapter 8).
     ex = "Example 8.2" if layout == "blocking" else "Example 8.3"
     ax.set_title(f"S&B (2nd ed.), Sec. 8.3, {ex}: {layout} maze\n"
                  "illustrative reconstruction — not a book-figure reproduction")
@@ -1382,16 +2211,27 @@ def plot_figure_8_8_update_efficiency(save_path: str | None = None, show: bool =
     the error to 0, at a cost of b computations. x-axis: number of
     computations (log scale), y-axis: RMS error. Book x-axes show 0, 1, b,
     2b per curve; the log-scale shared axis here conveys the same comparison.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.5 (Chapter 8).
+
+    Args:
+        save_path: See Section 8.5 and the implementation for its role.
+        show: See Section 8.5 and the implementation for its role."""
+    # render the book figure with matplotlib (book Chapter 8).
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    # (fig, ax): result of plt.subplots(...) (book Chapter 8).
     fig, ax = plt.subplots(figsize=(8, 5))
+    # xs: result of np.logspace(...) (book Chapter 8).
     xs = np.logspace(0, 5, 400)
+    # Iterate over b: each item in (2, 10, 100, 1000, 10000) (book algorithm).
     for b in (2, 10, 100, 1000, 10000):
+        # ys: square root of the operand (book Chapter 8).
         ys = np.sqrt((b - 1.0) / (b * xs))
+        # ys: result of np.where(...) (book Chapter 8).
         ys = np.where(xs <= 2.0 * b, ys, np.nan)
         ax.plot(xs, ys, label=f"sample updates, b={b}")
         ax.plot([b, b], [0.0, 1.0], linestyle=":", linewidth=1, alpha=0.35)
@@ -1421,12 +2261,18 @@ def plot_figure_8_10_heuristic_search(save_path: str | None = None, show: bool =
     the search path receive updates; the ordering is what makes the
     backups informative so early. Simplified schematic redrawn for this repo;
     it is not a facsimile of the printed figure.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.8 (Chapter 8).
+
+    Args:
+        save_path: See Section 8.8 and the implementation for its role.
+        show: See Section 8.8 and the implementation for its role."""
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    # nodes: collection of the listed elements (book Chapter 8).
     nodes = [
         (0.0, 6.0, "10"),   # root
         (-2.0, 4.0, "7"),   # left child
@@ -1439,11 +2285,15 @@ def plot_figure_8_10_heuristic_search(save_path: str | None = None, show: bool =
         (-2.25, 0.0, "3"),
         (-1.0, 0.0, "4"),
     ]
+    # edges: collection of the listed elements (book Chapter 8).
     edges = [(0, 1), (0, 2), (1, 3), (1, 4), (2, 5), (3, 6), (3, 7), (3, 8), (4, 9)]
+    # (fig, ax): result of plt.subplots(...) (book Chapter 8).
     fig, ax = plt.subplots(figsize=(8, 6))
+    # Iterate over (a, b): each item in edges (book algorithm).
     for a, b in edges:
         ax.plot([nodes[a][0], nodes[b][0]], [nodes[a][1], nodes[b][1]],
                 color="0.35", linewidth=1.4, zorder=1)
+    # Iterate over (x, y, label): each item in nodes (book algorithm).
     for x, y, label in nodes:
         ax.add_patch(plt.Rectangle((x - 0.42, y - 0.42), 0.84, 0.84,
                                    facecolor="#e8e8e8", edgecolor="black",
@@ -1466,7 +2316,15 @@ def plot_figure_8_10_heuristic_search(save_path: str | None = None, show: bool =
 
 
 def _backup_panel(ax, row: str, kind: str, label: str):
-    """Draw one backup diagram: simplified schematic of the 2nd-ed. Fig. 8.7."""
+    """Draw one backup diagram: simplified schematic of the 2nd-ed. Fig. 8.7.
+
+    Book: Sutton & Barto (2nd ed.), Figure 8.7 (Chapter 8).
+
+    Args:
+        ax: See Figure 8.7 and the implementation for its role.
+        row: See Figure 8.7 and the implementation for its role.
+        kind: See Figure 8.7 and the implementation for its role.
+        label: See Figure 8.7 and the implementation for its role."""
     import matplotlib.pyplot as plt
 
     ax.set_xlim(0, 10)
@@ -1476,10 +2334,12 @@ def _backup_panel(ax, row: str, kind: str, label: str):
     is_action_root = row.startswith("q")  # q-row: square (action) at left
     circle = lambda x, y, r=0.52, fc="white": ax.add_patch(
         plt.Circle((x, y), r, facecolor=fc, edgecolor="black", linewidth=1.4, zorder=3))
+    # square: small anonymous helper function (book Chapter 8).
     square = lambda x, y, r=0.52, fc="black": ax.add_patch(
         plt.Rectangle((x - r, y - r), 2 * r, 2 * r, facecolor=fc,
                       edgecolor="black", linewidth=1.4, zorder=3))
 
+    # root: collection of the listed elements (book Chapter 8).
     root = (1.1, 5.0)
     if is_action_root:
         square(*root, fc="white")  # square = action node
@@ -1494,8 +2354,10 @@ def _backup_panel(ax, row: str, kind: str, label: str):
         child_rows = [7.0, 3.0]  # v-pi: policy-weighted actions
 
     child_ax = 4.2
+    # node axes: collection of the listed elements (book Chapter 8).
     node_axes = [root]
     for child_y in child_rows:
+        # edge kw: dictionary built from the pairs (book Chapter 8).
         edge_kw = dict(color="0.25", linewidth=1.3, zorder=1)
         ax.plot([root[0] + 0.55, child_ax - 0.55], [root[1], child_y], **edge_kw)
         if is_action_root:
@@ -1504,7 +2366,9 @@ def _backup_panel(ax, row: str, kind: str, label: str):
         else:
             square(child_ax, child_y, fc="white")   # action
             node_axes.append((child_ax, child_y))
+            # leaf rows: value chosen conditionally (book Chapter 8).
             leaf_rows = [child_y + 1.1, child_y - 1.1] if kind == "expected" else [child_y]
+            # Iterate over leaf_y: each item in leaf_rows (book algorithm).
             for leaf_y in leaf_rows:
                 ax.plot([child_ax + 0.55, 7.4 - 0.55], [child_y, leaf_y], **edge_kw)
                 circle(7.4, leaf_y)
@@ -1522,23 +2386,33 @@ def plot_figure_8_7_backup_diagrams(save_path: str | None = None, show: bool = F
 
     Redrawn simplified schematic; not a facsimile of the printed figure.
     Rows: v_pi / v* (state values), q_pi / q* (action values).
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.4 (Chapter 8).
+
+    Args:
+        save_path: See Section 8.4 and the implementation for its role.
+        show: See Section 8.4 and the implementation for its role."""
+    # render the book figure with matplotlib (book Chapter 8).
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    # (fig, axes): result of plt.subplots(...) (book Chapter 8).
     fig, axes = plt.subplots(4, 2, figsize=(11, 12))
+    # rows: collection of the listed elements (book Chapter 8).
     rows = [
         ("v_pi", "vπ(s)", "policy evaluation", "TD(0)"),
         ("v_*", "v*(s)", "value iteration", "(no useful update)"),
         ("q_pi", "qπ(s, a)", "q-policy evaluation", "Sarsa"),
         ("q_*", "q*(s, a)", "q-value iteration", "Q-learning"),
     ]
+    # Iterate over (i, (row, title, exp_label, samp_label)): indexed entries (book algorithm).
     for i, (row, title, exp_label, samp_label) in enumerate(rows):
         _backup_panel(axes[i, 0], row, "expected", f"{title} expected: {exp_label}")
         _backup_panel(axes[i, 1], row, "sample", f"{title} sample: {samp_label}")
     axes[0, 0].set_ylabel("state values / action values")
+    # Iterate over (j, col): indexed entries (book algorithm).
     for j, col in enumerate(("Expected update (tabular DP)", "Sample update (one-step TD)")):
         axes[0, j].text(5.0, 10.4, col, ha="center", va="bottom", fontsize=11,
                         fontweight="bold")
@@ -1567,11 +2441,22 @@ def _make_random_task(n_states: int, b: int, rng: np.random.Generator):
     not print the reward model; any non-trivial reward works because the
     termination probability is action-independent, so expected episode
     length is policy-independent). Undiscounted.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Figure 8.9 (Chapter 8).
+
+    Args:
+        n_states: See Figure 8.9 and the implementation for its role.
+        b: See Figure 8.9 and the implementation for its role.
+        rng: See Figure 8.9 and the implementation for its role."""
+    # internal helper for the make random task step (book Chapter 8).
+    # succ: result of np.empty(...) (book Chapter 8).
     succ = np.empty((n_states, 2, b), dtype=np.int64)
+    # Iterate over s: one pass per state (book algorithm).
     for s in range(n_states):
+        # Iterate over a: one pass per index (book algorithm).
         for a in range(2):
             succ[s, a] = rng.choice(n_states, size=b, replace=False)
+    # rewards: per-step reward accumulation buffer (book Chapter 8).
     rewards = rng.random((n_states, 2))
     return succ, rewards
 
@@ -1582,7 +2467,17 @@ def _greedy_value_start(succ: np.ndarray, rewards: np.ndarray, q: np.ndarray) ->
     Returns max_a Q(0, a). (The book's y-axis starts at 0 and rises with
     updates; that is the learned action value, not the exact v of the
     induced greedy policy, which is constant-ish under U[0,1] rewards.)
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+    Args:
+        succ: See Section 8.2 and the implementation for its role.
+        rewards: See Section 8.2 and the implementation for its role.
+        q: See Section 8.2 and the implementation for its role.
+
+    Returns:
+        greedy value start as defined in Section 8.2."""
+    # internal helper for the greedy value start step (book Chapter 8).
     return float(q[0].max())
 
 
@@ -1594,6 +2489,22 @@ _POLICY_SEED_OFFSET = 100003
 
 def _expected_update(succ: np.ndarray, rewards: np.ndarray, q: np.ndarray,
                      s: int, a: int) -> float:
+    """expected update (reference implementation).
+
+
+    Args:
+        succ: See the relevant book section and function body.
+        rewards: See the relevant book section and function body.
+        q: See the relevant book section and function body.
+        s: See the relevant book section and function body.
+        a: See the relevant book section and function body.
+
+    Returns:
+        Value produced by the implementation (see the book section).
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8)."""
+    # internal helper for the expected update step (book Chapter 8).
+    # nxt: element selected from the indexed collection (book Chapter 8).
     nxt = succ[s, a]
     return rewards[s, a] + 0.9 * q[nxt].max(axis=1).mean()
 
@@ -1604,21 +2515,41 @@ def _uniform_backup_values(
     checkpoints: np.ndarray,
     n_states: int,
 ) -> list[float]:
-    """Cycle through all pairs in place, recording values at checkpoints."""
+    """Cycle through all pairs in place, recording values at checkpoints.
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+    Args:
+        succ: See Section 8.2 and the implementation for its role.
+        rewards: See Section 8.2 and the implementation for its role.
+        checkpoints: See Section 8.2 and the implementation for its role.
+        n_states: See Section 8.2 and the implementation for its role.
+
+    Returns:
+        uniform backup values as defined in Section 8.2."""
+    # internal helper for the uniform backup values step (book Chapter 8).
+    # q: action-value estimate Q(s, a) (book Chapter 8).
     q = np.zeros((n_states, 2), dtype=np.float64)
     updates = 0
+    # vals: list[float] attribute/state used by the algorithm (book Chapter 8).
     vals: list[float] = []
     ck_idx = 0
+    # (s, a): collection of the listed elements (book Chapter 8).
     s, a = 0, 0
+    # Repeat while the condition holds: the algorithm's termination loop.
     while ck_idx < len(checkpoints):
         q[s, a] = _expected_update(succ, rewards, q, s, a)
+        # updates: add literal constant value into the running value (book Chapter 8).
         updates += 1
         if updates >= checkpoints[ck_idx]:
             vals.append(_greedy_value_start(succ, rewards, q))
+            # ck_idx: add literal constant value into the running value (book Chapter 8).
             ck_idx += 1
+        # a: add literal constant value into the running value (book Chapter 8).
         a += 1
         if a == 2:
             a = 0
+            # s: add literal constant value into the running value (book Chapter 8).
             s += 1
             if s == n_states:
                 s = 0
@@ -1634,33 +2565,61 @@ def _onpolicy_backup_values(
     policy_seed: int,
     epsilon: float,
 ) -> list[float]:
-    """Follow episodes from state 0, updating only the pairs actually taken."""
+    """Follow episodes from state 0, updating only the pairs actually taken.
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+    Args:
+        succ: See Section 8.2 and the implementation for its role.
+        rewards: See Section 8.2 and the implementation for its role.
+        checkpoints: See Section 8.2 and the implementation for its role.
+        n_states: See Section 8.2 and the implementation for its role.
+        b: See Section 8.2 and the implementation for its role.
+        policy_seed: See Section 8.2 and the implementation for its role.
+        epsilon: See Section 8.2 and the implementation for its role.
+
+    Returns:
+        onpolicy backup values as defined in Section 8.2."""
+    # internal helper for the onpolicy backup values step (book Chapter 8).
+    # rng: seeded random generator so runs are reproducible (book Chapter 8).
     rng = np.random.default_rng(policy_seed)
+    # q: action-value estimate Q(s, a) (book Chapter 8).
     q = np.zeros((n_states, 2), dtype=np.float64)
     updates = 0
+    # vals: list[float] attribute/state used by the algorithm (book Chapter 8).
     vals: list[float] = []
     ck_idx = 0
+    # Repeat while the condition holds: the algorithm's termination loop.
     while ck_idx < len(checkpoints):
         s = 0
+        # Repeat while the condition holds: the algorithm's termination loop.
         while True:
+            # vals q: element selected from the indexed collection (book Chapter 8).
             vals_q = q[s]
             if rng.random() < epsilon:
+                # a: integer conversion (book Chapter 8).
                 a = int(rng.integers(0, 2))
             else:
+                # best: best action or best value found so far (book Chapter 8).
                 best = vals_q.max()
                 if (vals_q == best).sum() == 2:
+                    # a: integer conversion (book Chapter 8).
                     a = int(rng.integers(0, 2))
                 else:
+                    # a: integer conversion (book Chapter 8).
                     a = int(np.argmax(vals_q))
             q[s, a] = _expected_update(succ, rewards, q, s, a)
+            # updates: add literal constant value into the running value (book Chapter 8).
             updates += 1
             if updates >= checkpoints[ck_idx]:
                 vals.append(_greedy_value_start(succ, rewards, q))
+                # ck_idx: add literal constant value into the running value (book Chapter 8).
                 ck_idx += 1
                 if ck_idx == len(checkpoints):
                     break
             if rng.random() < _TERMINATION_PROB:
                 break
+            # s: current state index (book Chapter 8).
             s = int(succ[s, a, rng.integers(0, b)])
     return vals
 
@@ -1686,25 +2645,46 @@ def trajectory_sampling_experiment(
     Returns (updates_grid, uniform_v, onpolicy_v) with arrays of shape
     (n_checkpoints,) in full-backup units times `tasks` repetitions averaged,
     plus the raw per-task values for inspection.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.6 (Chapter 8).
+
+    Args:
+        n_states: See Section 8.6 and the implementation for its role.
+        b: See Section 8.6 and the implementation for its role.
+        tasks: See Section 8.6 and the implementation for its role.
+        full_backups_max: See Section 8.6 and the implementation for its role.
+        n_checkpoints: See Section 8.6 and the implementation for its role.
+        seed: See Section 8.6 and the implementation for its role.
+        epsilon: See Section 8.6 and the implementation for its role."""
     pair_updates_max = int(full_backups_max * n_states * 2)  # noqa: F841
     checkpoints = np.unique(np.round(
         np.linspace(0.05, full_backups_max, n_checkpoints) * n_states * 2).astype(np.int64))
+    # uniform vals: collection of the listed elements (book Chapter 8).
     uniform_vals = []
+    # onpolicy vals: collection of the listed elements (book Chapter 8).
     onpolicy_vals = []
+    # Iterate over t: one pass per index (book algorithm).
     for t in range(tasks):
+        # rng: seeded random generator so runs are reproducible (book Chapter 8).
         rng = np.random.default_rng(seed + t)
+        # (succ, rewards): result of _make_random_task(...) (book Chapter 8).
         succ, rewards = _make_random_task(n_states, b, rng)
+        # Iterate over dist: each item in ("uniform", "onpolicy") (book algorithm).
         for dist in ("uniform", "onpolicy"):
             if dist == "uniform":
+                # vals: result of _uniform_backup_values(...) (book Chapter 8).
                 vals = _uniform_backup_values(succ, rewards, checkpoints, n_states)
             else:
+                # vals: result of _onpolicy_backup_values(...) (book Chapter 8).
                 vals = _onpolicy_backup_values(succ, rewards, checkpoints, n_states,
                                                b, seed + _POLICY_SEED_OFFSET + t,
                                                epsilon)
             (uniform_vals if dist == "uniform" else onpolicy_vals).append(vals)
+    # uniform arr: array built from the supplied values (book Chapter 8).
     uniform_arr = np.array(uniform_vals)
+    # onpolicy arr: array built from the supplied values (book Chapter 8).
     onpolicy_arr = np.array(onpolicy_vals)
+    # grid: value computed from its operands (book Chapter 8).
     grid = checkpoints / (n_states * 2)
     return grid, uniform_arr.mean(axis=0), onpolicy_arr.mean(axis=0)
 
@@ -1721,15 +2701,27 @@ def plot_figure_8_9_trajectory_sampling(
     reduced for tractability — illustrative reproduction). Averaged over
     `tasks` random tasks (book: 200). x-axis in full backups (one full backup
     = |S| x |A| single expected updates).
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.6 (Chapter 8).
+
+    Args:
+        save_path: See Section 8.6 and the implementation for its role.
+        show: See Section 8.6 and the implementation for its role.
+        tasks: See Section 8.6 and the implementation for its role.
+        seed: See Section 8.6 and the implementation for its role."""
+    # render the book figure with matplotlib (book Chapter 8).
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    # (fig, axes): result of plt.subplots(...) (book Chapter 8).
     fig, axes = plt.subplots(1, 2, figsize=(13.5, 4.8))
+    # styles: dictionary of key/value pairs (book Chapter 8).
     styles = {1: "-", 3: "--", 10: ":"}
+    # Iterate over (i, b): indexed entries (book algorithm).
     for i, b in enumerate((1, 3, 10)):
+        # (grid, uv, ov): result of trajectory_sampling_experiment(...) (book Chapter 8).
         grid, uv, ov = trajectory_sampling_experiment(
             n_states=1000, b=b, tasks=tasks, full_backups_max=60.0,
             n_checkpoints=14, seed=seed)
@@ -1742,6 +2734,7 @@ def plot_figure_8_9_trajectory_sampling(
     axes[0].set_ylabel("Value of start state under greedy policy")
     axes[0].legend(fontsize=8)
 
+    # (grid, uv, ov): result of trajectory_sampling_experiment(...) (book Chapter 8).
     grid, uv, ov = trajectory_sampling_experiment(
         n_states=4000, b=1, tasks=max(5, tasks // 2), full_backups_max=25.0,
         n_checkpoints=12, seed=seed)
@@ -1771,31 +2764,67 @@ def _scaled_dyna_maze(k: int):
     """Scaled Dyna maze: same structure as the 6x9 book maze at resolution k.
 
     Walls are scaled to k x k blocks; start at (2k, 0), goal at (0, 8k).
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+    Args:
+        k: See Section 8.2 and the implementation for its role."""
+    # internal helper for the scaled dyna maze step (book Chapter 8).
+    # base walls: collection of the listed elements (book Chapter 8).
     base_walls = [(1, 2), (2, 2), (3, 2), (0, 7), (1, 7), (2, 7), (4, 5)]
+    # walls: collection of the listed elements (book Chapter 8).
     walls = []
+    # Iterate over (r, c): each item in base_walls (book algorithm).
     for r, c in base_walls:
+        # Iterate over dr: one pass per action (book algorithm).
         for dr in range(k):
+            # Iterate over dc: one pass per action (book algorithm).
             for dc in range(k):
                 walls.append(f"{r * k + dr},{c * k + dc}")
+    # (rows, cols): collection of the listed elements (book Chapter 8).
     rows, cols = 6 * k, 9 * k
     return rows, cols, f"{2 * k},0", f"0,{8 * k}", walls
 
 
 def _bfs_path_len(rows: int, cols: int, walls: list[str], start: str, goal: str):
+    """bfs path len (reference implementation).
+
+
+    Args:
+        rows: See the relevant book section and function body.
+        cols: See the relevant book section and function body.
+        walls: See the relevant book section and function body.
+        start: See the relevant book section and function body.
+        goal: See the relevant book section and function body.
+
+    Returns:
+        Value produced by the implementation (see the book section).
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8)."""
+    # internal helper for the bfs path len step (book Chapter 8).
     from collections import deque
 
+    # wall set: result of set(...) (book Chapter 8).
     wall_set = set(walls)
+    # dist: dictionary of key/value pairs (book Chapter 8).
     dist = {start: 0}
+    # q: action-value estimate Q(s, a) (book Chapter 8).
     q = deque([start])
+    # deltas: per-step TD errors or differences (book Chapter 8).
     deltas = ((-1, 0), (1, 0), (0, -1), (0, 1))
+    # Repeat while the condition holds: the algorithm's termination loop.
     while q:
+        # s: current state index (book Chapter 8).
         s = q.popleft()
         if s == goal:
             return dist[s]
+        # (r, c): collection built by comprehension (book Chapter 8).
         r, c = (int(x) for x in s.split(","))
+        # Iterate over (dr, dc): each item in deltas (book algorithm).
         for dr, dc in deltas:
+            # (nr, nc): collection of the listed elements (book Chapter 8).
             nr, nc = r + dr, c + dc
+            # ns: intermediate value used by the algorithm (book Chapter 8).
             ns = f"{nr},{nc}"
             if (0 <= nr < rows and 0 <= nc < cols and ns not in wall_set
                     and ns not in dist):
@@ -1811,28 +2840,48 @@ def _greedy_path_len(q_table, rows, cols, walls, start, goal, optimal_len):
     they do for the agent) when the goal is reached within
     optimal_len + slack steps, else None. Cycles and endless bumping are
     rejected by the step budget. Action order breaks argmax ties.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+    Args:
+        q_table: See Section 8.2 and the implementation for its role.
+        rows: See Section 8.2 and the implementation for its role.
+        cols: See Section 8.2 and the implementation for its role.
+        walls: See Section 8.2 and the implementation for its role.
+        start: See Section 8.2 and the implementation for its role.
+        goal: See Section 8.2 and the implementation for its role.
+        optimal_len: See Section 8.2 and the implementation for its role."""
+    # wall set: result of set(...) (book Chapter 8).
     wall_set = set(walls)
+    # deltas: per-step TD errors or differences (book Chapter 8).
     deltas = {"up": (-1, 0), "down": (1, 0), "left": (0, -1), "right": (0, 1)}
+    # actions: all actions available in the MDP (book Chapter 8).
     actions = ["up", "down", "left", "right"]
     slack = 20
     s = start
     steps = 0
+    # budget: value computed from its operands (book Chapter 8).
     budget = 2 * (optimal_len + slack)
     for _ in range(budget):
         if s == goal:
             return steps
         if steps > optimal_len + slack:
             return None
+        # vals: collection built by comprehension (book Chapter 8).
         vals = [q_table.get((s, a), 0.0) for a in actions]
+        # best: best action or best value found so far (book Chapter 8).
         best = max(vals)
         a = actions[vals.index(best)]  # first of the tied actions wins
         r, c = (int(x) for x in s.split(","))
+        # (dr, dc): element selected from the indexed collection (book Chapter 8).
         dr, dc = deltas[a]
+        # (nr, nc): collection of the listed elements (book Chapter 8).
         nr, nc = r + dr, c + dc
+        # ns: intermediate value used by the algorithm (book Chapter 8).
         ns = f"{nr},{nc}"
         if 0 <= nr < rows and 0 <= nc < cols and ns not in wall_set:
             s = ns
+        # steps: add literal constant value into the running value (book Chapter 8).
         steps += 1
     return None
 
@@ -1842,29 +2891,50 @@ def _vi_qstar(rows, cols, walls, goal, gamma=0.95):
 
     Value iteration on all walkable cells; used only to measure convergence
     in the Example 8.4 scaling experiment.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+    Args:
+        rows: See Section 8.2 and the implementation for its role.
+        cols: See Section 8.2 and the implementation for its role.
+        walls: See Section 8.2 and the implementation for its role.
+        goal: See Section 8.2 and the implementation for its role.
+        gamma: See Section 8.2 and the implementation for its role."""
+    # wall set: result of set(...) (book Chapter 8).
     wall_set = set(walls)
+    # deltas: per-step TD errors or differences (book Chapter 8).
     deltas = {"up": (-1, 0), "down": (1, 0), "left": (0, -1), "right": (0, 1)}
+    # cells: collection built by comprehension (book Chapter 8).
     cells = [f"{r},{c}" for r in range(rows) for c in range(cols) if f"{r},{c}" not in wall_set]
+    # q: action-value estimate Q(s, a) (book Chapter 8).
     q = {(s, a): 0.0 for s in cells for a in deltas}
+    # v: collection built by comprehension (book Chapter 8).
     v = {s: 0.0 for s in cells}
     goal_reward = 1.0
     for _ in range(10000):
+        # new q: dictionary of key/value pairs (book Chapter 8).
         new_q = {}
+        # new v: dictionary of key/value pairs (book Chapter 8).
         new_v = {}
         delta = 0.0
         for s in cells:
+            # (r, c): collection built by comprehension (book Chapter 8).
             r, c = (int(x) for x in s.split(","))
             if s == goal:
                 new_v[s] = 0.0
+                # Iterate over a: each item in deltas (book algorithm).
                 for a in deltas:
                     new_q[(s, a)] = 0.0
                 continue
+            # best: best action or best value found so far (book Chapter 8).
             best = -np.inf
             for a, (dr, dc) in deltas.items():
+                # ns: intermediate value used by the algorithm (book Chapter 8).
                 ns = f"{r + dr},{c + dc}"
                 if ns not in wall_set and 0 <= r + dr < rows and 0 <= c + dc < cols:
+                    # rew: value chosen conditionally (book Chapter 8).
                     rew = goal_reward if ns == goal else 0.0
+                    # nxt: value chosen conditionally (book Chapter 8).
                     nxt = rew + gamma * v[ns] if ns != goal else rew
                     val = nxt
                 else:
@@ -1873,7 +2943,9 @@ def _vi_qstar(rows, cols, walls, goal, gamma=0.95):
                 if val > best:
                     best = val
             new_v[s] = best
+            # delta: TD error or update difference for this step (book Chapter 8).
             delta = max(delta, abs(new_v[s] - v[s]))
+        # (q, v): collection of the listed elements (book Chapter 8).
         q, v = new_q, new_v
         if delta < 1e-12:
             break
@@ -1881,22 +2953,62 @@ def _vi_qstar(rows, cols, walls, goal, gamma=0.95):
 
 
 class _Solved(Exception):
-    """Control-flow exception: the agent's greedy policy is optimal; stop the run."""
+    """Control-flow exception: the agent's greedy policy is optimal; stop the run.
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8)."""
 
 
 class _Budget(Exception):
-    """Control-flow exception: the per-run computation budget was exhausted."""
+    """Control-flow exception: the per-run computation budget was exhausted.
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8)."""
 
 
 def _scaling_run_one(k, agent, repeat, seed_base, max_steps, qstar_tol=0.01,
                      budget_updates: int = 80_000):
+    """scaling run one (reference implementation).
+
+
+    Args:
+        k: See the relevant book section and function body.
+        agent: See the relevant book section and function body.
+        repeat: See the relevant book section and function body.
+        seed_base: See the relevant book section and function body.
+        max_steps: See the relevant book section and function body.
+        qstar_tol: See the relevant book section and function body.
+        budget_updates: See the relevant book section and function body.
+
+    Returns:
+        Value produced by the implementation (see the book section).
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8)."""
+    # (rows, cols, start, goal, walls): result of _scaled_dyna_maze(...) (book Chapter 8).
     rows, cols, start, goal, walls = _scaled_dyna_maze(k)
+    # n states: value computed from its operands (book Chapter 8).
     n_states = rows * cols - len(walls)
+    # optimal len: result of _bfs_path_len(...) (book Chapter 8).
     optimal_len = _bfs_path_len(rows, cols, walls, start, goal)
+    # rs: value computed from its operands (book Chapter 8).
     rs = seed_base + k * 1000 + repeat * 137
+    # counter: dictionary of key/value pairs (book Chapter 8).
     counter = {"updates": 0}
 
     def cb(ep, steps, state, q_table, pops):
+        """cb (reference implementation).
+
+
+        Args:
+            ep: See the relevant book section and function body.
+            steps: See the relevant book section and function body.
+            state: See the relevant book section and function body.
+            q_table: See the relevant book section and function body.
+            pops: See the relevant book section and function body.
+
+        Returns:
+            Value produced by the implementation (see the book section).
+
+        Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8)."""
+        # counter['updates']: add value computed from its operands into the running value (book ...
         counter["updates"] += 1 + pops
         if counter["updates"] >= budget_updates:
             raise _Budget()
@@ -1911,6 +3023,7 @@ def _scaling_run_one(k, agent, repeat, seed_base, max_steps, qstar_tol=0.01,
         if path_len == optimal_len:
             raise _Solved()
 
+    # env: environment instance being controlled (book Chapter 8).
     env = make_gridworld(rows=rows, cols=cols, start=start, goal=goal,
                          gamma=0.95, seed=rs, walls=walls)
     try:
@@ -1927,6 +3040,7 @@ def _scaling_run_one(k, agent, repeat, seed_base, max_steps, qstar_tol=0.01,
                                  step_callback=cb)
         solved_at = None
     except _Solved:
+        # solved at: element selected from the indexed collection (book Chapter 8).
         solved_at = counter["updates"]
     except _Budget:
         # No optimal start-state policy within the computation cap: report
@@ -1958,14 +3072,31 @@ def scaling_maze_experiment(
 
     Returns dict: {(agent, scale): (n_states, [updates, ...])} with None for
     unsolved runs.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 8.4 (Chapter 8).
+
+    Args:
+        scale_levels: See Section 8.4 and the implementation for its role.
+        repeats: See Section 8.4 and the implementation for its role.
+        seed: See Section 8.4 and the implementation for its role.
+        max_steps: See Section 8.4 and the implementation for its role.
+        budget_updates: See Section 8.4 and the implementation for its role."""
+    # carry out the scaling maze experiment step (book Chapter 8).
+    # results: collected results keyed by configuration (book Chapter 8).
     results = {}
+    # Iterate over k: each item in scale_levels (book algorithm).
     for k in scale_levels:
+        # Iterate over agent: each item in ("dyna_q", "prioritized_sweeping") (book algorithm).
         for agent in ("dyna_q", "prioritized_sweeping"):
+            # (rows, cols, start, goal, walls): result of _scaled_dyna_maze(...) (book Chapter 8).
             rows, cols, start, goal, walls = _scaled_dyna_maze(k)
+            # n states: value computed from its operands (book Chapter 8).
             n_states = rows * cols - len(walls)
+            # runs: collection of the listed elements (book Chapter 8).
             runs = []
+            # Iterate over r: one pass per index (book algorithm).
             for r in range(repeats):
+                # (_, _, solved_at): result of _scaling_run_one(...) (book Chapter 8).
                 _, _, solved_at = _scaling_run_one(
                     k, agent, r, seed, max_steps, budget_updates=budget_updates)
                 runs.append(solved_at)
@@ -1978,15 +3109,29 @@ def _scaling_plot_series(
     agent: str,
     scale_levels: tuple[int, ...],
 ) -> tuple[list, list, list, list]:
-    """Reduce raw run outcomes to means, error bars, and censored runs."""
+    """Reduce raw run outcomes to means, error bars, and censored runs.
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+    Args:
+        results: See Section 8.2 and the implementation for its role.
+        agent: See Section 8.2 and the implementation for its role.
+        scale_levels: See Section 8.2 and the implementation for its role.
+
+    Returns:
+        scaling plot series as defined in Section 8.2."""
+    # (xs, means, stds, censored): collection of the listed elements (book Chapter 8).
     xs, means, stds, censored = [], [], [], []
     for k in scale_levels:
+        # (n_states, runs): element selected from the indexed collection (book Chapter 8).
         n_states, runs = results[(agent, k)]
+        # solved: collection built by comprehension (book Chapter 8).
         solved = [u for u in runs if u is not None]
         if solved:
             xs.append(n_states)
             means.append(np.mean(solved))
             stds.append(np.std(solved) if len(solved) > 1 else 0.0)
+        # n unsolved: value computed from its operands (book Chapter 8).
         n_unsolved = len(runs) - len(solved)
         if n_unsolved:
             # Show censored runs explicitly rather than silently dropping
@@ -2003,25 +3148,43 @@ def plot_example_8_4_scaling(
     max_steps: int = 1200,
     budget_updates: int = 80_000,
 ):
-    """Example 8.4 figure: updates until optimal solution vs maze size."""
+    """Example 8.4 figure: updates until optimal solution vs maze size.
+
+    Book: Sutton & Barto (2nd ed.), Section 8.2 (Chapter 8).
+
+    Args:
+        save_path: See Section 8.2 and the implementation for its role.
+        show: See Section 8.2 and the implementation for its role.
+        scale_levels: See Section 8.2 and the implementation for its role.
+        repeats: See Section 8.2 and the implementation for its role.
+        seed: See Section 8.2 and the implementation for its role.
+        max_steps: See Section 8.2 and the implementation for its role.
+        budget_updates: See Section 8.2 and the implementation for its role."""
+    # render the book figure with matplotlib (book Chapter 8).
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    # results: collected results keyed by configuration (book Chapter 8).
     results = scaling_maze_experiment(scale_levels=scale_levels,
                                       repeats=repeats, seed=seed,
                                       max_steps=max_steps,
                                       budget_updates=budget_updates)
+    # (fig, ax): result of plt.subplots(...) (book Chapter 8).
     fig, ax = plt.subplots(figsize=(8, 5.2))
+    # colors: dictionary of key/value pairs (book Chapter 8).
     colors = {"dyna_q": "tab:blue", "prioritized_sweeping": "tab:orange"}
+    # Iterate over (agent, marker): each item in (("dyna_q", "o"), ("prioritized_sweeping", ...
     for agent, marker in (("dyna_q", "o"), ("prioritized_sweeping", "s")):
+        # (xs, means, stds, censored): result of _scaling_plot_series(...) (book Chapter 8).
         xs, means, stds, censored = _scaling_plot_series(results, agent, scale_levels)
         if xs:
             ax.errorbar(xs, means, yerr=stds, marker=marker, capsize=5,
                         color=colors[agent],
                         label={"dyna_q": "Dyna-Q (n=5)",
                                "prioritized_sweeping": "Prioritized sweeping (n=5)"}[agent])
+        # Iterate over (n_states, n_unsolved): each item in censored (book algorithm).
         for n_states, n_unsolved in censored:
             ax.scatter([n_states], [budget_updates], marker="v", s=55,
                        color=colors[agent], zorder=5)

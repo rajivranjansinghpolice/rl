@@ -45,7 +45,18 @@ _TILES_PER_TILING = 8
 
 
 def mountain_car_features(position: float, velocity: float) -> np.ndarray:
-    """Tile-coded features for (position, velocity)."""
+    """Tile-coded features for (position, velocity).
+
+    Book: Sutton & Barto (2nd ed.), Section 10.1 (Chapter 10).
+
+    Args:
+        position: See Section 10.1 and the implementation for its role.
+        velocity: See Section 10.1 and the implementation for its role.
+
+    Returns:
+        mountain car features as defined in Section 10.1."""
+    # carry out the mountain car features step (book Chapter 10).
+    # coder: result of TileCoder(...) (book Chapter 10).
     coder = TileCoder((-1.2, 0.5), (-0.07, 0.07),
                       tiles_per_tiling=_TILES_PER_TILING, n_tilings=_N_TILINGS)
     return coder.features(position, velocity)
@@ -62,24 +73,58 @@ class EpisodicSemiGradientSarsaAgent:
     Q(s, a) = w_a^T x(s). Action selection is epsilon-greedy over the three
     Q values. The step size is alpha scaled as alpha / n_tilings (each step
     activates 8 tiling features).
-    """
 
+    Book: Sutton & Barto (2nd ed.), Section 10.1 (Chapter 10)."""
+
+    # n features: int attribute/state used by the algorithm (book Chapter 10).
     n_features: int
+    # n actions: number of available actions (book Chapter 10).
     n_actions: int = 3
+    # alpha: float attribute/state used by the algorithm (book Chapter 10).
     alpha: float = 0.1
+    # gamma: discount factor for future rewards (book Chapter 10).
     gamma: float = 1.0
+    # epsilon: float attribute/state used by the algorithm (book Chapter 10).
     epsilon: float = 0.0
+    # seed: int | None attribute/state used by the algorithm (book Chapter 10).
     seed: int | None = None
+    # weights: np.ndarray attribute/state used by the algorithm (book Chapter 10).
     weights: np.ndarray = field(init=False)
 
     def __post_init__(self) -> None:
+        """post init (reference implementation).
+
+        Book: Sutton & Barto (2nd ed.), Section 10.1 (Chapter 10)."""
+        # derive cached state after dataclass initialization (book Chapter 10).
         self.weights = np.zeros((self.n_actions, self.n_features), dtype=np.float64)
         self.rng = np.random.default_rng(self.seed)
 
     def q_values(self, x: np.ndarray) -> np.ndarray:
+        """q values (reference implementation).
+
+
+        Args:
+            x: See the relevant book section and function body.
+
+        Returns:
+            Value produced by the implementation (see the book section).
+
+        Book: Sutton & Barto (2nd ed.), Section 10.1 (Chapter 10)."""
+        # carry out the q values step (book Chapter 10).
         return self.weights @ x
 
     def act(self, x: np.ndarray) -> int:
+        """act (reference implementation).
+
+
+        Args:
+            x: See the relevant book section and function body.
+
+        Returns:
+            Value produced by the implementation (see the book section).
+
+        Book: Sutton & Barto (2nd ed.), Section 10.1 (Chapter 10)."""
+        # select and return an action for the current observation (book Chapter 10).
         if self.rng.uniform() < self.epsilon:
             return int(self.rng.integers(self.n_actions))
         return int(np.argmax(self.q_values(x)))
@@ -90,10 +135,23 @@ class EpisodicSemiGradientSarsaAgent:
         Uses the action actually taken in the next state under the current
         policy (on-policy), with a zero bootstrap when next_x is None
         (terminal).
-        """
+
+        Book: Sutton & Barto (2nd ed.), Section 10.1 (Chapter 10).
+
+        Args:
+            x: See Section 10.1 and the implementation for its role.
+            action: See Section 10.1 and the implementation for its role.
+            reward: See Section 10.1 and the implementation for its role.
+            next_x: See Section 10.1 and the implementation for its role.
+            next_action: See Section 10.1 and the implementation for its role."""
+        # carry out the update sarsa step (book Chapter 10).
+        # q next: value chosen conditionally (book Chapter 10).
         q_next = 0.0 if next_x is None else float(self.q_values(next_x)[next_action])
+        # target: target value for the current update (book Chapter 10).
         target = reward + self.gamma * q_next
+        # delta: TD error or update difference for this step (book Chapter 10).
         delta = target - float(self.q_values(x)[action])
+        # self.weights[action]: add value computed from its operands into the running value ...
         self.weights[action] += (self.alpha / _N_TILINGS) * delta * x
 
 
@@ -111,24 +169,52 @@ def run_mountain_car(
     shorter episode means the agent escaped the valley faster; over training
     this should decrease from the 200-step cap. Exploration is epsilon-greedy
     (a greedy policy from zero weights never escapes the valley).
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 10.1 (Chapter 10).
+
+    Args:
+        episodes: See Section 10.1 and the implementation for its role.
+        seed: See Section 10.1 and the implementation for its role.
+        max_steps: See Section 10.1 and the implementation for its role.
+        alpha: See Section 10.1 and the implementation for its role.
+        epsilon: See Section 10.1 and the implementation for its role.
+        gamma: See Section 10.1 and the implementation for its role.
+
+    Returns:
+        run mountain car as defined in Section 10.1."""
+    # run the experiment and collect the figure data (book Chapter 10).
+    # env: environment instance being controlled (book Chapter 10).
     env = MountainCarEnv(seed=seed)
+    # dim: value computed from its operands (book Chapter 10).
     dim = _N_TILINGS * _TILES_PER_TILING**2
+    # agent: result of EpisodicSemiGradientSarsaAgent(...) (book Chapter 10).
     agent = EpisodicSemiGradientSarsaAgent(dim, n_actions=3, alpha=alpha,
                                            gamma=gamma, epsilon=epsilon, seed=seed)
+    # episode lengths: list[int] attribute/state used by the algorithm (book Chapter 10).
     episode_lengths: list[int] = []
+    # Iterate over _: one pass per episode (book algorithm).
     for _ in range(episodes):
+        # state: current state of the environment or MDP (book Chapter 10).
         state = env.reset()
+        # x: state feature vector (book Chapter 10).
         x = mountain_car_features(*state)
+        # action: action selected for the current step (book Chapter 10).
         action = agent.act(x)
         length = 0
+        # Repeat while the condition holds: the algorithm's termination loop.
         while True:
+            # (position, velocity): reference to an existing value (book Chapter 10).
             position, velocity = state
+            # (state_next, reward, done): result of env.step(...) (book Chapter 10).
             state_next, reward, done = env.step(action)
+            # length: add literal constant value into the running value (book Chapter 10).
             length += 1
+            # x next: value chosen conditionally (book Chapter 10).
             x_next = None if done else mountain_car_features(*state_next)
+            # next action: value chosen conditionally (book Chapter 10).
             next_action = agent.act(x_next) if not done else None
             agent.update_sarsa(x, action, reward, x_next, next_action)
+            # (state, x, action): collection of the listed elements (book Chapter 10).
             state, x, action = state_next, x_next if x_next is not None else x, next_action
             if done or length >= max_steps:
                 break
@@ -148,33 +234,84 @@ class DifferentialSarsaAgent:
     reward per step, and updates weights toward the differential target
     R - r_bar + Q(s', a'). Feature weights are per-action like the episodic
     agent.
-    """
 
+    Book: Sutton & Barto (2nd ed.), Section 10.1 (Chapter 10)."""
+
+    # n features: int attribute/state used by the algorithm (book Chapter 10).
     n_features: int
+    # n actions: number of available actions (book Chapter 10).
     n_actions: int = 2
+    # alpha: float attribute/state used by the algorithm (book Chapter 10).
     alpha: float = 0.05
+    # alpha bar: float attribute/state used by the algorithm (book Chapter 10).
     alpha_bar: float = 0.01
+    # epsilon: float attribute/state used by the algorithm (book Chapter 10).
     epsilon: float = 0.1
+    # seed: int | None attribute/state used by the algorithm (book Chapter 10).
     seed: int | None = None
+    # weights: np.ndarray attribute/state used by the algorithm (book Chapter 10).
     weights: np.ndarray = field(init=False)
+    # r bar: float attribute/state used by the algorithm (book Chapter 10).
     r_bar: float = field(init=False, default=0.0)
 
     def __post_init__(self) -> None:
+        """post init (reference implementation).
+
+        Book: Sutton & Barto (2nd ed.), Section 10.1 (Chapter 10)."""
+        # derive cached state after dataclass initialization (book Chapter 10).
         self.weights = np.zeros((self.n_actions, self.n_features), dtype=np.float64)
         self.rng = np.random.default_rng(self.seed)
 
     def q_values(self, x: np.ndarray) -> np.ndarray:
+        """q values (reference implementation).
+
+
+        Args:
+            x: See the relevant book section and function body.
+
+        Returns:
+            Value produced by the implementation (see the book section).
+
+        Book: Sutton & Barto (2nd ed.), Section 10.1 (Chapter 10)."""
+        # carry out the q values step (book Chapter 10).
         return self.weights @ x
 
     def act(self, x: np.ndarray) -> int:
+        """act (reference implementation).
+
+
+        Args:
+            x: See the relevant book section and function body.
+
+        Returns:
+            Value produced by the implementation (see the book section).
+
+        Book: Sutton & Barto (2nd ed.), Section 10.1 (Chapter 10)."""
+        # select and return an action for the current observation (book Chapter 10).
         if self.rng.uniform() < self.epsilon:
             return int(self.rng.integers(self.n_actions))
         return int(np.argmax(self.q_values(x)))
 
     def update(self, x, action, reward, next_x, next_action) -> None:
+        """update (reference implementation).
+
+
+        Args:
+            x: See the relevant book section and function body.
+            action: See the relevant book section and function body.
+            reward: See the relevant book section and function body.
+            next_x: See the relevant book section and function body.
+            next_action: See the relevant book section and function body.
+
+        Book: Sutton & Barto (2nd ed.), Section 10.1 (Chapter 10)."""
+        # apply the learning update rule to the current estimates (book Chapter 10).
+        # q next: floating-point conversion (book Chapter 10).
         q_next = float(self.q_values(next_x)[next_action])
+        # delta: TD error or update difference for this step (book Chapter 10).
         delta = reward - self.r_bar + q_next - float(self.q_values(x)[action])
+        # self.weights[action]: add value computed from its operands into the running value ...
         self.weights[action] += self.alpha * delta * x
+        # self.r_bar: add value computed from its operands into the running value (book Chapter ...
         self.r_bar += self.alpha_bar * delta
 
 
@@ -195,24 +332,55 @@ class AccessControlQueue:
     makes admission worth learning). This is an illustrative implementation of
     the book's access-control example; exact book probs/rewards are not
     verifiable from the local PDF summary.
-    """
 
+    Book: Sutton & Barto (2nd ed.), Section 10.1 (Chapter 10)."""
+
+    # capacity: int attribute/state used by the algorithm (book Chapter 10).
     capacity: int = 10
+    # p high: float attribute/state used by the algorithm (book Chapter 10).
     p_high: float = 0.5
+    # p low: float attribute/state used by the algorithm (book Chapter 10).
     p_low: float = 0.6
+    # seed: int | None attribute/state used by the algorithm (book Chapter 10).
     seed: int | None = None
 
     def __post_init__(self) -> None:
+        """post init (reference implementation).
+
+        Book: Sutton & Barto (2nd ed.), Section 10.1 (Chapter 10)."""
+        # derive cached state after dataclass initialization (book Chapter 10).
         self.rng = np.random.default_rng(self.seed)
+        # self.h: int attribute/state used by the algorithm (book Chapter 10).
         self.h: int = 0
+        # self.l: int attribute/state used by the algorithm (book Chapter 10).
         self.l: int = 0
 
     def reset(self) -> tuple[int, int]:
+        """reset (reference implementation).
+
+
+        Returns:
+            Value produced by the implementation (see the book section).
+
+        Book: Sutton & Barto (2nd ed.), Section 10.1 (Chapter 10)."""
+        # reset internal state for a new episode (book Chapter 10).
         self.h, self.l = 0, 0
         return (self.h, self.l)
 
     def state_features(self, state: tuple[int, int]) -> np.ndarray:
+        """state features (reference implementation).
+
+
+        Args:
+            state: See the relevant book section and function body.
+
+        Returns:
+            Value produced by the implementation (see the book section).
+
+        Book: Sutton & Barto (2nd ed.), Section 10.1 (Chapter 10)."""
+        # carry out the state features step (book Chapter 10).
         h, l = state
+        # scale: floating-point conversion (book Chapter 10).
         scale = float(self.capacity)
         return np.array([
             h / scale,
@@ -224,22 +392,36 @@ class AccessControlQueue:
         ], dtype=np.float64)
 
     def step(self, action: int) -> tuple[tuple[int, int], float]:
-        """Take one time step. Returns ((h, l), reward)."""
+        """Take one time step. Returns ((h, l), reward).
+
+        Book: Sutton & Barto (2nd ed.), Section 10.1 (Chapter 10).
+
+        Args:
+            action: See Section 10.1 and the implementation for its role.
+
+        Returns:
+            step as defined in Section 10.1."""
         assert action in (0, 1, 2), "action must be 0 (none), 1 (high), 2 (low)"
 
         reward = 0.0
         # Serve one customer if admitted and available.
         if action == 1 and self.h > 0:
+            # self.h: subtract literal constant value into the running value (book Chapter 10).
             self.h -= 1
+            # reward: add literal constant value into the running value (book Chapter 10).
             reward += 8.0
         elif action == 2 and self.l > 0:
+            # self.l: subtract literal constant value into the running value (book Chapter 10).
             self.l -= 1
+            # reward: add literal constant value into the running value (book Chapter 10).
             reward += 1.0
 
         # Arrivals (capped at capacity).
         if self.rng.uniform() < self.p_high and self.h < self.capacity:
+            # self.h: add literal constant value into the running value (book Chapter 10).
             self.h += 1
         if self.rng.uniform() < self.p_low and self.l < self.capacity:
+            # self.l: add literal constant value into the running value (book Chapter 10).
             self.l += 1
 
         return (self.h, self.l), reward
@@ -253,25 +435,47 @@ def run_access_control(
     """Train differential Sarsa on the access-control queue.
 
     Returns (agent, moving_average_rewards).
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 10.1 (Chapter 10).
+
+    Args:
+        n_steps: See Section 10.1 and the implementation for its role.
+        seed: See Section 10.1 and the implementation for its role.
+        plot_window: See Section 10.1 and the implementation for its role.
+
+    Returns:
+        run access control as defined in Section 10.1."""
+    # run the experiment and collect the figure data (book Chapter 10).
+    # env: environment instance being controlled (book Chapter 10).
     env = AccessControlQueue(seed=seed)
     dim = 6
+    # agent: result of DifferentialSarsaAgent(...) (book Chapter 10).
     agent = DifferentialSarsaAgent(dim, n_actions=3, alpha=0.02, alpha_bar=0.005,
                                    epsilon=0.1, seed=seed)
+    # state: current state of the environment or MDP (book Chapter 10).
     state = env.reset()
+    # x: state feature vector (book Chapter 10).
     x = env.state_features(state)
+    # action: action selected for the current step (book Chapter 10).
     action = agent.act(x)
 
+    # rewards: per-step reward accumulation buffer (book Chapter 10).
     rewards: list[float] = []
+    # moving: list[float] attribute/state used by the algorithm (book Chapter 10).
     moving: list[float] = []
+    # Iterate over _: one pass per time step (book algorithm).
     for _ in range(n_steps):
+        # (next_state, reward): result of env.step(...) (book Chapter 10).
         next_state, reward = env.step(action)
+        # next x: result of env.state_features(...) (book Chapter 10).
         next_x = env.state_features(next_state)
+        # next action: result of agent.act(...) (book Chapter 10).
         next_action = agent.act(next_x)
         agent.update(x, action, reward, next_x, next_action)
         rewards.append(reward)
         if len(rewards) >= plot_window:
             moving.append(float(np.mean(rewards[-plot_window:])))
+        # (state, x, action): collection of the listed elements (book Chapter 10).
         state, x, action = next_state, next_x, next_action
     return agent, moving
 
@@ -294,18 +498,29 @@ def plot_figure_10_mountain_car(
     escapes the valley sooner, so the curve trends downward from the 200-step
     cap. Illustrative demonstration; the exact book figure identity cannot be
     verified against the local PDF.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 10.1 (Chapter 10).
+
+    Args:
+        save_path: See Section 10.1 and the implementation for its role.
+        show: See Section 10.1 and the implementation for its role.
+        episodes: See Section 10.1 and the implementation for its role.
+        seed: See Section 10.1 and the implementation for its role."""
+    # render the book figure with matplotlib (book Chapter 10).
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    # (_, lengths): result of run_mountain_car(...) (book Chapter 10).
     _, lengths = run_mountain_car(episodes=episodes, seed=seed, max_steps=200)
     window = 20
+    # avg: collection built by comprehension (book Chapter 10).
     avg = [
         float(np.mean(lengths[max(0, i - window + 1):i + 1]))
         for i in range(len(lengths))
     ]
+    # (fig, ax): result of plt.subplots(...) (book Chapter 10).
     fig, ax = plt.subplots(figsize=(7.5, 4.5))
     ax.plot(range(1, len(lengths) + 1), lengths, lw=0.6, alpha=0.35, label="episode length")
     ax.plot(range(1, len(lengths) + 1), avg, lw=2.0, color="tab:red",
@@ -340,13 +555,23 @@ def plot_figure_10_access_control(
     admission problem. Plots the moving-average reward per step.
     Illustrative demonstration; the exact book figure identity cannot be
     verified against the local PDF.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 10.2 (Chapter 10).
+
+    Args:
+        save_path: See Section 10.2 and the implementation for its role.
+        show: See Section 10.2 and the implementation for its role.
+        n_steps: See Section 10.2 and the implementation for its role.
+        seed: See Section 10.2 and the implementation for its role."""
+    # render the book figure with matplotlib (book Chapter 10).
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    # (_, moving): result of run_access_control(...) (book Chapter 10).
     _, moving = run_access_control(n_steps=n_steps, seed=seed)
+    # (fig, ax): result of plt.subplots(...) (book Chapter 10).
     fig, ax = plt.subplots(figsize=(7.5, 4.5))
     ax.plot(range(1, len(moving) + 1), moving, lw=1.5)
     ax.set_xlabel("Step (moving average over the previous 200 steps)")
@@ -365,9 +590,16 @@ def plot_figure_10_access_control(
 
 
 def main(seed: int | None = None) -> None:
-    """Train Mountain Car and the access-control queue and print summaries."""
+    """Train Mountain Car and the access-control queue and print summaries.
+
+    Book: Sutton & Barto (2nd ed.), Section 10.1 (Chapter 10).
+
+    Args:
+        seed: See Section 10.1 and the implementation for its role."""
+    # carry out the main step (book Chapter 10).
     _, lengths = run_mountain_car(episodes=100, seed=seed if seed is not None else 0,
                                   max_steps=200)
     print(f"mountain car: first={lengths[0]}, last={lengths[-1]}, mean={np.mean(lengths):.1f}")
+    # (agent, moving): result of run_access_control(...) (book Chapter 10).
     agent, moving = run_access_control(n_steps=2000, seed=seed if seed is not None else 0)
     print(f"access control: final r_bar={agent.r_bar:.4f}")

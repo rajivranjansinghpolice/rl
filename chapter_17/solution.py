@@ -72,10 +72,25 @@ def _epsilon_greedy_probs(
 
     Primitive and option indices share the same tie rule, so extending the
     action space does not change how exploratory or greedy choices are made.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Algorithm 17.1 (Chapter 17).
+
+    Args:
+        q_table: See Algorithm 17.1 and the implementation for its role.
+        state: See Algorithm 17.1 and the implementation for its role.
+        n_actions: See Algorithm 17.1 and the implementation for its role.
+        epsilon: See Algorithm 17.1 and the implementation for its role.
+
+    Returns:
+        epsilon greedy probs as defined in Algorithm 17.1."""
+    # internal helper for the epsilon greedy probs step (book Chapter 17).
+    # q values: action-value estimates for the state (book Chapter 17).
     q_values = np.array([q_table[(state, a)] for a in range(n_actions)])
+    # best: best action or best value found so far (book Chapter 17).
     best = np.flatnonzero(q_values == q_values.max())
+    # probs: action probabilities from the current policy (book Chapter 17).
     probs = np.full(n_actions, epsilon / n_actions, dtype=np.float64)
+    # probs[best]: add value computed from its operands into the running value (book Chapter 17).
     probs[best] += (1.0 - epsilon) / len(best)
     return probs
 
@@ -91,11 +106,26 @@ def _smdp_transition(
 
     An option's tau is the number of primitive steps it took; it drives both
     the gamma**tau backup and the outer episode's safety budget.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Algorithm 17.1 (Chapter 17).
+
+    Args:
+        env: See Algorithm 17.1 and the implementation for its role.
+        option_list: See Algorithm 17.1 and the implementation for its role.
+        action: See Algorithm 17.1 and the implementation for its role.
+        gamma: See Algorithm 17.1 and the implementation for its role.
+        max_option_steps: See Algorithm 17.1 and the implementation for its role.
+
+    Returns:
+        smdp transition as defined in Algorithm 17.1."""
+    # internal helper for the smdp transition step (book Chapter 17).
     if action < len(GridWorld.ACTIONS):
+        # (next_state, reward, done): result of env.step(...) (book Chapter 17).
         next_state, reward, done = env.step(action)
         return next_state, reward, 1, done
+    # option: element selected from the indexed collection (book Chapter 17).
     option = option_list[action - len(GridWorld.ACTIONS)]
+    # result: result of run_option(...) (book Chapter 17).
     result = run_option(env, option, gamma=gamma, max_steps=max_option_steps)
     return env.state, result.discounted_return, result.steps, result.done
 
@@ -124,36 +154,63 @@ def smdp_q_learning(
     Returns:
         (q_table, options): dict[(state, action_index)] -> value, and the
         option list used (indices 4.. in the action space).
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 17.2 (Chapter 17).
+
+    Args:
+        n_episodes: See Section 17.2 and the implementation for its role.
+        alpha: See Section 17.2 and the implementation for its role.
+        gamma: See Section 17.2 and the implementation for its role.
+        epsilon: See Section 17.2 and the implementation for its role.
+        seed: See Section 17.2 and the implementation for its role.
+        options: See Section 17.2 and the implementation for its role.
+        max_option_steps: See Section 17.2 and the implementation for its role.
+        max_primitive_steps: See Section 17.2 and the implementation for its role."""
+    # carry out the smdp q learning step (book Chapter 17).
     if alpha <= 0.0:
         raise ValueError("alpha must be positive")
     if not 0.0 < epsilon <= 1.0:
         raise ValueError("epsilon must be in (0, 1]")
     if not 0.0 <= gamma <= 1.0:
         raise ValueError("gamma must be in [0, 1]")
+    # env: environment instance being controlled (book Chapter 17).
     env = GridWorld()
+    # option list: value chosen conditionally (book Chapter 17).
     option_list = list(options) if options is not None else default_options()
+    # n actions: number of available actions (book Chapter 17).
     n_actions = len(GridWorld.ACTIONS) + len(option_list)
+    # rng: seeded random generator so runs are reproducible (book Chapter 17).
     rng = np.random.default_rng(seed)
+    # q table: action-value estimates Q(s, a) (book Chapter 17).
     q_table = {(s, a): 0.0 for s in range(env.n_states) for a in range(n_actions)}
 
+    # Iterate over _: one pass per episode (book algorithm).
     for _ in range(n_episodes):
+        # state: current state of the environment or MDP (book Chapter 17).
         state = env.reset()
         done = False
         primitive_steps = 0
+        # Repeat while the condition holds: the algorithm's termination loop.
         while not done and primitive_steps < max_primitive_steps:
+            # probs: action probabilities from the current policy (book Chapter 17).
             probs = _epsilon_greedy_probs(q_table, state, n_actions, epsilon)
+            # action: action selected for the current step (book Chapter 17).
             action = int(rng.choice(n_actions, p=probs))
+            # (next_state, cumulative, tau, done): result of _smdp_transition(...) (book Chapter
             next_state, cumulative, tau, done = _smdp_transition(
                 env, option_list, action, gamma, max_option_steps
             )
+            # primitive_steps: add reference to an existing value into the running value (book ...
             primitive_steps += tau
+            # next q: action-value estimate for the next state (book Chapter 17).
             next_q = (
                 0.0
                 if done
                 else max(q_table[(next_state, a)] for a in range(n_actions))
             )
+            # target: target value for the current update (book Chapter 17).
             target = cumulative + gamma**tau * next_q
+            # q_table[state, action]: add value computed from its operands into the running ...
             q_table[(state, action)] += alpha * (target - q_table[(state, action)])
             state = next_state
 
@@ -161,7 +218,18 @@ def smdp_q_learning(
 
 
 def greedy_smdp_action(q_table: dict, state: int, n_actions: int) -> int:
-    """Greedy action (primitive or option index) for `state`."""
+    """Greedy action (primitive or option index) for `state`.
+
+    Book: Sutton & Barto (2nd ed.), Algorithm 17.1 (Chapter 17).
+
+    Args:
+        q_table: See Algorithm 17.1 and the implementation for its role.
+        state: See Algorithm 17.1 and the implementation for its role.
+        n_actions: See Algorithm 17.1 and the implementation for its role.
+
+    Returns:
+        greedy smdp action as defined in Algorithm 17.1."""
+    # carry out the greedy smdp action step (book Chapter 17).
     return int(np.argmax([q_table[(state, a)] for a in range(n_actions)]))
 
 
@@ -191,26 +259,39 @@ def rollout_smdp(
     Returns:
         dict with 'decisions' (macro-decisions taken), 'primitive_steps',
         'option_decisions', 'final_cell', 'success'.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Algorithm 17.1 (Chapter 17)."""
+    # carry out the rollout smdp step (book Chapter 17).
+    # world: value chosen conditionally (book Chapter 17).
     world = env if env is not None else GridWorld()
     world.start = start
     world.reset()
     decisions = 0
     option_decisions = 0
     primitive_steps = 0
+    # option list: value chosen conditionally (book Chapter 17).
     option_list = list(options) if options is not None else default_options()[:n_options]
     done = False
+    # Repeat while the condition holds: the algorithm's termination loop.
     while not done and decisions < max_decisions:
         state = world.state
+        # action: action selected for the current step (book Chapter 17).
         action = greedy_smdp_action(q_table, state, n_actions)
+        # decisions: add literal constant value into the running value (book Chapter 17).
         decisions += 1
         if action < len(GridWorld.ACTIONS):
+            # (_, _, done): result of world.step(...) (book Chapter 17).
             _, _, done = world.step(action)
+            # primitive_steps: add literal constant value into the running value (book Chapter 17).
             primitive_steps += 1
         else:
+            # option: element selected from the indexed collection (book Chapter 17).
             option = option_list[action - len(GridWorld.ACTIONS)]
+            # result: result of run_option(...) (book Chapter 17).
             result = run_option(world, option, gamma=0.99, max_steps=max_option_steps)
+            # primitive_steps: add attribute 'steps' of the referenced object into the running ...
             primitive_steps += result.steps
+            # option_decisions: add literal constant value into the running value (book Chapter ...
             option_decisions += 1
             done = result.done
     return {
@@ -239,33 +320,58 @@ def primitive_q_learning(
     Baseline for the options comparison: the agent acts only at primitive
     one-step granularity. The loop exists to bound a runaway episode; it is a
     safety cap, not part of the algorithm.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Algorithm 17.1 (Chapter 17).
+
+    Args:
+        n_episodes: See Algorithm 17.1 and the implementation for its role.
+        alpha: See Algorithm 17.1 and the implementation for its role.
+        gamma: See Algorithm 17.1 and the implementation for its role.
+        epsilon: See Algorithm 17.1 and the implementation for its role.
+        seed: See Algorithm 17.1 and the implementation for its role.
+
+    Returns:
+        primitive q learning as defined in Algorithm 17.1."""
+    # carry out the primitive q learning step (book Chapter 17).
     if alpha <= 0.0:
         raise ValueError("alpha must be positive")
     if not 0.0 < epsilon <= 1.0:
         raise ValueError("epsilon must be in (0, 1]")
+    # env: environment instance being controlled (book Chapter 17).
     env = GridWorld()
+    # n actions: number of available actions (book Chapter 17).
     n_actions = len(GridWorld.ACTIONS)
+    # rng: seeded random generator so runs are reproducible (book Chapter 17).
     rng = np.random.default_rng(seed)
+    # q table: action-value estimates Q(s, a) (book Chapter 17).
     q_table = {(s, a): 0.0 for s in range(env.n_states) for a in range(n_actions)}
 
+    # Iterate over _: one pass per episode (book algorithm).
     for _ in range(n_episodes):
+        # state: current state of the environment or MDP (book Chapter 17).
         state = env.reset()
         done = False
         steps = 0
+        # Repeat while the condition holds: the algorithm's termination loop.
         while not done and steps < _PRIMITIVE_EPISODE_STEP_CAP:
+            # probs: action probabilities from the current policy (book Chapter 17).
             probs = _epsilon_greedy_probs(q_table, state, n_actions, epsilon)
+            # action: action selected for the current step (book Chapter 17).
             action = int(rng.choice(n_actions, p=probs))
+            # (next_state, reward, done): result of env.step(...) (book Chapter 17).
             next_state, reward, done = env.step(action)
+            # next q: action-value estimate for the next state (book Chapter 17).
             next_q = (
                 0.0
                 if done
                 else max(q_table[(next_state, a)] for a in range(n_actions))
             )
+            # q_table[state, action]: add value computed from its operands into the running ...
             q_table[(state, action)] += alpha * (
                 reward + gamma * next_q - q_table[(state, action)]
             )
             state = next_state
+            # steps: add literal constant value into the running value (book Chapter 17).
             steps += 1
 
     return q_table
@@ -276,16 +382,32 @@ def rollout_primitive(
     start: tuple[int, int] = _START,
     max_steps: int = 500,
 ) -> dict:
-    """Greedy rollout of a primitive-action Q table."""
+    """Greedy rollout of a primitive-action Q table.
+
+    Book: Sutton & Barto (2nd ed.), Algorithm 17.1 (Chapter 17).
+
+    Args:
+        q_table: See Algorithm 17.1 and the implementation for its role.
+        start: See Algorithm 17.1 and the implementation for its role.
+        max_steps: See Algorithm 17.1 and the implementation for its role.
+
+    Returns:
+        rollout primitive as defined in Algorithm 17.1."""
+    # carry out the rollout primitive step (book Chapter 17).
+    # env: environment instance being controlled (book Chapter 17).
     env = GridWorld()
     env.start = start
     env.reset()
     steps = 0
     done = False
+    # Repeat while the condition holds: the algorithm's termination loop.
     while not done and steps < max_steps:
         state = env.state
+        # action: action selected for the current step (book Chapter 17).
         action = greedy_smdp_action(q_table, state, len(GridWorld.ACTIONS))
+        # (_, _, done): result of env.step(...) (book Chapter 17).
         _, _, done = env.step(action)
+        # steps: add literal constant value into the running value (book Chapter 17).
         steps += 1
     return {"primitive_steps": steps, "decisions": steps, "success": bool(done)}
 
@@ -303,7 +425,12 @@ def novelty_bonus(visits: int, beta: float) -> float:
         visits: Number of times the state has been visited (0 for a novel
             state), i.e. N(s) in R+ = R + beta / sqrt(N(s) + 1).
         beta: Bonus scale.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Algorithm 17.1 (Chapter 17).
+
+    Returns:
+        novelty bonus as defined in Algorithm 17.1."""
+    # carry out the novelty bonus step (book Chapter 17).
     if visits < 0:
         raise ValueError("visits must be non-negative")
     if beta < 0.0:
@@ -320,7 +447,17 @@ def _build_gridworld(
 
     The kwargs are inserted in a fixed order so every subset of overrides gives
     the same environment the original inline construction produced.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Algorithm 17.1 (Chapter 17).
+
+    Args:
+        grid: See Algorithm 17.1 and the implementation for its role.
+        start: See Algorithm 17.1 and the implementation for its role.
+        goal: See Algorithm 17.1 and the implementation for its role.
+
+    Returns:
+        build gridworld as defined in Algorithm 17.1."""
+    # internal helper for the build gridworld step (book Chapter 17).
     env_kwargs: dict = {}
     if grid is not None:
         env_kwargs["grid"] = grid
@@ -339,7 +476,18 @@ def _novelty_step_bonus(
     A bump against a wall reveals nothing new, and rewarding it would make
     wall-hugging an endless reward source. The count is read before it is
     incremented, so a first visit gets the full beta / sqrt(1) bonus.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Algorithm 17.1 (Chapter 17).
+
+    Args:
+        counts: See Algorithm 17.1 and the implementation for its role.
+        state: See Algorithm 17.1 and the implementation for its role.
+        next_state: See Algorithm 17.1 and the implementation for its role.
+        beta: See Algorithm 17.1 and the implementation for its role.
+
+    Returns:
+        novelty step bonus as defined in Algorithm 17.1."""
+    # internal helper for the novelty step bonus step (book Chapter 17).
     if next_state == state:
         return 0.0
     return novelty_bonus(int(counts[next_state]), beta)
@@ -380,7 +528,21 @@ def q_learning_novelty(
         dict with 'q_table', 'counts' (np.ndarray over state ids),
         'unique_states' (number of distinct states visited), 'steps',
         'total_intrinsic_reward'.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 17.4 (Chapter 17).
+
+    Args:
+        n_episodes: See Section 17.4 and the implementation for its role.
+        beta: See Section 17.4 and the implementation for its role.
+        alpha: See Section 17.4 and the implementation for its role.
+        gamma: See Section 17.4 and the implementation for its role.
+        epsilon: See Section 17.4 and the implementation for its role.
+        seed: See Section 17.4 and the implementation for its role.
+        grid: See Section 17.4 and the implementation for its role.
+        start: See Section 17.4 and the implementation for its role.
+        goal: See Section 17.4 and the implementation for its role.
+        max_steps: See Section 17.4 and the implementation for its role.
+        q_init: See Section 17.4 and the implementation for its role."""
     if alpha <= 0.0:
         raise ValueError("alpha must be positive")
     if beta < 0.0:
@@ -389,38 +551,55 @@ def q_learning_novelty(
         raise ValueError("epsilon must be in (0, 1]")
     if not 0.0 <= gamma <= 1.0:
         raise ValueError("gamma must be in [0, 1]")
+    # env: environment instance being controlled (book Chapter 17).
     env = _build_gridworld(grid, start, goal)
+    # rng: seeded random generator so runs are reproducible (book Chapter 17).
     rng = np.random.default_rng(seed)
+    # n actions: number of available actions (book Chapter 17).
     n_actions = len(GridWorld.ACTIONS)
+    # q table: action-value estimates Q(s, a) (book Chapter 17).
     q_table = {(s, a): q_init for s in range(env.n_states) for a in range(n_actions)}
+    # counts: visit counts N(s, a) or N(a) (book Chapter 17).
     counts = np.zeros(env.n_states, dtype=np.int64)
     total_intrinsic = 0.0
     total_steps = 0
 
     for _ in range(n_episodes):
+        # state: current state of the environment or MDP (book Chapter 17).
         state = env.reset()
+        # counts[state]: add literal constant value into the running value (book Chapter 17).
         counts[state] += 1
         done = False
         steps = 0
         while not done and steps < max_steps:
+            # probs: action probabilities from the current policy (book Chapter 17).
             probs = _epsilon_greedy_probs(q_table, state, n_actions, epsilon)
+            # action: action selected for the current step (book Chapter 17).
             action = int(rng.choice(n_actions, p=probs))
+            # (next_state, reward, done): result of env.step(...) (book Chapter 17).
             next_state, reward, done = env.step(action)
             # No-op bumps still update their count, but earn no bonus.
             bonus = _novelty_step_bonus(counts, state, next_state, beta)
+            # total_intrinsic: add reference to an existing value into the running value (book ...
             total_intrinsic += bonus
+            # shaped reward: value computed from its operands (book Chapter 17).
             shaped_reward = reward + bonus
+            # next q: action-value estimate for the next state (book Chapter 17).
             next_q = (
                 0.0
                 if done
                 else max(q_table[(next_state, a)] for a in range(n_actions))
             )
+            # q_table[state, action]: add value computed from its operands into the running ...
             q_table[(state, action)] += alpha * (
                 shaped_reward + gamma * next_q - q_table[(state, action)]
             )
+            # counts[next_state]: add literal constant value into the running value (book ...
             counts[next_state] += 1
             state = next_state
+            # steps: add literal constant value into the running value (book Chapter 17).
             steps += 1
+            # total_steps: add literal constant value into the running value (book Chapter 17).
             total_steps += 1
 
     return {
@@ -443,6 +622,7 @@ _PLOT_ROLLOUT_MAX_STEPS = 200
 _PLOT_ROLLOUT_MAX_DECISIONS = 100
 _PLOT_OPTION_MAX_STEPS = 50
 _PLOT_NOVELTY_EPISODES = 12
+# plot unknown q: value derived from a unary operation (book Chapter 17).
 _PLOT_UNKNOWN_Q = -1e9
 
 
@@ -450,11 +630,26 @@ def _greedy_primitive_rollout_steps(q: dict, env: GridWorld, max_steps: int) -> 
     """Count primitive steps to goal under a greedy policy, or cap the attempt.
 
     A cap is needed because a failed policy would otherwise roll out forever.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Algorithm 17.1 (Chapter 17).
+
+    Args:
+        q: See Algorithm 17.1 and the implementation for its role.
+        env: See Algorithm 17.1 and the implementation for its role.
+        max_steps: See Algorithm 17.1 and the implementation for its role.
+
+    Returns:
+        greedy primitive rollout steps as defined in Algorithm 17.1."""
+    # internal helper for the greedy primitive rollout steps step (book Chapter 17).
+    # s: current state index (book Chapter 17).
     s = env.reset()
+    # Iterate over steps: one pass per index (book algorithm).
     for steps in range(1, max_steps + 1):
+        # qs: collection built by comprehension (book Chapter 17).
         qs = [q.get((s, a), 0.0) for a in range(len(GridWorld.ACTIONS))]
+        # a: integer conversion (book Chapter 17).
         a = int(np.argmax(qs))
+        # (s, _, done): result of env.step(...) (book Chapter 17).
         s, _, done = env.step(a)
         if done:
             return steps
@@ -472,25 +667,50 @@ def _greedy_smdp_rollout_steps(
 
     Options are unrolled with their own subgoal policy until termination; the
     decision budget is separate from the primitive-step budget.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Algorithm 17.1 (Chapter 17).
+
+    Args:
+        q: See Algorithm 17.1 and the implementation for its role.
+        env: See Algorithm 17.1 and the implementation for its role.
+        options: See Algorithm 17.1 and the implementation for its role.
+        n_actions: See Algorithm 17.1 and the implementation for its role.
+        max_steps: See Algorithm 17.1 and the implementation for its role.
+
+    Returns:
+        greedy smdp rollout steps as defined in Algorithm 17.1."""
+    # internal helper for the greedy smdp rollout steps step (book Chapter 17).
+    # n prim actions: result of len(...) (book Chapter 17).
     n_prim_actions = len(GridWorld.ACTIONS)
+    # s: current state index (book Chapter 17).
     s = env.reset()
     total_steps = 0
     decisions = 0
+    # Repeat while the condition holds: the algorithm's termination loop.
     while total_steps < max_steps and decisions < _PLOT_ROLLOUT_MAX_DECISIONS:
+        # vals: collection built by comprehension (book Chapter 17).
         vals = [q.get((s, a), _PLOT_UNKNOWN_Q) for a in range(n_actions)]
+        # a: integer conversion (book Chapter 17).
         a = int(np.argmax(vals))
         if a < n_prim_actions:
+            # (s, _, done): result of env.step(...) (book Chapter 17).
             s, _, done = env.step(a)
+            # total_steps: add literal constant value into the running value (book Chapter 17).
             total_steps += 1
         else:
+            # opt: element selected from the indexed collection (book Chapter 17).
             opt = options[a - n_prim_actions]
+            # Iterate over _: one pass per index (book algorithm).
             for _ in range(_PLOT_OPTION_MAX_STEPS):
+                # act: result of opt.policy(...) (book Chapter 17).
                 act = opt.policy(env)
+                # (s, _, done): result of env.step(...) (book Chapter 17).
                 s, _, done = env.step(act)
+                # total_steps: add literal constant value into the running value (book Chapter 17).
                 total_steps += 1
                 if opt.terminates(env) or done or total_steps >= max_steps:
                     break
+        # decisions: add literal constant value into the running value (book Chapter 17).
         decisions += 1
         if env.done:
             return total_steps
@@ -513,18 +733,27 @@ def plot_options_and_novelty_demos(
         novelty bonus encourages broader exploration. Right panel compares the
         number of distinct states visited with novelty bonus vs without.
     Small demonstrations of implemented ideas, not direct book-figure copies.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 17.2 (Chapter 17).
+
+    Args:
+        save_path: See Section 17.2 and the implementation for its role.
+        show: See Section 17.2 and the implementation for its role.
+        seed: See Section 17.2 and the implementation for its role."""
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    # (q_smdp, options): result of smdp_q_learning(...) (book Chapter 17).
     q_smdp, options = smdp_q_learning(
         n_episodes=_PLOT_TRAIN_EPISODES, alpha=0.1, gamma=0.99, epsilon=0.1, seed=seed,
     )
+    # q prim: result of primitive_q_learning(...) (book Chapter 17).
     q_prim = primitive_q_learning(
         n_episodes=_PLOT_TRAIN_EPISODES, alpha=0.1, gamma=0.99, epsilon=0.1, seed=seed,
     )
+    # n actions: number of available actions (book Chapter 17).
     n_actions = len(GridWorld.ACTIONS) + len(options)
 
     # Each rollout starts from a fresh world; average over repeated greedy runs.
@@ -532,6 +761,7 @@ def plot_options_and_novelty_demos(
         _greedy_primitive_rollout_steps(q_prim, GridWorld(), _PLOT_ROLLOUT_MAX_STEPS)
         for _ in range(_PLOT_ROLLOUTS)
     ]))
+    # smdp steps: floating-point conversion (book Chapter 17).
     smdp_steps = float(np.mean([
         _greedy_smdp_rollout_steps(
             q_smdp, GridWorld(), options, n_actions, _PLOT_ROLLOUT_MAX_STEPS
@@ -539,11 +769,16 @@ def plot_options_and_novelty_demos(
         for _ in range(_PLOT_ROLLOUTS)
     ]))
 
+    # res nov: result of q_learning_novelty(...) (book Chapter 17).
     res_nov = q_learning_novelty(n_episodes=_PLOT_NOVELTY_EPISODES, beta=0.5, seed=seed)
+    # res plain: result of q_learning_novelty(...) (book Chapter 17).
     res_plain = q_learning_novelty(n_episodes=_PLOT_NOVELTY_EPISODES, beta=0.0, seed=seed)
+    # nov count: integer conversion (book Chapter 17).
     nov_count = int(res_nov.get("unique_states", 0))
+    # plain count: integer conversion (book Chapter 17).
     plain_count = int(res_plain.get("unique_states", 0))
 
+    # (fig, (ax1, ax2)): result of plt.subplots(...) (book Chapter 17).
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4.2))
     ax1.bar(["Primitive\nQ-learning", "SMDP with\noptions"], [prim_steps, smdp_steps],
             color=["#f58518", "#4c78a8"])

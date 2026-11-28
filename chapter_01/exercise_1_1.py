@@ -85,12 +85,16 @@ def plot_gridworld_figure(save_path: str | None = None, show: bool = False):
     import matplotlib.pyplot as plt
     from matplotlib.patches import FancyArrowPatch, Rectangle
 
+    # env: environment instance being controlled (book Chapter 1).
     env = GridWorld(grid_width=4, grid_height=4, discount=1.0)
+    # (fig, ax): result of plt.subplots(...) (book Chapter 1).
     fig, ax = plt.subplots(figsize=(6.5, 6.2))
 
     # Draw grid cells (row 0 at top to match render/layout in this module).
     for r in range(env.grid_height):
+        # Iterate over c: one pass per index (book algorithm).
         for c in range(env.grid_width):
+            # state: current state of the environment or MDP (book Chapter 1).
             state = (r, c)
             if state == env.state_A_plus:
                 face = "#d9f2d9"
@@ -104,8 +108,10 @@ def plot_gridworld_figure(save_path: str | None = None, show: bool = False):
                 face = "#f3e8ff"
             else:
                 face = "#ffffff"
+            # rect: result of Rectangle(...) (book Chapter 1).
             rect = Rectangle((c, r), 1, 1, facecolor=face, edgecolor="#444444", linewidth=1.2)
             ax.add_patch(rect)
+            # label: intermediate value used by the algorithm (book Chapter 1).
             label = f"({r},{c})"
             if state == env.state_A:
                 label = "A (0,0)"
@@ -120,6 +126,24 @@ def plot_gridworld_figure(save_path: str | None = None, show: bool = False):
             ax.text(c + 0.5, r + 0.5, label, ha="center", va="center", fontsize=9)
 
     def arrow(x1, y1, x2, y2, text, color="#333333"):
+        """arrow (reference implementation).
+
+        Book: Sutton & Barto (2nd ed.), Chapter 1.
+
+        Args:
+            x1: See the relevant book section and function body.
+            y1: See the relevant book section and function body.
+            x2: See the relevant book section and function body.
+            y2: See the relevant book section and function body.
+            text: See the relevant book section and function body.
+            color: See the relevant book section and function body.
+
+        Returns:
+            Value produced by the implementation (see the book section).
+
+        Book: Sutton & Barto (2nd ed.), Section 1.1."""
+        # carry out the arrow step (book Chapter 1).
+        # patch: result of FancyArrowPatch(...) (book Chapter 1).
         patch = FancyArrowPatch((x1, y1), (x2, y2), arrowstyle="->", mutation_scale=12,
                                 linewidth=1.4, color=color)
         ax.add_patch(patch)
@@ -163,24 +187,32 @@ def plot_gridworld_figure(save_path: str | None = None, show: bool = False):
 
 
 def main() -> None:
-    """Run a demo of the Gridworld environment."""
+    """Run a demo of the Gridworld environment.
+
+    Book: Sutton & Barto (2nd ed.), Section 1.1 (Chapter 1)."""
+    # carry out the main step (book Chapter 1).
     print("=" * 60)
     print("Gridworld Environment -- Sutton & Barto, Section 1.3")
     print("=" * 60)
 
+    # env: environment instance being controlled (book Chapter 1).
     env = GridWorld(grid_width=4, grid_height=4, discount=1.0)
+    # agent: result of RandomAgent(...) (book Chapter 1).
     agent = RandomAgent(n_actions=4)
 
     print("\n--- Initial Grid ---")
     print(env.render())
 
     print("\n--- Running 5 episodes with random agent ---")
+    # stats: result of run_multiple_episodes(...) (book Chapter 1).
     stats = run_multiple_episodes(env, agent, n_episodes=5, epsilon=0.0)
     print(f"\nAverage total reward: {np.mean(stats['total_reward']):.2f}")
     print(f"Average steps per episode: {np.mean(stats['steps']):.1f}")
 
     print("\n--- Running 5 episodes with greedy agent ---")
+    # greedy agent: result of GreedyAgent(...) (book Chapter 1).
     greedy_agent = GreedyAgent(n_actions=4)
+    # stats2: result of run_multiple_episodes(...) (book Chapter 1).
     stats2 = run_multiple_episodes(env, greedy_agent, n_episodes=5, epsilon=0.0)
     print(f"\nAverage total reward: {np.mean(stats2['total_reward']):.2f}")
     print(f"Average steps per episode: {np.mean(stats2['steps']):.1f}")
@@ -188,10 +220,12 @@ def main() -> None:
     print("\n--- Special State Transitions ---")
     env.reset()
     print(f"State A: {env.state_A}")
+    # Iterate over (name, idx): each item in [("UP", GridWorld.UP), ("LEFT", GridWorld.LEFT), ...
     for name, idx in [("UP", GridWorld.UP), ("LEFT", GridWorld.LEFT),
                       ("DOWN", GridWorld.DOWN), ("RIGHT", GridWorld.RIGHT)]:
         print(f"  {name:6s} -> {env.get_next_state(env.state_A, idx)} reward={env.get_reward(env.state_A, idx)}")
     print(f"\nState B: {env.state_B}")
+    # Iterate over (name, idx): each item in [("UP", GridWorld.UP), ("LEFT", GridWorld.LEFT), ...
     for name, idx in [("UP", GridWorld.UP), ("LEFT", GridWorld.LEFT),
                       ("DOWN", GridWorld.DOWN), ("RIGHT", GridWorld.RIGHT)]:
         print(f"  {name:6s} -> {env.get_next_state(env.state_B, idx)} reward={env.get_reward(env.state_B, idx)}")

@@ -59,11 +59,23 @@ class RescorlaWagnerModel:
         saliences: Sequence[float] | None = None,
         lambda_us: float = 1.0,
     ) -> None:
+        """init (reference implementation).
+
+
+        Args:
+            n_stimuli: See the relevant book section and function body.
+            alpha: See the relevant book section and function body.
+            saliences: See the relevant book section and function body.
+            lambda_us: See the relevant book section and function body.
+
+        Book: Sutton & Barto (2nd ed.), Section 14.2 (Chapter 14)."""
+        # initialize the parameters and state required by the algorithm (book Chapter 14).
         if n_stimuli < 1:
             raise ValueError("n_stimuli must be positive")
         if alpha <= 0.0:
             raise ValueError("alpha must be positive")
         if saliences is not None:
+            # saliences arr: result of np.asarray(...) (book Chapter 14).
             saliences_arr = np.asarray(saliences, dtype=np.float64)
             if saliences_arr.shape != (n_stimuli,):
                 raise ValueError("saliences must have one entry per stimulus")
@@ -76,7 +88,16 @@ class RescorlaWagnerModel:
         self.weights = np.zeros(n_stimuli, dtype=np.float64)
 
     def predict(self, x: Sequence[float]) -> float:
-        """Aggregate associative strength v(s, w) = w^T x(s). Eq. (14.1)."""
+        """Aggregate associative strength v(s, w) = w^T x(s). Eq. (14.1).
+
+        Book: Sutton & Barto (2nd ed.), Section 14.2 (Chapter 14).
+
+        Args:
+            x: See Section 14.2 and the implementation for its role.
+
+        Returns:
+            predict as defined in Section 14.2."""
+        # compute the model's prediction for the given input (book Chapter 14).
         return float(self.weights @ np.asarray(x, dtype=np.float64))
 
     def trial(self, x: Sequence[float], target: float | None = None) -> float:
@@ -90,17 +111,34 @@ class RescorlaWagnerModel:
                 compound CS.
             target: US magnitude for this trial; defaults to lambda_us.
                 Pass 0.0 to model extinction (US omitted).
-        """
+
+        Book: Sutton & Barto (2nd ed.), Section 14.2 (Chapter 14).
+
+        Returns:
+            trial as defined in Section 14.2."""
+        # carry out the trial step (book Chapter 14).
+        # x arr: result of np.asarray(...) (book Chapter 14).
         x_arr = np.asarray(x, dtype=np.float64)
         if x_arr.shape != self.weights.shape:
             raise ValueError("x must have one component per stimulus")
+        # target value: value chosen conditionally (book Chapter 14).
         target_value = self.lambda_us if target is None else float(target)
+        # delta: TD error or update difference for this step (book Chapter 14).
         delta = target_value - self.predict(x_arr)
         self.weights = self.weights + self.alphas * delta * x_arr
         return float(delta)
 
     def strength(self, index: int) -> float:
-        """Associative strength of one stimulus (its component of w)."""
+        """Associative strength of one stimulus (its component of w).
+
+        Book: Sutton & Barto (2nd ed.), Section 14.2 (Chapter 14).
+
+        Args:
+            index: See Section 14.2 and the implementation for its role.
+
+        Returns:
+            strength as defined in Section 14.2."""
+        # compute the association strength for the current cues (book Chapter 14).
         return float(self.weights[index])
 
     def run_trials(
@@ -111,7 +149,12 @@ class RescorlaWagnerModel:
 
         Args:
             trials: Sequence of (x, target) pairs.
-        """
+
+        Book: Sutton & Barto (2nd ed.), Section 14.2 (Chapter 14).
+
+        Returns:
+            run trials as defined in Section 14.2."""
+        # run the experiment and collect the figure data (book Chapter 14).
         return [self.trial(x, target) for x, target in trials]
 
 
@@ -126,8 +169,21 @@ def excitation_curve(
     Returns the aggregate associative strength of the compound after every
     trial (length n_trials). Book Section 14.2.2: strengths grow toward
     the asymptote R_Y and stop changing when v = R_Y.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 14.2 (Chapter 14).
+
+    Args:
+        model: See Section 14.2 and the implementation for its role.
+        x: See Section 14.2 and the implementation for its role.
+        n_trials: See Section 14.2 and the implementation for its role.
+        target: See Section 14.2 and the implementation for its role.
+
+    Returns:
+        excitation curve as defined in Section 14.2."""
+    # carry out the excitation curve step (book Chapter 14).
+    # history: result of np.empty(...) (book Chapter 14).
     history = np.empty(n_trials, dtype=np.float64)
+    # Iterate over i: one pass per index (book algorithm).
     for i in range(n_trials):
         model.trial(x, target)
         history[i] = model.predict(x)
@@ -160,7 +216,8 @@ class TDConditioningModel:
     The model is representation-agnostic ("the TD model does not commit to
     any particular state representation"). Helpers build the presence and
     complete-serial-compound (CSC) representations of Figure 14.2.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 14.2 (Chapter 14)."""
 
     def __init__(
         self,
@@ -169,6 +226,17 @@ class TDConditioningModel:
         gamma: float = 0.97,
         lam: float = 0.95,
     ) -> None:
+        """init (reference implementation).
+
+
+        Args:
+            n_features: See the relevant book section and function body.
+            alpha: See the relevant book section and function body.
+            gamma: See the relevant book section and function body.
+            lam: See the relevant book section and function body.
+
+        Book: Sutton & Barto (2nd ed.), Section 14.2 (Chapter 14)."""
+        # initialize the parameters and state required by the algorithm (book Chapter 14).
         if n_features < 1:
             raise ValueError("n_features must be positive")
         if alpha <= 0.0:
@@ -184,15 +252,36 @@ class TDConditioningModel:
         self.traces = np.zeros(n_features, dtype=np.float64)
 
     def predict(self, x: Sequence[float]) -> float:
-        """Aggregate associative strength v_hat(s, w) = w^T x(s). Eq. (14.1)."""
+        """Aggregate associative strength v_hat(s, w) = w^T x(s). Eq. (14.1).
+
+        Book: Sutton & Barto (2nd ed.), Section 14.2 (Chapter 14).
+
+        Args:
+            x: See Section 14.2 and the implementation for its role.
+
+        Returns:
+            predict as defined in Section 14.2."""
+        # compute the model's prediction for the given input (book Chapter 14).
         return float(self.weights @ np.asarray(x, dtype=np.float64))
 
     def strength(self, index: int) -> float:
-        """Associative strength (weight) of one feature/stimulus."""
+        """Associative strength (weight) of one feature/stimulus.
+
+        Book: Sutton & Barto (2nd ed.), Section 14.2 (Chapter 14).
+
+        Args:
+            index: See Section 14.2 and the implementation for its role.
+
+        Returns:
+            strength as defined in Section 14.2."""
+        # compute the association strength for the current cues (book Chapter 14).
         return float(self.weights[index])
 
     def begin_trial(self) -> None:
-        """Reset eligibility traces at the start of a trial."""
+        """Reset eligibility traces at the start of a trial.
+
+        Book: Sutton & Barto (2nd ed.), Section 14.2 (Chapter 14)."""
+        # reset trial-scoped state before a new conditioning trial (book Chapter 14).
         self.traces = np.zeros(self.weights.shape, dtype=np.float64)
 
     def step(
@@ -209,14 +298,23 @@ class TDConditioningModel:
             x_next: Feature vector of S_{t+1}.
             reward_next: R_{t+1}, the target observed on the transition.
             terminal: If True, S_{t+1} is terminal and v_hat(S_{t+1}) = 0.
-        """
+
+        Book: Sutton & Barto (2nd ed.), Section 14.2 (Chapter 14).
+
+        Returns:
+            step as defined in Section 14.2."""
+        # advance one step and return the observed transition (book Chapter 14).
+        # x current: result of np.asarray(...) (book Chapter 14).
         x_current = np.asarray(x_t, dtype=np.float64)
+        # x following: result of np.asarray(...) (book Chapter 14).
         x_following = np.asarray(x_next, dtype=np.float64)
         if x_current.shape != self.weights.shape:
             raise ValueError("x_t must have one component per feature")
         if x_following.shape != self.weights.shape:
             raise ValueError("x_next must have one component per feature")
+        # next value: value chosen conditionally (book Chapter 14).
         next_value = 0.0 if terminal else self.predict(x_following)
+        # delta: TD error or update difference for this step (book Chapter 14).
         delta = reward_next + self.gamma * next_value - self.predict(x_current)
         self.traces = self.gamma * self.lam * self.traces + x_current
         self.weights = self.weights + self.alpha * delta * self.traces
@@ -251,22 +349,31 @@ def presence_trial(
         (states 0..n_steps); rewards[k] is R_{k+1} for the transition from
         state k to k + 1, except the final entry bootstraps the terminal
         state; terminals[k] flags the terminal transition.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Chapter 14."""
+    # carry out the presence trial step (book Chapter 14).
     if not 1 <= reward_time <= n_steps:
         raise ValueError("reward_time must be in [1, n_steps]")
     if not 0 <= cs_onset < reward_time:
         raise ValueError("cs_onset must be in [0, reward_time)")
     if not 0 <= cs_index < n_stimuli:
         raise ValueError("cs_index must be in [0, n_stimuli)")
+    # features: list[np.ndarray] attribute/state used by the algorithm (book Chapter 14).
     features: list[np.ndarray] = []
+    # Iterate over t: one pass per time step (book algorithm).
     for t in range(n_steps + 1):
+        # x: state feature vector (book Chapter 14).
         x = np.zeros(n_stimuli, dtype=np.float64)
         if t >= cs_onset:
             x[cs_index] = 1.0
         features.append(x)
+    # rewards: per-step reward accumulation buffer (book Chapter 14).
     rewards: list[float] = []
+    # terminals: list[bool] attribute/state used by the algorithm (book Chapter 14).
     terminals: list[bool] = []
+    # Iterate over k: one pass per time step (book algorithm).
     for k in range(n_steps):
+        # entering: value computed from its operands (book Chapter 14).
         entering = k + 1
         rewards.append(float(reward) if entering == reward_time else 0.0)
         terminals.append(False)
@@ -292,21 +399,37 @@ def csc_trial(
         presence_trial, with n_steps features (one per time step from
         the CS onset onward). The layout here uses time-since-CS-onset
         features only, so every state from cs_onset on is representable.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Figure 14.2 (Chapter 14).
+
+    Args:
+        n_steps: See Figure 14.2 and the implementation for its role.
+        cs_onset: See Figure 14.2 and the implementation for its role.
+        reward_time: See Figure 14.2 and the implementation for its role.
+        reward: See Figure 14.2 and the implementation for its role."""
+    # carry out the csc trial step (book Chapter 14).
     if not 1 <= reward_time <= n_steps:
         raise ValueError("reward_time must be in [1, n_steps]")
     if not 0 <= cs_onset < reward_time:
         raise ValueError("cs_onset must be in [0, reward_time)")
+    # n features: value computed from its operands (book Chapter 14).
     n_features = n_steps + 1
+    # features: list[np.ndarray] attribute/state used by the algorithm (book Chapter 14).
     features: list[np.ndarray] = []
+    # Iterate over t: one pass per time step (book algorithm).
     for t in range(n_steps + 1):
+        # x: state feature vector (book Chapter 14).
         x = np.zeros(n_features, dtype=np.float64)
         if t >= cs_onset:
             x[t] = 1.0
         features.append(x)
+    # rewards: per-step reward accumulation buffer (book Chapter 14).
     rewards: list[float] = []
+    # terminals: list[bool] attribute/state used by the algorithm (book Chapter 14).
     terminals: list[bool] = []
+    # Iterate over k: one pass per time step (book algorithm).
     for k in range(n_steps):
+        # entering: value computed from its operands (book Chapter 14).
         entering = k + 1
         rewards.append(float(reward) if entering == reward_time else 0.0)
         terminals.append(False)
@@ -324,13 +447,26 @@ def run_trial(
 
     features has len(rewards) + 1 entries. The final transition bootstraps
     the terminal state (v = 0).
-    """
+
+    Book: Sutton & Barto (2nd ed.), Algorithm 14.1 (Chapter 14).
+
+    Args:
+        model: See Algorithm 14.1 and the implementation for its role.
+        features: See Algorithm 14.1 and the implementation for its role.
+        rewards: See Algorithm 14.1 and the implementation for its role.
+        terminals: See Algorithm 14.1 and the implementation for its role.
+
+    Returns:
+        run trial as defined in Algorithm 14.1."""
+    # run one experimental trial and return its measurements (book Chapter 14).
     if len(features) != len(rewards) + 1:
         raise ValueError("features must have one more entry than rewards")
     if len(rewards) != len(terminals):
         raise ValueError("rewards and terminals must have equal length")
     model.begin_trial()
+    # deltas: per-step TD errors or differences (book Chapter 14).
     deltas = np.empty(len(rewards), dtype=np.float64)
+    # Iterate over (k, reward): indexed entries (book algorithm).
     for k, reward in enumerate(rewards):
         deltas[k] = model.step(
             features[k],
@@ -357,15 +493,24 @@ def train_presence(
     Args:
         compound: Optional indices of additional stimuli to present as a
             compound with the CS on every trial.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Algorithm 14.1 (Chapter 14).
+
+    Returns:
+        train presence as defined in Algorithm 14.1."""
+    # carry out the train presence step (book Chapter 14).
     history: list[np.ndarray] = []
+    # Iterate over _: one pass per index (book algorithm).
     for _ in range(n_trials):
+        # (features, rewards, terminals): result of presence_trial(...) (book Chapter 14).
         features, rewards, terminals = presence_trial(
             n_steps, cs_onset, reward_time, reward, cs_index, n_stimuli,
         )
         if compound:
+            # Iterate over (t, x): indexed entries (book algorithm).
             for t, x in enumerate(features):
                 if t >= cs_onset:
+                    # Iterate over extra_index: each item in compound (book algorithm).
                     for extra_index in compound:
                         x[extra_index] = 1.0
         history.append(run_trial(model, features, rewards, terminals))
@@ -380,7 +525,9 @@ def train_presence(
 # Two-component RW model: index 0 is the pretrained blocker A, index 1 is the
 # cue B whose conditioning is measured at test.
 _STIMULUS_B = 1
+# cs a only: list[float] attribute/state used by the algorithm (book Chapter 14).
 _CS_A_ONLY: list[float] = [1.0, 0.0]
+# cs a plus b: list[float] attribute/state used by the algorithm (book Chapter 14).
 _CS_A_PLUS_B: list[float] = [1.0, 1.0]
 
 
@@ -389,7 +536,17 @@ def _draw_us_magnitude(lambda_us: float, us_noise: float, rng: np.random.Generat
 
     The noiseless case must not touch `rng`: skipping the draw keeps a seeded
     replicate identical to the deterministic experiment.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Algorithm 14.1 (Chapter 14).
+
+    Args:
+        lambda_us: See Algorithm 14.1 and the implementation for its role.
+        us_noise: See Algorithm 14.1 and the implementation for its role.
+        rng: See Algorithm 14.1 and the implementation for its role.
+
+    Returns:
+        draw us magnitude as defined in Algorithm 14.1."""
+    # internal helper for the draw us magnitude step (book Chapter 14).
     return lambda_us if us_noise == 0.0 else float(lambda_us + rng.normal(0.0, us_noise))
 
 
@@ -405,8 +562,20 @@ def _run_blocking_phase1(
 
     One US draw per trial is shared by both groups, so they differ only in
     whether A actually predicts the US.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Algorithm 14.1 (Chapter 14).
+
+    Args:
+        blocking: See Algorithm 14.1 and the implementation for its role.
+        control: See Algorithm 14.1 and the implementation for its role.
+        n_trials: See Algorithm 14.1 and the implementation for its role.
+        lambda_us: See Algorithm 14.1 and the implementation for its role.
+        us_noise: See Algorithm 14.1 and the implementation for its role.
+        rng: See Algorithm 14.1 and the implementation for its role."""
+    # run the experiment and collect the figure data (book Chapter 14).
+    # Iterate over _: one pass per index (book algorithm).
     for _ in range(n_trials):
+        # us: result of _draw_us_magnitude(...) (book Chapter 14).
         us = _draw_us_magnitude(lambda_us, us_noise, rng)
         blocking.trial(_CS_A_ONLY, us)
         control.trial(_CS_A_ONLY, 0.0)
@@ -424,10 +593,27 @@ def _run_blocking_phase2(
 
     The before-values are read first so the reported change isolates what the
     compound trials add to B, not what phase 1 already gave it.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Algorithm 14.1 (Chapter 14).
+
+    Args:
+        blocking: See Algorithm 14.1 and the implementation for its role.
+        control: See Algorithm 14.1 and the implementation for its role.
+        n_trials: See Algorithm 14.1 and the implementation for its role.
+        lambda_us: See Algorithm 14.1 and the implementation for its role.
+        us_noise: See Algorithm 14.1 and the implementation for its role.
+        rng: See Algorithm 14.1 and the implementation for its role.
+
+    Returns:
+        run blocking phase2 as defined in Algorithm 14.1."""
+    # run the experiment and collect the figure data (book Chapter 14).
+    # blocking b before: result of blocking.strength(...) (book Chapter 14).
     blocking_b_before = blocking.strength(_STIMULUS_B)
+    # control b before: result of control.strength(...) (book Chapter 14).
     control_b_before = control.strength(_STIMULUS_B)
+    # Iterate over _: one pass per index (book algorithm).
     for _ in range(n_trials):
+        # us: result of _draw_us_magnitude(...) (book Chapter 14).
         us = _draw_us_magnitude(lambda_us, us_noise, rng)
         blocking.trial(_CS_A_PLUS_B, us)
         control.trial(_CS_A_PLUS_B, us)
@@ -472,24 +658,30 @@ def run_blocking_experiment(
         strength, one value per replicate), 'blocking_final_b' /
         'control_final_b' (B's strength after phase 2), and the
         'n_replicates' / 'phase1_trials' / 'phase2_trials' settings.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Algorithm 14.1 (Chapter 14)."""
     if phase1_trials < 0 or phase2_trials < 0:
         raise ValueError("trial counts must be non-negative")
     if replicates < 1:
         raise ValueError("replicates must be positive")
+    # record: dict[str, list[float]] attribute/state used by the algorithm (book Chapter 14).
     record: dict[str, list[float]] = {
         "blocking_delta_b": [],
         "blocking_final_b": [],
         "control_delta_b": [],
         "control_final_b": [],
     }
+    # rng: seeded random generator so runs are reproducible (book Chapter 14).
     rng = np.random.default_rng(seed)
 
     for _ in range(replicates):
+        # blocking: result of RescorlaWagnerModel(...) (book Chapter 14).
         blocking = RescorlaWagnerModel(2, alpha=alpha, lambda_us=lambda_us)
+        # control: result of RescorlaWagnerModel(...) (book Chapter 14).
         control = RescorlaWagnerModel(2, alpha=alpha, lambda_us=lambda_us)
 
         _run_blocking_phase1(blocking, control, phase1_trials, lambda_us, us_noise, rng)
+        # (blocking_b_before, control_b_before): result of _run_blocking_phase2(...) (book ...
         blocking_b_before, control_b_before = _run_blocking_phase2(
             blocking, control, phase2_trials, lambda_us, us_noise, rng
         )
@@ -535,11 +727,22 @@ def _acquisition_strengths(n_trials: int) -> list[float]:
 
     The curve needs the strength *after* every trial, so step the model
     explicitly rather than recording only its final asymptote.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Algorithm 14.1 (Chapter 14).
+
+    Args:
+        n_trials: See Algorithm 14.1 and the implementation for its role.
+
+    Returns:
+        acquisition strengths as defined in Algorithm 14.1."""
+    # internal helper for the acquisition strengths step (book Chapter 14).
+    # model: result of RescorlaWagnerModel(...) (book Chapter 14).
     model = RescorlaWagnerModel(
         n_stimuli=1, alpha=_PLOT_ACQUISITION_ALPHA, lambda_us=_PLOT_LAMBDA_US,
     )
+    # strengths: collection of the listed elements (book Chapter 14).
     strengths = []
+    # Iterate over _: one pass per index (book algorithm).
     for _ in range(n_trials):
         model.trial(np.array([1.0]), target=_PLOT_LAMBDA_US)
         strengths.append(model.weights[0])
@@ -551,12 +754,23 @@ def _blocking_bar_data(result: dict) -> tuple[list[str], list[float], list[float
 
     The experiment reports the means; the deviations come from the per-replicate
     lists, so the error bars show the spread across independent replicates.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Algorithm 14.1 (Chapter 14).
+
+    Args:
+        result: See Algorithm 14.1 and the implementation for its role.
+
+    Returns:
+        blocking bar data as defined in Algorithm 14.1."""
+    # internal helper for the blocking bar data step (book Chapter 14).
+    # labels: collection of the listed elements (book Chapter 14).
     labels = ["Control B", "Blocked B"]
+    # vals: collection of the listed elements (book Chapter 14).
     vals = [
         float(result.get("mean_control_delta", np.mean(result["control_delta_b"]))),
         float(result.get("mean_blocking_delta", np.mean(result["blocking_delta_b"]))),
     ]
+    # errs: collection of the listed elements (book Chapter 14).
     errs = [
         float(np.std(np.asarray(result["control_delta_b"], dtype=float))),
         float(np.std(np.asarray(result["blocking_delta_b"], dtype=float))),
@@ -582,7 +796,14 @@ def plot_conditioning_and_blocking(
         prediction-error account of blocking.
     This is a demonstration of implemented models/experiments, not a pixel-
     perfect reproduction of a specific book figure.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 14.2 (Chapter 14).
+
+    Args:
+        save_path: See Section 14.2 and the implementation for its role.
+        show: See Section 14.2 and the implementation for its role.
+        n_trials: See Section 14.2 and the implementation for its role.
+        seed: See Section 14.2 and the implementation for its role."""
     import matplotlib
 
     matplotlib.use("Agg")
@@ -602,6 +823,7 @@ def plot_conditioning_and_blocking(
         seed=seed,
     )
 
+    # (fig, (ax1, ax2)): result of plt.subplots(...) (book Chapter 14).
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4.2))
     ax1.plot(np.arange(1, n_trials + 1), strengths, color="#1f77b4")
     ax1.set_xlabel("Trials")
@@ -609,6 +831,7 @@ def plot_conditioning_and_blocking(
     ax1.set_ylim(0, 1.05)
     ax1.set_title("Acquisition (Rescorla-Wagner)")
 
+    # (labels, vals, errs): result of _blocking_bar_data(...) (book Chapter 14).
     labels, vals, errs = _blocking_bar_data(blk)
     ax2.bar(labels, vals, yerr=errs, capsize=5, color=["#4c78a8", "#f58518"], alpha=0.9)
     ax2.set_ylabel("Phase-2 change in V(B)")

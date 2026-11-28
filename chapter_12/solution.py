@@ -26,19 +26,61 @@ from rl_envs.random_walk import RandomWalkEnv, random_walk_true_values
 
 
 def _uniform_policy(state: str) -> np.ndarray:
+    """uniform policy (reference implementation).
+
+
+    Args:
+        state: See the relevant book section and function body.
+
+    Returns:
+        Value produced by the implementation (see the book section).
+
+    Book: Sutton & Barto (2nd ed.), Equation 12.17 (Chapter 12)."""
+    # internal helper for the uniform policy step (book Chapter 12).
     return np.array([0.5, 0.5])
 
 
 def _epsilon_greedy_probs(q_values: np.ndarray, epsilon: float) -> np.ndarray:
+    """epsilon greedy probs (reference implementation).
+
+
+    Args:
+        q_values: See the relevant book section and function body.
+        epsilon: See the relevant book section and function body.
+
+    Returns:
+        Value produced by the implementation (see the book section).
+
+    Book: Sutton & Barto (2nd ed.), Equation 12.17 (Chapter 12)."""
+    # internal helper for the epsilon greedy probs step (book Chapter 12).
+    # q values: action-value estimates for the state (book Chapter 12).
     q_values = np.asarray(q_values, dtype=np.float64)
+    # n: result of len(...) (book Chapter 12).
     n = len(q_values)
+    # best: best action or best value found so far (book Chapter 12).
     best = np.flatnonzero(q_values == q_values.max())
+    # probs: action probabilities from the current policy (book Chapter 12).
     probs = np.full(n, epsilon / n, dtype=np.float64)
+    # probs[best]: add value computed from its operands into the running value (book Chapter 12).
     probs[best] += (1.0 - epsilon) / len(best)
     return probs
 
 
 def _sample_action(state, policy_fn, rng) -> int:
+    """sample action (reference implementation).
+
+
+    Args:
+        state: See the relevant book section and function body.
+        policy_fn: See the relevant book section and function body.
+        rng: See the relevant book section and function body.
+
+    Returns:
+        Value produced by the implementation (see the book section).
+
+    Book: Sutton & Barto (2nd ed.), Equation 12.17 (Chapter 12)."""
+    # internal helper for the sample action step (book Chapter 12).
+    # probs: action probabilities from the current policy (book Chapter 12).
     probs = np.asarray(policy_fn(state), dtype=np.float64)
     if probs.shape != (len(RandomWalkEnv.ACTIONS),):
         raise ValueError("policy_fn must return a vector of length 2")
@@ -48,12 +90,34 @@ def _sample_action(state, policy_fn, rng) -> int:
 
 
 def _q_values(env: RandomWalkEnv, q_table: dict, state) -> np.ndarray:
-    """Action values in `state`, in the environment's action order."""
+    """Action values in `state`, in the environment's action order.
+
+    Book: Sutton & Barto (2nd ed.), Equation 12.17 (Chapter 12).
+
+    Args:
+        env: See Equation 12.17 and the implementation for its role.
+        q_table: See Equation 12.17 and the implementation for its role.
+        state: See Equation 12.17 and the implementation for its role.
+
+    Returns:
+        q values as defined in Equation 12.17."""
+    # internal helper for the q values step (book Chapter 12).
     return np.array([q_table[(state, a)] for a in env.ACTIONS])
 
 
 def _epsilon_greedy_policy(env: RandomWalkEnv, q_table: dict, epsilon: float) -> dict:
-    """Read the final epsilon-greedy policy off the learned action values."""
+    """Read the final epsilon-greedy policy off the learned action values.
+
+    Book: Sutton & Barto (2nd ed.), Equation 12.17 (Chapter 12).
+
+    Args:
+        env: See Equation 12.17 and the implementation for its role.
+        q_table: See Equation 12.17 and the implementation for its role.
+        epsilon: See Equation 12.17 and the implementation for its role.
+
+    Returns:
+        epsilon greedy policy as defined in Equation 12.17."""
+    # internal helper for the epsilon greedy policy step (book Chapter 12).
     return {
         s: _epsilon_greedy_probs(_q_values(env, q_table, s), epsilon)
         for s in env.STATES
@@ -96,26 +160,40 @@ def td_lambda_prediction(
         raise ValueError("lam must be in [0, 1]")
     if trace not in ("accumulating", "replacing"):
         raise ValueError("trace must be 'accumulating' or 'replacing'")
+    # policy fn: intermediate value used by the algorithm (book Chapter 12).
     policy_fn = policy_fn or _uniform_policy
+    # rng: seeded random generator so runs are reproducible (book Chapter 12).
     rng = np.random.default_rng(seed)
+    # values: state-value estimates V(s) (book Chapter 12).
     values = {state: 0.0 for state in env.STATES}
 
     for _ in range(n_episodes):
+        # traces: collection built by comprehension (book Chapter 12).
         traces = {state: 0.0 for state in env.STATES}
+        # state: current state of the environment or MDP (book Chapter 12).
         state = env.reset()
         done = False
         while not done:
+            # action index: index of the selected action (book Chapter 12).
             action_index = _sample_action(state, policy_fn, rng)
+            # (reward, next_state, done): result of env.step(...) (book Chapter 12).
             reward, next_state, done = env.step(env.ACTIONS[action_index])
+            # next v: value chosen conditionally (book Chapter 12).
             next_v = 0.0 if next_state not in values else values[next_state]
+            # delta: TD error or update difference for this step (book Chapter 12).
             delta = reward + gamma * next_v - values[state]
             if trace == "accumulating":
+                # traces[state]: add literal constant value into the running value (book Chapter
                 traces[state] += 1.0
             else:  # replacing: z <- 1 for the visited state (Eq. 12.17)
                 traces[state] = 1.0
+            # Iterate over s: each item in env.STATES (book algorithm).
             for s in env.STATES:
+                # values[s]: add value computed from its operands into the running value (book ...
                 values[s] += alpha * delta * traces[s]
+                # traces[s]: multiply value computed from its operands into the running value ...
                 traces[s] *= gamma * lam
+            # state: current state of the environment or MDP (book Chapter 12).
             state = next_state if not done else state
     return values
 
@@ -132,27 +210,62 @@ def _sarsa_lambda_episode(
     clearing: bool,
     rng: np.random.Generator,
 ) -> None:
-    """Run one episode of backward-view Sarsa(lambda), updating Q in place."""
+    """Run one episode of backward-view Sarsa(lambda), updating Q in place.
+
+    Book: Sutton & Barto (2nd ed.), Equation 12.17 (Chapter 12).
+
+    Args:
+        env: See Equation 12.17 and the implementation for its role.
+        q_table: See Equation 12.17 and the implementation for its role.
+        pairs: See Equation 12.17 and the implementation for its role.
+        alpha: See Equation 12.17 and the implementation for its role.
+        epsilon: See Equation 12.17 and the implementation for its role.
+        gamma: See Equation 12.17 and the implementation for its role.
+        lam: See Equation 12.17 and the implementation for its role.
+        trace: See Equation 12.17 and the implementation for its role.
+        clearing: See Equation 12.17 and the implementation for its role.
+        rng: See Equation 12.17 and the implementation for its role."""
+    # traces: collection built by comprehension (book Chapter 12).
     traces = {pair: 0.0 for pair in pairs}
 
     def behavior_probs(state):
+        """behavior probs (reference implementation).
+
+
+        Args:
+            state: See the relevant book section and function body.
+
+        Returns:
+            Value produced by the implementation (see the book section).
+
+        Book: Sutton & Barto (2nd ed.), Equation 12.17 (Chapter 12)."""
+        # carry out the behavior probs step (book Chapter 12).
         return _epsilon_greedy_probs(_q_values(env, q_table, state), epsilon)
 
+    # state: current state of the environment or MDP (book Chapter 12).
     state = env.reset()
+    # a idx: index of the selected action (book Chapter 12).
     a_idx = _sample_action(state, behavior_probs, rng)
     done = False
     while not done:
+        # action: action selected for the current step (book Chapter 12).
         action = env.ACTIONS[a_idx]
+        # pair: collection of the listed elements (book Chapter 12).
         pair = (state, action)
+        # (reward, next_state, done): result of env.step(...) (book Chapter 12).
         reward, next_state, done = env.step(action)
         if done:
             next_q = 0.0
             next_a_idx = a_idx  # unused
         else:
+            # next a idx: index of the action in the next state (book Chapter 12).
             next_a_idx = _sample_action(next_state, behavior_probs, rng)
+            # next q: action-value estimate for the next state (book Chapter 12).
             next_q = q_table[(next_state, env.ACTIONS[next_a_idx])]
+        # delta: TD error or update difference for this step (book Chapter 12).
         delta = reward + gamma * next_q - q_table[pair]
         if trace == "accumulating":
+            # traces[pair]: add literal constant value into the running value (book Chapter 12).
             traces[pair] += 1.0
         else:  # replacing: z(S, A) <- 1 (Section 12.7, Eq. 12.23 alt)
             traces[pair] = 1.0
@@ -165,8 +278,11 @@ def _sarsa_lambda_episode(
         # The TD error is applied to all eligible pairs before the traces
         # decay, so recent visits receive the largest share of the update.
         for p in pairs:
+            # q_table[p]: add value computed from its operands into the running value (book ...
             q_table[p] += alpha * delta * traces[p]
+            # traces[p]: multiply value computed from its operands into the running value (book ...
             traces[p] *= gamma * lam
+        # (state, a_idx): collection of the listed elements (book Chapter 12).
         state, a_idx = (next_state if not done else state), next_a_idx
 
 
@@ -189,17 +305,37 @@ def _sarsa_lambda(
     pair's trace is set to 1; for clearing traces the traces of the
     non-selected actions for the visited state are also set to 0
     (Figure 12.11, Section 12.7).
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 12.7 (Chapter 12).
+
+    Args:
+        env: See Section 12.7 and the implementation for its role.
+        n_episodes: See Section 12.7 and the implementation for its role.
+        alpha: See Section 12.7 and the implementation for its role.
+        lam: See Section 12.7 and the implementation for its role.
+        epsilon: See Section 12.7 and the implementation for its role.
+        gamma: See Section 12.7 and the implementation for its role.
+        seed: See Section 12.7 and the implementation for its role.
+        trace: See Section 12.7 and the implementation for its role.
+        clearing: See Section 12.7 and the implementation for its role.
+
+    Returns:
+        sarsa lambda as defined in Section 12.7."""
+    # internal helper for the sarsa lambda step (book Chapter 12).
     if alpha <= 0.0:
         raise ValueError("alpha must be positive")
     if not 0.0 <= lam <= 1.0:
         raise ValueError("lam must be in [0, 1]")
     if not 0.0 < epsilon <= 1.0:
         raise ValueError("epsilon must be in (0, 1]")
+    # rng: seeded random generator so runs are reproducible (book Chapter 12).
     rng = np.random.default_rng(seed)
+    # pairs: collection built by comprehension (book Chapter 12).
     pairs = [(s, a) for s in env.STATES for a in env.ACTIONS]
+    # q table: action-value estimates Q(s, a) (book Chapter 12).
     q_table = {pair: 0.0 for pair in pairs}
 
+    # Iterate over _: one pass per episode (book algorithm).
     for _ in range(n_episodes):
         _sarsa_lambda_episode(env, q_table, pairs, alpha, epsilon, gamma, lam,
                               trace, clearing, rng)
@@ -226,7 +362,18 @@ def sarsa_lambda_replacing(
     Returns:
         (policy, Q): policy[state] = probability vector over ACTIONS;
         q_table[(state, action)] = action value.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 12.7 (Chapter 12).
+
+    Args:
+        env: See Section 12.7 and the implementation for its role.
+        n_episodes: See Section 12.7 and the implementation for its role.
+        alpha: See Section 12.7 and the implementation for its role.
+        lam: See Section 12.7 and the implementation for its role.
+        epsilon: See Section 12.7 and the implementation for its role.
+        gamma: See Section 12.7 and the implementation for its role.
+        seed: See Section 12.7 and the implementation for its role."""
+    # carry out the sarsa lambda replacing step (book Chapter 12).
     return _sarsa_lambda(env, n_episodes, alpha, lam, epsilon, gamma, seed,
                          trace="replacing", clearing=False)
 
@@ -251,7 +398,18 @@ def sarsa_lambda_clearing(
     Returns:
         (policy, Q): policy[state] = probability vector over ACTIONS;
         q_table[(state, action)] = action value.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 12.7 (Chapter 12).
+
+    Args:
+        env: See Section 12.7 and the implementation for its role.
+        n_episodes: See Section 12.7 and the implementation for its role.
+        alpha: See Section 12.7 and the implementation for its role.
+        lam: See Section 12.7 and the implementation for its role.
+        epsilon: See Section 12.7 and the implementation for its role.
+        gamma: See Section 12.7 and the implementation for its role.
+        seed: See Section 12.7 and the implementation for its role."""
+    # carry out the sarsa lambda clearing step (book Chapter 12).
     return _sarsa_lambda(env, n_episodes, alpha, lam, epsilon, gamma, seed,
                          trace="replacing", clearing=True)
 
@@ -282,42 +440,76 @@ def true_online_td_lambda(
 
     Returns:
         dict state -> estimated value.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 12.5 (Chapter 12).
+
+    Args:
+        env: See Section 12.5 and the implementation for its role.
+        policy_fn: See Section 12.5 and the implementation for its role.
+        alpha: See Section 12.5 and the implementation for its role.
+        lam: See Section 12.5 and the implementation for its role.
+        n_episodes: See Section 12.5 and the implementation for its role.
+        gamma: See Section 12.5 and the implementation for its role.
+        seed: See Section 12.5 and the implementation for its role."""
     if alpha <= 0.0:
         raise ValueError("alpha must be positive")
     if not 0.0 <= lam <= 1.0:
         raise ValueError("lam must be in [0, 1]")
+    # policy fn: intermediate value used by the algorithm (book Chapter 12).
     policy_fn = policy_fn or _uniform_policy
+    # rng: seeded random generator so runs are reproducible (book Chapter 12).
     rng = np.random.default_rng(seed)
+    # values: state-value estimates V(s) (book Chapter 12).
     values = {state: 0.0 for state in env.STATES}
 
     for _ in range(n_episodes):
+        # traces: collection built by comprehension (book Chapter 12).
         traces = {state: 0.0 for state in env.STATES}
+        # state: current state of the environment or MDP (book Chapter 12).
         state = env.reset()
         v_old = 0.0
         done = False
         while not done:
+            # action index: index of the selected action (book Chapter 12).
             action_index = _sample_action(state, policy_fn, rng)
+            # (reward, next_state, done): result of env.step(...) (book Chapter 12).
             reward, next_state, done = env.step(env.ACTIONS[action_index])
+            # v: element selected from the indexed collection (book Chapter 12).
             v = values[state]
+            # v next: value chosen conditionally (book Chapter 12).
             v_next = 0.0 if next_state not in values else values[next_state]
+            # delta: TD error or update difference for this step (book Chapter 12).
             delta = reward + gamma * v_next - v
             # Dutch trace (Eq. 12.16) with one-hot features: z . x = z[state].
             z_dot_x = traces[state]
+            # Iterate over s: each item in env.STATES (book algorithm).
             for s in env.STATES:
                 traces[s] = gamma * lam * traces[s]
             traces[state] = traces[state] + (1.0 - alpha * gamma * lam * z_dot_x)
             # Weight update (Eq. 12.15, tabular/one-hot form of the box).
             for s in env.STATES:
+                # values[s]: add value computed from its operands into the running value (book ...
                 values[s] += alpha * (delta + v - v_old) * traces[s]
+            # values[state]: subtract value computed from its operands into the running value ...
             values[state] -= alpha * (v - v_old)
             v_old = v_next
+            # state: current state of the environment or MDP (book Chapter 12).
             state = next_state if not done else state
     return values
 
 
 def _is_greedy(q_values: np.ndarray, action_index: int) -> bool:
-    """True iff action_index is in the argmax set of q_values."""
+    """True iff action_index is in the argmax set of q_values.
+
+    Book: Sutton & Barto (2nd ed.), Equation 12.17 (Chapter 12).
+
+    Args:
+        q_values: See Equation 12.17 and the implementation for its role.
+        action_index: See Equation 12.17 and the implementation for its role.
+
+    Returns:
+        is greedy as defined in Equation 12.17."""
+    # internal helper for the is greedy step (book Chapter 12).
     return bool(q_values[action_index] == q_values.max())
 
 
@@ -332,35 +524,73 @@ def _watkins_q_episode(
     trace: str,
     rng: np.random.Generator,
 ) -> None:
-    """Run one episode of Watkins's Q(lambda), updating Q in place."""
+    """Run one episode of Watkins's Q(lambda), updating Q in place.
+
+    Book: Sutton & Barto (2nd ed.), Equation 12.17 (Chapter 12).
+
+    Args:
+        env: See Equation 12.17 and the implementation for its role.
+        q_table: See Equation 12.17 and the implementation for its role.
+        pairs: See Equation 12.17 and the implementation for its role.
+        alpha: See Equation 12.17 and the implementation for its role.
+        epsilon: See Equation 12.17 and the implementation for its role.
+        gamma: See Equation 12.17 and the implementation for its role.
+        lam: See Equation 12.17 and the implementation for its role.
+        trace: See Equation 12.17 and the implementation for its role.
+        rng: See Equation 12.17 and the implementation for its role."""
+    # traces: collection built by comprehension (book Chapter 12).
     traces = {pair: 0.0 for pair in pairs}
 
     def behavior_probs(state):
+        """behavior probs (reference implementation).
+
+
+        Args:
+            state: See the relevant book section and function body.
+
+        Returns:
+            Value produced by the implementation (see the book section).
+
+        Book: Sutton & Barto (2nd ed.), Equation 12.17 (Chapter 12)."""
+        # carry out the behavior probs step (book Chapter 12).
         return _epsilon_greedy_probs(_q_values(env, q_table, state), epsilon)
 
+    # state: current state of the environment or MDP (book Chapter 12).
     state = env.reset()
     done = False
     while not done:
+        # q before: result of _q_values(...) (book Chapter 12).
         q_before = _q_values(env, q_table, state)
+        # action index: index of the selected action (book Chapter 12).
         action_index = _sample_action(state, behavior_probs, rng)
         # Greediness is judged on the pre-update values; ties count as greedy.
         greedy = _is_greedy(q_before, action_index)
+        # action: action selected for the current step (book Chapter 12).
         action = env.ACTIONS[action_index]
+        # pair: collection of the listed elements (book Chapter 12).
         pair = (state, action)
+        # (reward, next_state, done): result of env.step(...) (book Chapter 12).
         reward, next_state, done = env.step(action)
+        # best next: value chosen conditionally (book Chapter 12).
         best_next = (
             0.0
             if done
             else max(q_table[(next_state, a)] for a in env.ACTIONS)
         )
+        # delta: TD error or update difference for this step (book Chapter 12).
         delta = reward + gamma * best_next - q_table[pair]
         if trace == "accumulating":
+            # traces[pair]: add literal constant value into the running value (book Chapter 12).
             traces[pair] += 1.0
         else:  # replacing: z(S, A) <- 1 for the visited pair
             traces[pair] = 1.0
+        # Iterate over p: each item in pairs (book algorithm).
         for p in pairs:
+            # q_table[p]: add value computed from its operands into the running value (book ...
             q_table[p] += alpha * delta * traces[p]
+        # Iterate over p: each item in pairs (book algorithm).
         for p in pairs:
+            # traces[p]: multiply value computed from its operands into the running value (book ...
             traces[p] *= gamma * lam
         if not greedy:
             # Watkins's cut (Section 12.10, Figure 12.12): after a non-greedy
@@ -368,6 +598,7 @@ def _watkins_q_episode(
             # applied; only propagation further back is stopped.
             for p in pairs:
                 traces[p] = 0.0
+        # state: current state of the environment or MDP (book Chapter 12).
         state = next_state if not done else state
 
 
@@ -427,6 +658,7 @@ def watkins_q_lambda(
         (policy, Q): policy[state] = probability vector over ACTIONS;
         q_table[(state, action)] = action value.
     """
+    # carry out the watkins q lambda step (book Chapter 12).
     if alpha <= 0.0:
         raise ValueError("alpha must be positive")
     if not 0.0 <= lam <= 1.0:
@@ -435,10 +667,14 @@ def watkins_q_lambda(
         raise ValueError("epsilon must be in (0, 1]")
     if trace not in ("replacing", "accumulating"):
         raise ValueError("trace must be 'replacing' or 'accumulating'")
+    # rng: seeded random generator so runs are reproducible (book Chapter 12).
     rng = np.random.default_rng(seed)
+    # pairs: collection built by comprehension (book Chapter 12).
     pairs = [(s, a) for s in env.STATES for a in env.ACTIONS]
+    # q table: action-value estimates Q(s, a) (book Chapter 12).
     q_table = {pair: 0.0 for pair in pairs}
 
+    # Iterate over _: one pass per episode (book algorithm).
     for _ in range(n_episodes):
         _watkins_q_episode(env, q_table, pairs, alpha, epsilon, gamma, lam, trace, rng)
 
@@ -448,16 +684,44 @@ def watkins_q_lambda(
 def _n_step_return(
     rewards: list, bootstrap_values: list, gamma: float, t: int, u: int
 ) -> float:
-    """G_{t:u}: discounted rewards through u-1, then the bootstrap at u."""
+    """G_{t:u}: discounted rewards through u-1, then the bootstrap at u.
+
+    Book: Sutton & Barto (2nd ed.), Equation 12.17 (Chapter 12).
+
+    Args:
+        rewards: See Equation 12.17 and the implementation for its role.
+        bootstrap_values: See Equation 12.17 and the implementation for its role.
+        gamma: See Equation 12.17 and the implementation for its role.
+        t: See Equation 12.17 and the implementation for its role.
+        u: See Equation 12.17 and the implementation for its role.
+
+    Returns:
+        n step return as defined in Equation 12.17."""
+    # internal helper for the n step return step (book Chapter 12).
     total = 0.0
+    # Iterate over i: one pass per index (book algorithm).
     for i in range(t, u):
+        # total: add value computed from its operands into the running value (book Chapter 12).
         total += (gamma ** (i - t)) * rewards[i]
+    # total: add value computed from its operands into the running value (book Chapter 12).
     total += (gamma ** (u - t)) * bootstrap_values[u - 1]
     return total
 
 
 def _trace_cut_horizon(greedy: list, t: int, n_steps: int) -> int:
-    """Steps carried from t before Watkins's cut at the first non-greedy action."""
+    """Steps carried from t before Watkins's cut at the first non-greedy action.
+
+    Book: Sutton & Barto (2nd ed.), Equation 12.17 (Chapter 12).
+
+    Args:
+        greedy: See Equation 12.17 and the implementation for its role.
+        t: See Equation 12.17 and the implementation for its role.
+        n_steps: See Equation 12.17 and the implementation for its role.
+
+    Returns:
+        trace cut horizon as defined in Equation 12.17."""
+    # internal helper for the trace cut horizon step (book Chapter 12).
+    # first nongreedy: result of next(...) (book Chapter 12).
     first_nongreedy = next((j for j in range(t, n_steps)
                             if not greedy[j]), None)
     if first_nongreedy is None:
@@ -507,12 +771,15 @@ def watkins_lambda_return(
         raise ValueError("bootstrap_values must have len(rewards) entries")
     if len(greedy) != len(rewards):
         raise ValueError("greedy must have the same length as rewards")
+    # n steps: result of len(...) (book Chapter 12).
     n_steps = len(rewards)
+    # returns: accumulated returns used as update targets (book Chapter 12).
     returns = []
     for t in range(n_steps):
         # Component updates stop at the first non-greedy action, or at the
         # episode's end if every action along the way was greedy.
         n_max = _trace_cut_horizon(greedy, t, n_steps)
+        # g lambda: value computed from its operands (book Chapter 12).
         g_lambda = (1.0 - lam) * sum(
             (lam ** (n - 1))
             * _n_step_return(rewards, bootstrap_values, gamma, t, t + n)
@@ -528,7 +795,21 @@ def watkins_lambda_return(
 # ---------------------------------------------------------------------------
 
 def _rms_error(values: dict, true_values: dict) -> float:
+    """rms error (reference implementation).
+
+
+    Args:
+        values: See the relevant book section and function body.
+        true_values: See the relevant book section and function body.
+
+    Returns:
+        Value produced by the implementation (see the book section).
+
+    Book: Sutton & Barto (2nd ed.), Equation 12.17 (Chapter 12)."""
+    # internal helper for the rms error step (book Chapter 12).
+    # states: all states in the MDP (book Chapter 12).
     states = list(true_values)
+    # errs: collection built by comprehension (book Chapter 12).
     errs = [values[s] - true_values[s] for s in states]
     return float(np.sqrt(np.mean(np.square(errs))))
 
@@ -547,33 +828,64 @@ def _td_lambda_curves(
     runs: int,
     seed: int | None,
 ) -> dict:
-    """Average the RMS error over runs for each lambda, episode by episode."""
+    """Average the RMS error over runs for each lambda, episode by episode.
+
+    Book: Sutton & Barto (2nd ed.), Equation 12.17 (Chapter 12).
+
+    Args:
+        true_values: See Equation 12.17 and the implementation for its role.
+        lambdas: See Equation 12.17 and the implementation for its role.
+        alpha: See Equation 12.17 and the implementation for its role.
+        n_episodes: See Equation 12.17 and the implementation for its role.
+        runs: See Equation 12.17 and the implementation for its role.
+        seed: See Equation 12.17 and the implementation for its role.
+
+    Returns:
+        td lambda curves as defined in Equation 12.17."""
+    # curves: averaged learning curves by configuration (book Chapter 12).
     curves = {lam: np.zeros(n_episodes, dtype=np.float64) for lam in lambdas}
     for lam in lambdas:
         for r in range(runs):
+            # rs: value chosen conditionally (book Chapter 12).
             rs = None if seed is None else seed + r * _TD_SEED_STRIDE + int(lam * 1000)
+            # env: environment instance being controlled (book Chapter 12).
             env = RandomWalkEnv(seed=rs)
+            # rng: seeded random generator so runs are reproducible (book Chapter 12).
             rng = np.random.default_rng(rs)
+            # values: state-value estimates V(s) (book Chapter 12).
             values = {s: _TD_INIT_VALUE for s in env.STATES}
+            # traces: collection built by comprehension (book Chapter 12).
             traces = {s: 0.0 for s in env.STATES}
             for ep in range(n_episodes):
                 # One accumulating-trace episode. Traces are cleared first so
                 # eligibility cannot leak in from the previous episode.
                 for s in env.STATES:
                     traces[s] = 0.0
+                # state: current state of the environment or MDP (book Chapter 12).
                 state = env.reset()
                 done = False
+                # Repeat while the condition holds: the algorithm's termination loop.
                 while not done:
+                    # a idx: index of the selected action (book Chapter 12).
                     a_idx = int(rng.integers(0, 2))
+                    # (reward, next_state, done): result of env.step(...) (book Chapter 12).
                     reward, next_state, done = env.step(env.ACTIONS[a_idx])
+                    # next v: value chosen conditionally (book Chapter 12).
                     next_v = 0.0 if next_state.endswith("_end") else values[next_state]
+                    # delta: TD error or update difference for this step (book Chapter 12).
                     delta = reward + 1.0 * next_v - values[state]
+                    # traces[state]: add literal constant value into the running value (book ...
                     traces[state] += 1.0
+                    # Iterate over s: each item in env.STATES (book algorithm).
                     for s in env.STATES:
+                        # values[s]: add value computed from its operands into the running value
                         values[s] += alpha * delta * traces[s]
+                        # traces[s]: multiply value computed from its operands into the running ...
                         traces[s] *= 1.0 * lam
                     state = next_state
+                # curves[lam][ep]: add result of _rms_error(...) into the running value (book ...
                 curves[lam][ep] += _rms_error(values, true_values)
+        # curves[lam]: divide reference to an existing value into the running value (book ...
         curves[lam] /= runs
     return curves
 
@@ -596,7 +908,18 @@ def plot_td_lambda_random_walk(
     error vs true v* over episodes, averaged over runs. lambda=0 is TD(0);
     larger lambda incorporates longer returns (approaching MC-like behavior as
     lambda->1), illustrating the bias-variance tradeoff discussed in Ch. 12.
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 12.2 (Chapter 12).
+
+    Args:
+        save_path: See Section 12.2 and the implementation for its role.
+        show: See Section 12.2 and the implementation for its role.
+        lambdas: See Section 12.2 and the implementation for its role.
+        alpha: See Section 12.2 and the implementation for its role.
+        n_episodes: See Section 12.2 and the implementation for its role.
+        runs: See Section 12.2 and the implementation for its role.
+        seed: See Section 12.2 and the implementation for its role."""
+    # render the book figure with matplotlib (book Chapter 12).
     import matplotlib
 
     matplotlib.use("Agg")
@@ -604,11 +927,16 @@ def plot_td_lambda_random_walk(
 
     from rl_envs.random_walk import random_walk_true_values
 
+    # true values: result of random_walk_true_values(...) (book Chapter 12).
     true_values = random_walk_true_values()
+    # episodes axis: array of evenly spaced values (book Chapter 12).
     episodes_axis = np.arange(1, n_episodes + 1)
+    # curves: averaged learning curves by configuration (book Chapter 12).
     curves = _td_lambda_curves(true_values, lambdas, alpha, n_episodes, runs, seed)
 
+    # (fig, ax): result of plt.subplots(...) (book Chapter 12).
     fig, ax = plt.subplots(figsize=(7.5, 4.5))
+    # Iterate over lam: each item in lambdas (book algorithm).
     for lam in lambdas:
         ax.plot(episodes_axis, curves[lam], label=f"lambda={lam:g}")
     ax.set_xlabel("Episodes")
@@ -636,19 +964,46 @@ def _watkins_q_curves(
     seed: int,
     checkpoints: list[int],
 ) -> dict:
-    """Average RMS error at selected episode counts for each lambda."""
+    """Average RMS error at selected episode counts for each lambda.
+
+    Book: Sutton & Barto (2nd ed.), Equation 12.17 (Chapter 12).
+
+    Args:
+        true_values: See Equation 12.17 and the implementation for its role.
+        lambdas: See Equation 12.17 and the implementation for its role.
+        alpha: See Equation 12.17 and the implementation for its role.
+        epsilon: See Equation 12.17 and the implementation for its role.
+        gamma: See Equation 12.17 and the implementation for its role.
+        n_episodes: See Equation 12.17 and the implementation for its role.
+        runs: See Equation 12.17 and the implementation for its role.
+        seed: See Equation 12.17 and the implementation for its role.
+        checkpoints: See Equation 12.17 and the implementation for its role.
+
+    Returns:
+        watkins q curves as defined in Equation 12.17."""
+    # internal helper for the watkins q curves step (book Chapter 12).
+    # curves: averaged learning curves by configuration (book Chapter 12).
     curves = {lam: np.zeros(len(checkpoints), dtype=np.float64) for lam in lambdas}
+    # Iterate over lam: each item in lambdas (book algorithm).
     for lam in lambdas:
+        # Iterate over r: one pass per index (book algorithm).
         for r in range(runs):
+            # rs: value computed from its operands (book Chapter 12).
             rs = seed + r * _WATKINS_SEED_STRIDE + int(lam * 1000)
+            # Iterate over (ci, ep): indexed entries (book algorithm).
             for ci, ep in enumerate(checkpoints):
+                # env: environment instance being controlled (book Chapter 12).
                 env = RandomWalkEnv(seed=rs)
+                # (_, q): result of watkins_q_lambda(...) (book Chapter 12).
                 _, q = watkins_q_lambda(
                     env, n_episodes=ep, alpha=alpha, lam=lam, epsilon=epsilon,
                     gamma=gamma, seed=rs,
                 )
+                # values: state-value estimates V(s) (book Chapter 12).
                 values = {s: max(q[(s, a)] for a in env.ACTIONS) for s in env.STATES}
+                # curves[lam][ci]: add result of _rms_error(...) into the running value (book ...
                 curves[lam][ci] += _rms_error(values, true_values)
+        # curves[lam]: divide reference to an existing value into the running value (book ...
         curves[lam] /= runs
     return curves
 
@@ -672,20 +1027,38 @@ def plot_watkins_q_lambda_random_walk(
     (Example 6.2) for several lambda values and plots RMS error of greedy state
     values max_a Q(s,a) vs true v* over episodes (averaged over runs). Uses
     gamma<1 by default for stability (see implementation notes).
-    """
+
+    Book: Sutton & Barto (2nd ed.), Section 12.10 (Chapter 12).
+
+    Args:
+        save_path: See Section 12.10 and the implementation for its role.
+        show: See Section 12.10 and the implementation for its role.
+        lambdas: See Section 12.10 and the implementation for its role.
+        alpha: See Section 12.10 and the implementation for its role.
+        epsilon: See Section 12.10 and the implementation for its role.
+        gamma: See Section 12.10 and the implementation for its role.
+        n_episodes: See Section 12.10 and the implementation for its role.
+        runs: See Section 12.10 and the implementation for its role.
+        seed: See Section 12.10 and the implementation for its role."""
+    # render the book figure with matplotlib (book Chapter 12).
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    # true values: result of random_walk_true_values(...) (book Chapter 12).
     true_values = random_walk_true_values()
+    # checkpoints: list built from the iterable (book Chapter 12).
     checkpoints = list(range(1, n_episodes + 1, max(1, n_episodes // 40)))
     if checkpoints[-1] != n_episodes:
         checkpoints.append(n_episodes)
+    # curves: averaged learning curves by configuration (book Chapter 12).
     curves = _watkins_q_curves(true_values, lambdas, alpha, epsilon, gamma,
                                n_episodes, runs, seed, checkpoints)
 
+    # (fig, ax): result of plt.subplots(...) (book Chapter 12).
     fig, ax = plt.subplots(figsize=(7.5, 4.5))
+    # Iterate over lam: each item in lambdas (book algorithm).
     for lam in lambdas:
         ax.plot(checkpoints, curves[lam], label=f"lambda={lam:g}")
     ax.set_xlabel("Episodes")
